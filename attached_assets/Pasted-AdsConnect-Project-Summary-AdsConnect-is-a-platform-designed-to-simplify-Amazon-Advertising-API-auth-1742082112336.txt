@@ -1,0 +1,86 @@
+AdsConnect Project Summary
+AdsConnect is a platform designed to simplify Amazon Advertising API authentication, making it easier for advertisers to connect their accounts and for developers to access advertising data securely.
+Frontend Components
+ really flashy website which shows the value prop: AdsConnect is an authentication platform designed to eliminate the technical barriers advertisers face when connecting to Amazon, Meta, and Google Ads APIs. The mission is to create a seamless bridge between advertisers and advertising platforms, making complex API integration accessible to everyone regardless of technical expertise.
+Our platform handles all the authentication complexity behind the scenes, allowing advertisers to securely connect their accounts with a single click while giving developers streamlined API access without worrying about token management. By taking care of credential security, token refreshes, and permission management, Adspirer lets both advertisers and developers focus on what matters: optimizing ad performance.  Core Components
+1. AuthContext (src/context/AuthContext.tsx)
+    * Manages authentication state throughout the application
+    * Provides user session, profile data, and authentication methods
+2. ConnectionStatus (src/components/dashboard/ConnectionStatus.tsx)
+    * Handles connecting/disconnecting Amazon Advertising accounts
+    * Displays connection status and provides account management functions
+    * Uses a popup-based OAuth flow to handle Amazon authentication
+3. ApiKeyManagement (src/components/dashboard/ApiKeyManagement.tsx)
+    * Allows users to generate, copy, and revoke API keys
+    * Displays active API keys for the authenticated user
+4. Layout Components
+    * Header.tsx and Footer.tsx for site-wide navigation and branding
+    * Container.tsx for consistent layout wrapping
+Pages
+1. Index (src/pages/Index.tsx)
+    * Landing page with marketing content and call-to-action
+    * Features overview and benefits of using the platform
+2. Auth (src/pages/Auth.tsx)
+    * Handles user authentication (sign in/sign up)
+3. Dashboard (src/pages/Dashboard.tsx)
+    * Main interface after authentication
+    * Shows Amazon connection status, API keys, and account information
+4. AuthCallback (src/pages/AuthCallback.tsx)
+    * Handles OAuth callback from Amazon
+    * Processes authentication tokens
+database Integration
+Database Tables (amazon, ,  Auth connections)
+1. amazon_tokens
+    * Stores Amazon API tokens (access and refresh tokens)
+    * Includes expiration times and user associations
+2. api_keys
+    * Manages API keys generated for developers
+    * Tracks creation, usage, and revocation status
+3. advertisers
+    * Stores connected Amazon Advertising accounts
+    * Contains profile IDs, marketplace info, and account details
+4. campaigns
+    * Stores campaign data from connected accounts
+    * Includes campaign types, budgets, and states
+5. campaign_metrics
+    * Tracks performance metrics for campaigns
+    * Includes impressions, clicks, spend, and sales data
+6. profiles
+    * Stores user profile information
+    * Includes names, company details, and avatar URLs
+Database Functions
+* get_profile_by_id: Retrieves user profile data securely
+Edge Functions (amazon, ,  functions )
+1. amazon-auth (database/functions/amazon-auth/index.ts)
+    * Handles Amazon OAuth token exchange
+    * Securely stores tokens in the database
+    * Implements CORS handling and error management
+2. fetch-amazon-profiles (database/functions/fetch-amazon-profiles/index.ts)
+    * Fetches advertiser profile data from Amazon Advertising API
+    * Stores profile information in the database
+3. fetch-amazon-campaigns (database/functions/fetch-amazon-campaigns/index.ts)
+    * Retrieves campaign data for connected accounts
+    * Stores campaign information in the database
+Services
+1. amazonAuth.ts (src/services/amazonAuth.ts)
+    * Provides methods to interact with Amazon's authentication API
+    * Handles token exchange, storage, and verification
+    * Includes functions to check connection status and fetch profile data
+2. apiKeyService.ts (src/services/apiKeyService.ts)
+    * Manages API key generation, storage, and revocation
+    * Provides methods to retrieve user's API keys
+Authentication Flow
+1. User signs in to AdsConnect platform
+2. User clicks "Connect Amazon Ads" button
+3. Popup opens with Amazon authorization screen
+4. User grants permissions to AdsConnect
+5. Amazon redirects to callback URL with an authorization code
+6. Edge function exchanges code for access/refresh tokens
+7. Tokens are securely stored in database
+8. UI updates to show "Connected" status
+Data Architecture
+The system is designed with a clear separation between:
+* Frontend (React application for user interaction)
+* Backend (database for data storage and edge functions)
+* External API integration (Amazon Advertising API)
+All sensitive operations, like token exchange, happen in edge functions to keep credentials secure, while the frontend only handles display and user interactions.
