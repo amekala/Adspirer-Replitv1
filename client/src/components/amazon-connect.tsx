@@ -32,6 +32,17 @@ export function AmazonConnect() {
   });
 
   const handleConnect = () => {
+    // Check if AMAZON_CLIENT_ID is available
+    const clientId = import.meta.env.VITE_AMAZON_CLIENT_ID;
+    if (!clientId) {
+      toast({
+        title: "Configuration Error",
+        description: "Amazon Client ID is not configured",
+        variant: "destructive",
+      });
+      return;
+    }
+
     const width = 600;
     const height = 800;
     const left = window.screenX + (window.outerWidth - width) / 2;
@@ -64,9 +75,7 @@ export function AmazonConnect() {
     window.addEventListener("message", handleCallback);
 
     const popup = window.open(
-      `https://www.amazon.com/ap/oa?client_id=${
-        import.meta.env.VITE_AMAZON_CLIENT_ID
-      }&scope=advertising::campaign_management&response_type=code&redirect_uri=${
+      `https://www.amazon.com/ap/oa?client_id=${clientId}&scope=advertising::campaign_management&response_type=code&redirect_uri=${
         window.location.origin
       }/auth/callback`,
       "Connect Amazon Ads",
@@ -80,6 +89,12 @@ export function AmazonConnect() {
           window.removeEventListener("message", handleCallback);
         }
       }, 500);
+    } else {
+      toast({
+        title: "Error",
+        description: "Could not open the authentication window. Please allow popups for this site.",
+        variant: "destructive",
+      });
     }
   };
 
