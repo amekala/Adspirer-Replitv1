@@ -37,9 +37,35 @@ export function AmazonConnect() {
     const left = window.screenX + (window.outerWidth - width) / 2;
     const top = window.screenY + (window.outerHeight - height) / 2;
 
+    // Create a function to handle the OAuth callback
+    const handleCallback = async (event: MessageEvent) => {
+      if (event.origin !== window.location.origin) return;
+
+      try {
+        const { code } = event.data;
+        if (!code) return;
+
+        await apiRequest("POST", "/api/amazon/connect", { code });
+        queryClient.invalidateQueries({ queryKey: ["/api/amazon/status"] });
+        toast({
+          title: "Success",
+          description: "Amazon Advertising account connected successfully",
+        });
+      } catch (error) {
+        toast({
+          title: "Error",
+          description: error instanceof Error ? error.message : "Failed to connect Amazon account",
+          variant: "destructive",
+        });
+      }
+    };
+
+    // Add message listener for the popup callback
+    window.addEventListener("message", handleCallback);
+
     const popup = window.open(
       `https://www.amazon.com/ap/oa?client_id=${
-        process.env.VITE_AMAZON_CLIENT_ID
+        import.meta.env.VITE_AMAZON_CLIENT_ID
       }&scope=advertising::campaign_management&response_type=code&redirect_uri=${
         window.location.origin
       }/auth/callback`,
@@ -51,7 +77,7 @@ export function AmazonConnect() {
       const checkClosed = setInterval(() => {
         if (popup.closed) {
           clearInterval(checkClosed);
-          queryClient.invalidateQueries({ queryKey: ["/api/amazon/status"] });
+          window.removeEventListener("message", handleCallback);
         }
       }, 500);
     }

@@ -3,13 +3,29 @@ import { useLocation } from "wouter";
 import { useAuth } from "@/hooks/use-auth";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { insertUserSchema } from "@shared/schema";
+import { z } from "zod";
 import { Loader2 } from "lucide-react";
+
+const loginSchema = insertUserSchema;
+const registerSchema = insertUserSchema.extend({
+  confirmPassword: z.string().min(1, "Confirm password is required"),
+}).refine((data) => data.password === data.confirmPassword, {
+  message: "Passwords do not match",
+  path: ["confirmPassword"],
+});
 
 export default function AuthPage() {
   const [, setLocation] = useLocation();
@@ -17,11 +33,12 @@ export default function AuthPage() {
   const [activeTab, setActiveTab] = useState<"login" | "register">("login");
 
   const form = useForm({
-    resolver: zodResolver(
-      insertUserSchema.extend({
-        confirmPassword: activeTab === "register" ? insertUserSchema.shape.password : undefined,
-      })
-    ),
+    resolver: zodResolver(activeTab === "login" ? loginSchema : registerSchema),
+    defaultValues: {
+      username: "",
+      password: "",
+      confirmPassword: "",
+    },
   });
 
   if (user) {
@@ -31,9 +48,15 @@ export default function AuthPage() {
 
   const onSubmit = async (data: any) => {
     if (activeTab === "login") {
-      await loginMutation.mutateAsync(data);
+      await loginMutation.mutateAsync({
+        username: data.username,
+        password: data.password,
+      });
     } else {
-      await registerMutation.mutateAsync(data);
+      await registerMutation.mutateAsync({
+        username: data.username,
+        password: data.password,
+      });
     }
     setLocation("/dashboard");
   };
@@ -48,35 +71,48 @@ export default function AuthPage() {
               <TabsTrigger value="register">Register</TabsTrigger>
             </TabsList>
 
-            <form onSubmit={form.handleSubmit(onSubmit)}>
-              <div className="space-y-4">
-                <div>
-                  <Label htmlFor="username">Username</Label>
-                  <Input
-                    id="username"
-                    {...form.register("username")}
-                    error={form.formState.errors.username?.message}
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="password">Password</Label>
-                  <Input
-                    id="password"
-                    type="password"
-                    {...form.register("password")}
-                    error={form.formState.errors.password?.message}
-                  />
-                </div>
+            <Form {...form}>
+              <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+                <FormField
+                  control={form.control}
+                  name="username"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Username</FormLabel>
+                      <FormControl>
+                        <Input {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="password"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Password</FormLabel>
+                      <FormControl>
+                        <Input type="password" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
                 {activeTab === "register" && (
-                  <div>
-                    <Label htmlFor="confirmPassword">Confirm Password</Label>
-                    <Input
-                      id="confirmPassword"
-                      type="password"
-                      {...form.register("confirmPassword")}
-                      error={form.formState.errors.confirmPassword?.message}
-                    />
-                  </div>
+                  <FormField
+                    control={form.control}
+                    name="confirmPassword"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Confirm Password</FormLabel>
+                        <FormControl>
+                          <Input type="password" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
                 )}
                 <Button
                   type="submit"
@@ -88,8 +124,8 @@ export default function AuthPage() {
                   )}
                   {activeTab === "login" ? "Sign In" : "Create Account"}
                 </Button>
-              </div>
-            </form>
+              </form>
+            </Form>
           </Tabs>
         </Card>
       </div>
