@@ -68,6 +68,12 @@ export function AmazonConnect() {
     }
 
     // Force web browser flow with proper OAuth endpoint
+    /* 
+    Required redirect URIs to be configured in Amazon Developer Console:
+    1. https://974fb22c-7bf2-435f-92b8-6b8a9968e57b-00-a2py9mwxuu7p.riker.replit.dev/auth/callback (Dev)
+    2. https://adspirer-replitv-1-abhilashreddi.replit.app/auth/callback (Staging)
+    3. https://www.adspirer.com/auth/callback (Production)
+    */
     const amazonOAuthUrl = `https://www.amazon.com/ap/oa?client_id=${clientId}&scope=advertising::campaign_management&response_type=code&redirect_uri=${encodeURIComponent(`${window.location.origin}/auth/callback`)}&mode=web-sdk&forceLoginScreen=true`;
 
     // On mobile devices, open in current window
