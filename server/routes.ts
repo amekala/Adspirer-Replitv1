@@ -270,16 +270,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
             // Store the metrics
             for (const record of reportData.data || []) {
-              await storage.saveCampaignMetrics({
-                userId: req.user!.id,
-                profileId: profile.profileId,
-                campaignId: record.campaignId,
-                adGroupId: record.adGroupId,
-                date: new Date(record.date),
-                impressions: record.impressions,
-                clicks: record.clicks,
-                cost: record.cost
-              });
+              try {
+                await storage.saveCampaignMetrics({
+                  userId: req.user!.id,
+                  profileId: profile.profileId,
+                  campaignId: record.campaignId,
+                  adGroupId: record.adGroupId,
+                  date: record.date,
+                  impressions: record.impressions,
+                  clicks: record.clicks,
+                  cost: record.cost
+                });
+              } catch (error) {
+                console.error(`Error saving metrics for record:`, record, error);
+              }
             }
 
             console.log(`Saved metrics for profile ${profile.profileId}`);
