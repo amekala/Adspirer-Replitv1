@@ -7,6 +7,7 @@ import {
 import { insertUserSchema, User as SelectUser, InsertUser, LoginData } from "@shared/schema";
 import { getQueryFn, apiRequest, queryClient } from "../lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 type AuthContextType = {
   user: SelectUser | null;
@@ -21,6 +22,14 @@ export const AuthContext = createContext<AuthContextType | null>(null);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const { toast } = useToast();
+  const isMobile = useIsMobile();
+
+  const showToast = (title: string, description: string, variant?: "default" | "destructive") => {
+    if (!isMobile) {
+      toast({ title, description, variant });
+    }
+  };
+
   const {
     data: user,
     error,
@@ -37,17 +46,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     },
     onSuccess: (user: SelectUser) => {
       queryClient.setQueryData(["/api/user"], user);
-      toast({
-        title: "Welcome back!",
-        description: "Successfully logged in",
-      });
+      showToast("Welcome back!", "Successfully logged in");
     },
     onError: (error: Error) => {
-      toast({
-        title: "Login failed",
-        description: "Invalid email or password",
-        variant: "destructive",
-      });
+      showToast("Login failed", "Invalid email or password", "destructive");
     },
   });
 
@@ -58,17 +60,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     },
     onSuccess: (user: SelectUser) => {
       queryClient.setQueryData(["/api/user"], user);
-      toast({
-        title: "Welcome!",
-        description: "Account created successfully",
-      });
+      showToast("Welcome!", "Account created successfully");
     },
     onError: (error: Error) => {
-      toast({
-        title: "Registration failed",
-        description: error.message || "Could not create account",
-        variant: "destructive",
-      });
+      showToast(
+        "Registration failed",
+        error.message || "Could not create account",
+        "destructive"
+      );
     },
   });
 
@@ -80,11 +79,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       queryClient.setQueryData(["/api/user"], null);
     },
     onError: (error: Error) => {
-      toast({
-        title: "Logout failed",
-        description: error.message,
-        variant: "destructive",
-      });
+      showToast("Logout failed", error.message, "destructive");
     },
   });
 

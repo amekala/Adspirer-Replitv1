@@ -5,9 +5,11 @@ import { apiRequest, queryClient } from "@/lib/queryClient";
 import { AlertCircle, Loader2, RefreshCw } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 export function AmazonConnect() {
   const { toast } = useToast();
+  const isMobile = useIsMobile();
 
   const { data: status, isLoading: statusLoading } = useQuery({
     queryKey: ["/api/amazon/status"],
@@ -20,6 +22,12 @@ export function AmazonConnect() {
     retry: 1,
   });
 
+  const showToast = (title: string, description: string, variant?: "default" | "destructive") => {
+    if (!isMobile) {
+      toast({ title, description, variant });
+    }
+  };
+
   const disconnectMutation = useMutation({
     mutationFn: async () => {
       await apiRequest("DELETE", "/api/amazon/disconnect");
@@ -27,17 +35,10 @@ export function AmazonConnect() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/amazon/status"] });
       queryClient.invalidateQueries({ queryKey: ["/api/amazon/profiles"] });
-      toast({
-        title: "Success",
-        description: "Amazon Advertising account disconnected",
-      });
+      showToast("Success", "Amazon Advertising account disconnected");
     },
     onError: (error: Error) => {
-      toast({
-        title: "Error",
-        description: error.message,
-        variant: "destructive",
-      });
+      showToast("Error", error.message, "destructive");
     },
   });
 
@@ -46,17 +47,10 @@ export function AmazonConnect() {
       await apiRequest("POST", "/api/amazon/campaigns/sync");
     },
     onSuccess: () => {
-      toast({
-        title: "Success",
-        description: "Campaign sync started. This may take a few minutes.",
-      });
+      showToast("Success", "Campaign sync started. This may take a few minutes.");
     },
     onError: (error: Error) => {
-      toast({
-        title: "Error",
-        description: error.message,
-        variant: "destructive",
-      });
+      showToast("Error", error.message, "destructive");
     },
   });
 
@@ -65,11 +59,11 @@ export function AmazonConnect() {
 
     if (!clientId) {
       console.error("VITE_AMAZON_CLIENT_ID not found in environment");
-      toast({
-        title: "Configuration Error",
-        description: "Amazon Client ID is not configured. Please contact support.",
-        variant: "destructive",
-      });
+      showToast(
+        "Configuration Error",
+        "Amazon Client ID is not configured. Please contact support.",
+        "destructive"
+      );
       return;
     }
 
@@ -96,17 +90,14 @@ export function AmazonConnect() {
         queryClient.invalidateQueries({ queryKey: ["/api/amazon/status"] });
         queryClient.invalidateQueries({ queryKey: ["/api/amazon/profiles"] });
 
-        toast({
-          title: "Success",
-          description: "Amazon Advertising account connected successfully",
-        });
+        showToast("Success", "Amazon Advertising account connected successfully");
       } catch (error) {
         console.error("Connection error:", error);
-        toast({
-          title: "Connection Failed",
-          description: error instanceof Error ? error.message : "Failed to connect Amazon account",
-          variant: "destructive",
-        });
+        showToast(
+          "Connection Failed",
+          error instanceof Error ? error.message : "Failed to connect Amazon account",
+          "destructive"
+        );
       } finally {
         window.removeEventListener("message", handleCallback);
         if (pollTimer) clearInterval(pollTimer);
@@ -141,11 +132,11 @@ export function AmazonConnect() {
       }, 500);
     } else {
       console.error("Failed to open popup window");
-      toast({
-        title: "Error",
-        description: "Failed to open the connection window. Please allow popups for this site.",
-        variant: "destructive",
-      });
+      showToast(
+        "Error",
+        "Failed to open the connection window. Please allow popups for this site.",
+        "destructive"
+      );
     }
   };
 
