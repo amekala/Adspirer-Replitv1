@@ -200,7 +200,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           console.log(`Requesting report for profile ${profile.profileId}`);
 
           try {
-            // Step 1: Request report generation
+            // Step 1: Create report
             const createReportResponse = await fetch("https://advertising-api.amazon.com/reporting/reports", {
               method: "POST",
               headers: {
@@ -259,14 +259,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
                     } else if (statusData.status === 'FAILED') {
                       console.error(`Report generation failed for profile ${profile.profileId}`);
                       break;
-                    } else if (statusData.status === 'PENDING'){
+                    } else if (statusData.status === 'PENDING') {
                       console.log(`Report is still pending for ${existingReportId}, retrying in 10 seconds`);
                     } else {
                       console.log(`Report status is ${statusData.status} for ${existingReportId}`);
                     }
 
-                    // Wait 10 seconds before next attempt
-                    await new Promise(resolve => setTimeout(resolve, 10000));
+                    // Wait before next attempt with exponential backoff
+                    const backoffTime = Math.min(10000 * Math.pow(1.2, attempts), 30000);
+                    console.log(`Waiting ${backoffTime/1000} seconds before next status check`);
+                    await new Promise(resolve => setTimeout(resolve, backoffTime));
                     attempts++;
                   }
 
@@ -303,9 +305,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
             const { reportId } = await createReportResponse.json();
             console.log(`Got report ID ${reportId} for profile ${profile.profileId}`);
 
-            // Step 2: Poll for report completion (with timeout)
+            // Step 2: Poll for report completion with exponential backoff
             let attempts = 0;
-            const maxAttempts = 30; // 5 minutes maximum (10 second intervals)
+            const maxAttempts = 30; // 5 minutes maximum
             let reportData = null;
 
             while (attempts < maxAttempts) {
@@ -340,13 +342,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
               } else if (statusData.status === 'FAILED') {
                 console.error(`Report generation failed for profile ${profile.profileId}`);
                 break;
-              } else if (statusData.status === 'PENDING'){
-                console.log(`Report is still pending for ${reportId}, retrying in 10 seconds`);
+              } else if (statusData.status === 'PENDING' || statusData.status === 'IN_PROGRESS') {
+                console.log(`Report is still ${statusData.status} for ${reportId}, waiting before next check`);
               } else {
-                console.log(`Report status is ${statusData.status} for ${reportId}`);
+                console.log(`Unknown report status ${statusData.status} for ${reportId}`);
               }
-              // Wait 10 seconds before next attempt
-              await new Promise(resolve => setTimeout(resolve, 10000));
+
+              // Exponential backoff
+              const backoffTime = Math.min(10000 * Math.pow(1.2, attempts), 30000);
+              console.log(`Waiting ${backoffTime/1000} seconds before next status check`);
+              await new Promise(resolve => setTimeout(resolve, backoffTime));
               attempts++;
             }
 
