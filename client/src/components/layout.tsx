@@ -7,37 +7,86 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Loader2, UserCircle } from "lucide-react";
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
+import { Loader2, Menu, UserCircle } from "lucide-react";
+import { useState } from "react";
 
 export function Layout({ children }: { children: React.ReactNode }) {
   const { user, logoutMutation } = useAuth();
   const [, setLocation] = useLocation();
+  const [isOpen, setIsOpen] = useState(false);
 
   const handleLogout = async () => {
     await logoutMutation.mutateAsync();
     setLocation("/");
   };
 
+  const closeSheet = () => setIsOpen(false);
+
   return (
     <div className="min-h-screen bg-background">
       {/* Navigation Bar */}
-      <nav className="border-b">
+      <nav className="sticky top-0 z-50 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 border-b">
         <div className="container mx-auto px-4 h-16 flex items-center justify-between">
-          <Link href="/dashboard" className="text-2xl font-bold bg-gradient-to-r from-primary to-blue-600 bg-clip-text text-transparent">
-            AdsConnect
-          </Link>
-
-          {/* User Menu */}
           <div className="flex items-center gap-4">
+            {/* Mobile Menu */}
+            <Sheet open={isOpen} onOpenChange={setIsOpen}>
+              <SheetTrigger asChild className="md:hidden">
+                <Button variant="ghost" size="icon">
+                  <Menu className="h-5 w-5" />
+                </Button>
+              </SheetTrigger>
+              <SheetContent side="left">
+                <SheetHeader>
+                  <SheetTitle className="text-left">Menu</SheetTitle>
+                </SheetHeader>
+                <div className="flex flex-col gap-4 mt-8">
+                  <Link href="/" onClick={closeSheet} className="text-muted-foreground hover:text-foreground transition-colors">
+                    Home
+                  </Link>
+                  <Link href="/about" onClick={closeSheet} className="text-muted-foreground hover:text-foreground transition-colors">
+                    About Us
+                  </Link>
+                  <Link href="/privacy" onClick={closeSheet} className="text-muted-foreground hover:text-foreground transition-colors">
+                    Privacy
+                  </Link>
+                  {user ? (
+                    <Link href="/dashboard" onClick={closeSheet} className="text-muted-foreground hover:text-foreground transition-colors">
+                      Dashboard
+                    </Link>
+                  ) : null}
+                </div>
+              </SheetContent>
+            </Sheet>
+
+            {/* Logo */}
+            <Link href="/" className="text-2xl font-bold bg-gradient-to-r from-primary to-blue-600 bg-clip-text text-transparent">
+              Adspirer
+            </Link>
+          </div>
+
+          {/* Desktop Navigation */}
+          <div className="hidden md:flex items-center gap-6">
+            <Link href="/about" className="text-muted-foreground hover:text-foreground transition-colors">
+              About Us
+            </Link>
+            <Link href="/privacy" className="text-muted-foreground hover:text-foreground transition-colors">
+              Privacy
+            </Link>
+
+            {/* User Menu */}
             {user && (
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button variant="outline" className="gap-2">
                     <UserCircle className="h-5 w-5" />
-                    {user.username}
+                    {user.email}
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="w-48">
+                  <DropdownMenuItem asChild>
+                    <Link href="/dashboard">Dashboard</Link>
+                  </DropdownMenuItem>
                   <DropdownMenuItem
                     onClick={handleLogout}
                     disabled={logoutMutation.isPending}
@@ -51,6 +100,16 @@ export function Layout({ children }: { children: React.ReactNode }) {
                 </DropdownMenuContent>
               </DropdownMenu>
             )}
+
+            {/* Auth Buttons for non-authenticated users */}
+            {!user && !isLoading && (
+              <Button asChild>
+                <Link href="/auth">Get Started</Link>
+              </Button>
+            )}
+
+            {/* Loading State */}
+            {isLoading && <Loader2 className="h-5 w-5 animate-spin" />}
           </div>
         </div>
       </nav>

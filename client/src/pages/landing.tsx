@@ -49,26 +49,26 @@ export default function LandingPage() {
       </nav>
 
       <main className="container mx-auto px-4">
-        <div className="py-24 text-center">
-          <h2 className="text-5xl sm:text-6xl font-bold leading-tight mb-6">
+        <div className="py-12 md:py-24 text-center">
+          <h2 className="text-4xl md:text-5xl lg:text-6xl font-bold leading-tight mb-6">
             Chat With Your{" "}
             <span className="bg-gradient-to-r from-primary to-blue-600 bg-clip-text text-transparent">
               Ad Data
             </span>
           </h2>
-          <p className="text-xl text-muted-foreground mb-12 max-w-3xl mx-auto">
+          <p className="text-lg md:text-xl text-muted-foreground mb-8 md:mb-12 max-w-3xl mx-auto">
             Turn complex advertising APIs into a conversation. Connect your ad accounts and start chatting with your campaigns through AI-powered insights.
           </p>
-          <div className="flex gap-4 justify-center">
-            <Button size="lg" asChild>
+          <div className="flex flex-col md:flex-row gap-4 justify-center">
+            <Button size="lg" asChild className="w-full md:w-auto">
               <Link href="/auth">Get Started</Link>
             </Button>
-            <Button size="lg" variant="outline" onClick={scrollToDemo}>
+            <Button size="lg" variant="outline" onClick={scrollToDemo} className="w-full md:w-auto">
               Request Demo
             </Button>
           </div>
 
-          <div className="mt-16 max-w-2xl mx-auto bg-card rounded-lg shadow-lg border p-6">
+          <div className="mt-12 md:mt-16 max-w-2xl mx-auto bg-card rounded-lg shadow-lg border p-4 md:p-6">
             <div className="space-y-4">
               <div className="flex items-start gap-4">
                 <div className="bg-primary/10 rounded-lg p-3">
@@ -89,7 +89,7 @@ export default function LandingPage() {
           </div>
         </div>
 
-        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8 py-24">
+        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6 md:gap-8 py-12 md:py-24">
           <div className="p-6 bg-card rounded-lg border">
             <div className="h-12 w-12 rounded-lg bg-primary/10 flex items-center justify-center mb-4">
               <MessageSquare className="h-6 w-6 text-primary" />
@@ -131,7 +131,7 @@ export default function LandingPage() {
           </div>
         </div>
 
-        <div className="py-24">
+        <div className="py-12 md:py-24">
           <h2 className="text-3xl font-bold text-center mb-16">How It Works</h2>
           <div className="grid md:grid-cols-3 gap-8">
             <div className="text-center">
@@ -158,17 +158,17 @@ export default function LandingPage() {
           </div>
         </div>
 
-        <div ref={demoFormRef} className="py-24 scroll-mt-20">
-          <div className="text-center max-w-3xl mx-auto mb-16">
-            <h2 className="text-4xl font-bold mb-6">
+        <div ref={demoFormRef} className="py-12 md:py-24 scroll-mt-20">
+          <div className="text-center max-w-3xl mx-auto mb-12 md:mb-16">
+            <h2 className="text-3xl md:text-4xl font-bold mb-6">
               Ready to Transform Your Retail Media Strategy?
             </h2>
-            <p className="text-xl text-muted-foreground">
+            <p className="text-lg md:text-xl text-muted-foreground">
               Get in touch with our team to schedule a personalized demo and see how Adspirer can help you achieve your retail media goals.
             </p>
           </div>
 
-          <div className="grid lg:grid-cols-3 gap-12 items-start">
+          <div className="grid lg:grid-cols-3 gap-8 md:gap-12 items-start">
             <div className="lg:col-span-2">
               <DemoRequestForm />
             </div>
