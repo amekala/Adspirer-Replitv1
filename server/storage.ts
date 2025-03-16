@@ -80,8 +80,33 @@ export class DatabaseStorage implements IStorage {
   }
 
   async saveAmazonToken(token: Omit<AmazonToken, "id">): Promise<AmazonToken> {
-    const result = await db.insert(amazonTokens).values(token).returning();
-    return result[0];
+    // First try to update existing token
+    const [existingToken] = await db
+      .select()
+      .from(amazonTokens)
+      .where(eq(amazonTokens.userId, token.userId));
+
+    if (existingToken) {
+      const [updatedToken] = await db
+        .update(amazonTokens)
+        .set({
+          ...token,
+          lastRefreshed: new Date(),
+        })
+        .where(eq(amazonTokens.userId, token.userId))
+        .returning();
+      return updatedToken;
+    }
+
+    // If no existing token, create new one
+    const [newToken] = await db
+      .insert(amazonTokens)
+      .values({
+        ...token,
+        lastRefreshed: new Date(),
+      })
+      .returning();
+    return newToken;
   }
 
   async deleteAmazonToken(userId: string): Promise<void> {

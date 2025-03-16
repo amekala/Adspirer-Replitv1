@@ -5,6 +5,53 @@ import { storage } from "./storage";
 import { insertApiKeySchema, insertAdvertiserSchema } from "@shared/schema";
 import { campaignMetrics } from "@shared/schema";
 
+interface AmazonToken {
+  userId: string;
+  accessToken: string;
+  refreshToken: string;
+  tokenScope: string;
+  expiresAt: Date;
+  lastRefreshed: Date;
+  isActive: boolean;
+}
+
+async function refreshAmazonToken(userId: string, refreshToken: string): Promise<AmazonToken> {
+  const clientId = process.env.VITE_AMAZON_CLIENT_ID || process.env.AMAZON_CLIENT_ID;
+  const clientSecret = process.env.VITE_AMAZON_CLIENT_SECRET || process.env.AMAZON_CLIENT_SECRET;
+
+  const tokenResponse = await fetch("https://api.amazon.com/auth/o2/token", {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body: new URLSearchParams({
+      grant_type: "refresh_token",
+      refresh_token: refreshToken,
+      client_id: clientId!,
+      client_secret: clientSecret!,
+    }),
+  });
+
+  if (!tokenResponse.ok) {
+    const error = await tokenResponse.text();
+    throw new Error(`Failed to refresh token: ${error}`);
+  }
+
+  const { access_token, refresh_token, expires_in } = await tokenResponse.json();
+
+  // Save the new token
+  const token = await storage.saveAmazonToken({
+    userId,
+    accessToken: access_token,
+    refreshToken: refresh_token || refreshToken, // Use new refresh token if provided
+    tokenScope: "advertising::campaign_management",
+    expiresAt: new Date(Date.now() + expires_in * 1000),
+    lastRefreshed: new Date(),
+    isActive: true,
+  });
+
+  await storage.logTokenRefresh(userId, true);
+  return token;
+}
+
 export async function registerRoutes(app: Express): Promise<Server> {
   setupAuth(app);
 
@@ -21,7 +68,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     const clientSecret = process.env.VITE_AMAZON_CLIENT_SECRET || process.env.AMAZON_CLIENT_SECRET;
 
     if (!clientId || !clientSecret) {
-      console.error("Missing Amazon credentials:", { 
+      console.error("Missing Amazon credentials:", {
         hasClientId: !!clientId,
         hasClientSecret: !!clientSecret
       });
@@ -162,9 +209,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/amazon/campaigns/sync", async (req: Request, res: Response) => {
     if (!req.isAuthenticated()) return res.sendStatus(401);
 
-    const token = await storage.getAmazonToken(req.user!.id);
+    let token = await storage.getAmazonToken(req.user!.id);
     if (!token) {
       return res.status(400).json({ message: "Amazon account not connected" });
+    }
+
+    // Check if token is expired or about to expire (within 5 minutes)
+    if (token.expiresAt.getTime() - Date.now() < 5 * 60 * 1000) {
+      try {
+        console.log("Token expired or about to expire, refreshing...");
+        token = await refreshAmazonToken(req.user!.id, token.refreshToken);
+        console.log("Token refreshed successfully");
+      } catch (error) {
+        console.error("Failed to refresh token:", error);
+        return res.status(401).json({ message: "Failed to refresh access token" });
+      }
     }
 
     // Start async processing and return immediately
@@ -202,7 +261,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
           startDate.setDate(endDate.getDate() - 7); // Last 7 days
 
           const reportRequest = {
-            name: `SP campaigns report ${startDate.toISOString().split('T')[0]}-${endDate.toISOString().split('T')[0]}_${Date.now()}`,
+            name: `SP campaigns report ${startDate.toISOString().split('T')[0]}-${endDate.toISOString().split('T')[0]
+              }_${Date.now()}`,
             startDate: startDate.toISOString().split('T')[0],
             endDate: endDate.toISOString().split('T')[0],
             configuration: {
@@ -246,13 +306,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
                   let reportData = null;
 
                   while (attempts < maxAttempts) {
-                    const reportStatusResponse = await fetch(`https://advertising-api.amazon.com/reporting/reports/${existingReportId}`, {
-                      headers: {
-                        "Amazon-Advertising-API-ClientId": clientId!,
-                        "Amazon-Advertising-API-Scope": profile.profileId,
-                        "Authorization": `Bearer ${token.accessToken}`
+                    const reportStatusResponse = await fetch(
+                      `https://advertising-api.amazon.com/reporting/reports/${existingReportId}`,
+                      {
+                        headers: {
+                          "Amazon-Advertising-API-ClientId": clientId!,
+                          "Amazon-Advertising-API-Scope": profile.profileId,
+                          "Authorization": `Bearer ${token.accessToken}`
+                        }
                       }
-                    });
+                    );
 
                     if (!reportStatusResponse.ok) {
                       console.error(`Failed to check report status:`, await reportStatusResponse.text());
@@ -272,7 +335,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
                       }
 
                       reportData = await reportDataResponse.json();
-                      console.log(`Successfully downloaded report data with ${reportData.data?.length || 0} records`);
+                      console.log(
+                        `Successfully downloaded report data with ${reportData.data?.length || 0} records`
+                      );
                       break;
                     } else if (statusData.status === 'FAILED') {
                       console.error(`Report generation failed for profile ${profile.profileId}`);
@@ -283,13 +348,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
                     // Wait before next attempt with exponential backoff
                     const backoffTime = Math.min(10000 * Math.pow(1.2, attempts), 30000);
-                    console.log(`Waiting ${backoffTime/1000} seconds before next status check`);
+                    console.log(`Waiting ${backoffTime / 1000} seconds before next status check`);
                     await new Promise(resolve => setTimeout(resolve, backoffTime));
                     attempts++;
                   }
 
                   if (!reportData) {
-                    console.error(`Failed to get report data after ${maxAttempts} attempts for ${existingReportId}`);
+                    console.error(
+                      `Failed to get report data after ${maxAttempts} attempts for ${existingReportId}`
+                    );
                     profileStats.failed++;
                     profileStats.byMarketplace[profile.marketplace].failed++;
                   } else {
@@ -352,13 +419,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
 
             while (attempts < maxAttempts) {
-              const reportStatusResponse = await fetch(`https://advertising-api.amazon.com/reporting/reports/${reportId}`, {
-                headers: {
-                  "Amazon-Advertising-API-ClientId": clientId!,
-                  "Amazon-Advertising-API-Scope": profile.profileId,
-                  "Authorization": `Bearer ${token.accessToken}`
+              const reportStatusResponse = await fetch(
+                `https://advertising-api.amazon.com/reporting/reports/${reportId}`,
+                {
+                  headers: {
+                    "Amazon-Advertising-API-ClientId": clientId!,
+                    "Amazon-Advertising-API-Scope": profile.profileId,
+                    "Authorization": `Bearer ${token.accessToken}`
+                  }
                 }
-              });
+              );
 
               if (!reportStatusResponse.ok) {
                 console.error(`Failed to check report status:`, await reportStatusResponse.text());
@@ -379,7 +449,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
                   }
 
                   reportData = await reportDataResponse.json();
-                  console.log(`Successfully downloaded report data with ${reportData.data?.length || 0} records`);
+                  console.log(
+                    `Successfully downloaded report data with ${reportData.data?.length || 0} records`
+                  );
                   await storage.updateAdReportStatus(reportId, 'SUCCESS', statusData.location);
                   break;
                 } else if (statusData.status === 'FAILED') {
@@ -398,10 +470,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
                 break;
               }
 
-
               // Exponential backoff
               const backoffTime = Math.min(10000 * Math.pow(1.2, attempts), 30000);
-              console.log(`Waiting ${backoffTime/1000} seconds before next status check`);
+              console.log(`Waiting ${backoffTime / 1000} seconds before next status check`);
               await new Promise(resolve => setTimeout(resolve, backoffTime));
               attempts++;
             }
@@ -459,11 +530,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
         console.log(`Start Time: ${syncStartTime.toISOString()}`);
         console.log(`End Time: ${syncEndTime.toISOString()}`);
         console.log('\nSuccess Rate:');
-        console.log(`Total: ${profileStats.success}/${profileStats.total} (${(profileStats.success/profileStats.total*100).toFixed(1)}%)`);
+        console.log(`Total: ${profileStats.success}/${profileStats.total} (${(profileStats.success / profileStats.total * 100).toFixed(1)}%)`);
         console.log('\nBy Marketplace:');
         Object.entries(profileStats.byMarketplace).forEach(([marketplace, stats]) => {
           const total = stats.success + stats.failed;
-          const successRate = (stats.success/total*100).toFixed(1);
+          const successRate = (stats.success / total * 100).toFixed(1);
           console.log(`${marketplace}: ${stats.success}/${total} (${successRate}%)`);
         });
         console.log('\nCampaign sync completed');
