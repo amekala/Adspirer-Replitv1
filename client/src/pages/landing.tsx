@@ -15,31 +15,31 @@ type Testimonial = {
 
 const testimonials: Testimonial[] = [
   {
-    text: "Adspirer has completely transformed how we manage our Amazon campaigns. The ability to ask Claude questions about performance and make adjustments through chat saves us hours every week.",
+    text: "Adspirer has completely transformed how we manage our Amazon campaigns. The AI-powered insights and automated optimizations save us hours every week.",
     author: "Sarah Johnson",
     role: "E-commerce Director",
     company: "BrightHome Goods"
   },
   {
-    text: "The integration between Adspirer and Claude is seamless. Being able to visualize our ad performance across platforms with a simple conversation is game-changing.",
+    text: "The integration between platforms is seamless. Being able to visualize our ad performance across marketplaces in one dashboard is game-changing.",
     author: "Marcus Chen",
     role: "Digital Marketing Lead",
     company: "FitLife Brands"
   },
   {
-    text: "We've increased our ROAS by 32% since implementing Adspirer. The AI-powered recommendations through Claude have identified opportunities we would have missed.",
+    text: "We've increased our ROAS by 32% since implementing Adspirer. The AI-powered recommendations have identified opportunities we would have missed.",
     author: "Priya Patel",
     role: "CMO",
     company: "NatureEssentials"
   },
   {
-    text: "Setting up the MCP server took less than 10 minutes, and the documentation was clear even for someone non-technical like me. Now our whole team can access campaign insights without specialized training.",
+    text: "Setting up the platform took less than 10 minutes, and the documentation was clear even for someone non-technical like me. Now our whole team can access campaign insights without specialized training.",
     author: "James Rodriguez",
     role: "Owner",
     company: "Rodriguez Family Imports"
   },
   {
-    text: "The natural language interface through Claude is intuitive and powerful. I can inquire about specific products, adjust budgets, and get actionable insights without navigating complex dashboards.",
+    text: "The intuitive interface makes it easy to manage campaigns. I can analyze trends, adjust budgets, and get actionable insights without navigating complex dashboards.",
     author: "Michael Thompson",
     role: "Digital Strategist",
     company: "Outdoor Adventure Brands"
@@ -153,13 +153,13 @@ export default function LandingPage() {
       <main className="container mx-auto px-4">
         <div className="py-12 md:py-24 text-center">
           <h2 className="text-4xl md:text-5xl lg:text-6xl font-bold leading-tight mb-6">
-            Chat With Your{" "}
+            Optimize Your{" "}
             <span className="bg-gradient-to-r from-primary to-blue-600 bg-clip-text text-transparent">
-              Ad Data
+              Ad Performance
             </span>
           </h2>
           <p className="text-lg md:text-xl text-muted-foreground mb-8 md:mb-12 max-w-3xl mx-auto">
-            Turn complex advertising APIs into a conversation. Connect your ad accounts and start chatting with your campaigns through AI-powered insights.
+            Turn complex advertising data into actionable insights. Connect your ad accounts and optimize your campaigns with AI-powered recommendations.
           </p>
           <div className="flex flex-col md:flex-row gap-4 justify-center">
             <Button size="lg" asChild className="w-full md:w-auto">
@@ -176,14 +176,14 @@ export default function LandingPage() {
                 <div className="bg-primary/10 rounded-lg p-3">
                   <MessageSquare className="h-6 w-6 text-primary" />
                 </div>
-                <p className="text-left text-muted-foreground">"How are my campaigns performing this week?"</p>
+                <p className="text-left text-muted-foreground">Campaign Performance Analysis</p>
               </div>
               <div className="flex items-start gap-4">
                 <div className="bg-blue-500/10 rounded-lg p-3">
                   <Sparkles className="h-6 w-6 text-blue-500" />
                 </div>
                 <div className="text-left">
-                  <p className="font-medium">Campaign Performance Analysis:</p>
+                  <p className="font-medium">AI-Powered Insights:</p>
                   <p className="text-muted-foreground">Your top campaign "Summer Sale" has seen a 28% increase in ROAS. Consider increasing budget allocation by 20% for optimal performance.</p>
                 </div>
               </div>
@@ -272,8 +272,8 @@ export default function LandingPage() {
               <div className="h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center mb-4 mx-auto">
                 <span className="text-lg font-bold text-primary">3</span>
               </div>
-              <h3 className="font-semibold mb-2">Start Chatting</h3>
-              <p className="text-muted-foreground">Chat with your campaigns through Claude</p>
+              <h3 className="font-semibold mb-2">Start Optimizing</h3>
+              <p className="text-muted-foreground">Get AI-powered insights for your campaigns</p>
             </div>
           </div>
         </div>
