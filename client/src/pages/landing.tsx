@@ -1,7 +1,8 @@
 import { Link } from "wouter";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/hooks/use-auth";
-import { Loader2, MessageSquare, Zap, Key, BarChart3, Sparkles } from "lucide-react";
+import { Loader2, MessageSquare, Zap, Key, BarChart3, Sparkles, Headset } from "lucide-react";
+import { DemoRequestForm } from "@/components/demo-request-form";
 
 export default function LandingPage() {
   const { user, isLoading } = useAuth();
@@ -28,7 +29,6 @@ export default function LandingPage() {
       </nav>
 
       <main className="container mx-auto px-4">
-        {/* Hero Section */}
         <div className="py-24 text-center">
           <h2 className="text-5xl sm:text-6xl font-bold leading-tight mb-6">
             Chat With Your{" "}
@@ -48,7 +48,6 @@ export default function LandingPage() {
             </Button>
           </div>
 
-          {/* Chat Preview */}
           <div className="mt-16 max-w-2xl mx-auto bg-card rounded-lg shadow-lg border p-6">
             <div className="space-y-4">
               <div className="flex items-start gap-4">
@@ -70,7 +69,6 @@ export default function LandingPage() {
           </div>
         </div>
 
-        {/* Features Grid */}
         <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8 py-24">
           <div className="p-6 bg-card rounded-lg border">
             <div className="h-12 w-12 rounded-lg bg-primary/10 flex items-center justify-center mb-4">
@@ -113,7 +111,6 @@ export default function LandingPage() {
           </div>
         </div>
 
-        {/* How It Works */}
         <div className="py-24">
           <h2 className="text-3xl font-bold text-center mb-16">How It Works</h2>
           <div className="grid md:grid-cols-3 gap-8">
@@ -141,15 +138,44 @@ export default function LandingPage() {
           </div>
         </div>
 
-        {/* CTA Section */}
-        <div className="py-24 text-center">
-          <h2 className="text-3xl font-bold mb-6">Ready to transform your ad management?</h2>
-          <p className="text-xl text-muted-foreground mb-8">
-            Stop navigating complex interfaces. Start having conversations that drive results.
-          </p>
-          <Button size="lg" asChild>
-            <Link href="/auth">Get Started Now</Link>
-          </Button>
+        <div className="py-24">
+          <div className="text-center max-w-3xl mx-auto mb-16">
+            <h2 className="text-4xl font-bold mb-6">
+              Ready to Transform Your Retail Media Strategy?
+            </h2>
+            <p className="text-xl text-muted-foreground">
+              Get in touch with our team to schedule a personalized demo and see how Adspirer can help you achieve your retail media goals.
+            </p>
+          </div>
+
+          <div className="grid lg:grid-cols-3 gap-12 items-start">
+            <div className="lg:col-span-2">
+              <DemoRequestForm />
+            </div>
+
+            <div className="space-y-8">
+              <div>
+                <h3 className="text-xl font-semibold mb-4">Why Request a Demo?</h3>
+                <ul className="space-y-3 text-muted-foreground">
+                  <li>• See our AI-powered platform in action with your actual campaigns</li>
+                  <li>• Learn how our solutions can increase your ROAS by up to 30%</li>
+                  <li>• Discover optimization opportunities specific to your retail channels</li>
+                  <li>• Get expert insights from our retail media specialists</li>
+                </ul>
+              </div>
+
+              <div className="bg-primary/5 rounded-lg p-6">
+                <h3 className="text-xl font-semibold mb-4">Already a Customer?</h3>
+                <p className="text-muted-foreground mb-4">
+                  If you're an existing customer and need assistance, our customer success team is here to help.
+                </p>
+                <Button variant="outline" className="w-full">
+                  <Headset className="mr-2 h-4 w-4" />
+                  Contact Support
+                </Button>
+              </div>
+            </div>
+          </div>
         </div>
       </main>
     </div>
