@@ -2,7 +2,7 @@ import { useQuery, useMutation } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
-import { AlertCircle, Loader2 } from "lucide-react";
+import { AlertCircle, Loader2, RefreshCw } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 
@@ -30,6 +30,25 @@ export function AmazonConnect() {
       toast({
         title: "Success",
         description: "Amazon Advertising account disconnected",
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
+  const syncMutation = useMutation({
+    mutationFn: async () => {
+      await apiRequest("POST", "/api/amazon/campaigns/sync");
+    },
+    onSuccess: () => {
+      toast({
+        title: "Success",
+        description: "Campaign sync started. This may take a few minutes.",
       });
     },
     onError: (error: Error) => {
@@ -146,6 +165,19 @@ export function AmazonConnect() {
                 Your Amazon Advertising account is connected
               </p>
             </div>
+            <Button
+              variant="outline"
+              onClick={() => syncMutation.mutate()}
+              disabled={syncMutation.isPending}
+              className="mr-2"
+            >
+              {syncMutation.isPending ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : (
+                <RefreshCw className="mr-2 h-4 w-4" />
+              )}
+              Sync Campaigns
+            </Button>
             <Button
               variant="destructive"
               onClick={() => disconnectMutation.mutate()}
