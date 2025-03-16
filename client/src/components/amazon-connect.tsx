@@ -78,28 +78,38 @@ export function AmazonConnect() {
     const left = window.screenX + (window.outerWidth - width) / 2;
     const top = window.screenY + (window.outerHeight - height) / 2;
 
-    const handleCallback = async (event: MessageEvent) => {
-      if (event.origin !== window.location.origin) return;
+    let popup: Window | null = null;
+    let pollTimer: NodeJS.Timeout | null = null;
 
+    const handleCallback = async (event: MessageEvent) => {
       try {
+        console.log("Received postMessage:", event.data);
+
+        if (event.data.error) {
+          throw new Error(`OAuth error: ${event.data.error} - ${event.data.errorDescription}`);
+        }
+
         const { code } = event.data;
         if (!code) return;
 
         await apiRequest("POST", "/api/amazon/connect", { code });
         queryClient.invalidateQueries({ queryKey: ["/api/amazon/status"] });
         queryClient.invalidateQueries({ queryKey: ["/api/amazon/profiles"] });
+
         toast({
           title: "Success",
           description: "Amazon Advertising account connected successfully",
         });
       } catch (error) {
+        console.error("Connection error:", error);
         toast({
-          title: "Error",
+          title: "Connection Failed",
           description: error instanceof Error ? error.message : "Failed to connect Amazon account",
           variant: "destructive",
         });
       } finally {
         window.removeEventListener("message", handleCallback);
+        if (pollTimer) clearInterval(pollTimer);
       }
     };
 
@@ -107,16 +117,17 @@ export function AmazonConnect() {
 
     const amazonOAuthUrl = `https://www.amazon.com/ap/oa?client_id=${clientId}&scope=advertising::campaign_management&response_type=code&redirect_uri=${window.location.origin}/auth/callback`;
 
-    const popup = window.open(
+    popup = window.open(
       amazonOAuthUrl,
       "Connect Amazon Ads",
-      `width=${width},height=${height},left=${left},top=${top}`
+      `width=${width},height=${height},left=${left},top=${top},popup=1`
     );
 
     if (popup) {
-      const checkClosed = setInterval(() => {
-        if (popup.closed) {
-          clearInterval(checkClosed);
+      // Poll for popup closure
+      pollTimer = setInterval(() => {
+        if (popup?.closed) {
+          clearInterval(pollTimer);
           window.removeEventListener("message", handleCallback);
         }
       }, 500);
@@ -265,7 +276,7 @@ export function AmazonConnect() {
               Connect your Amazon Advertising account to get started
             </p>
           </div>
-          <Button 
+          <Button
             onClick={handleConnect}
             className="w-full sm:w-auto"
             size="sm"
