@@ -222,7 +222,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
                 if (match) {
                   const existingReportId = match[1];
                   console.log(`Using existing report ID: ${existingReportId}`);
-                  
+
                   let attempts = 0;
                   const maxAttempts = 30; // 5 minutes maximum (10 second intervals)
                   let reportData = null;
