@@ -556,8 +556,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         await storage.createGoogleAdvertiserAccount({
           userId: req.user!.id,
           customerId: customerId,
-          descriptiveName: `Google Ads Account ${customerId}`,
-          currencyCode: "USD",
+          accountName: `Google Ads Account ${customerId}`,
           status: "ENABLED",
         });
       }
