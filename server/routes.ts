@@ -525,10 +525,42 @@ export async function registerRoutes(app: Express): Promise<Server> {
         userId: req.user!.id,
         accessToken: access_token,
         refreshToken: refresh_token,
+        tokenScope: "https://www.googleapis.com/auth/adwords",
         expiresAt: new Date(Date.now() + expires_in * 1000),
         lastRefreshed: new Date(),
         isActive: true,
       });
+
+      // Fetch customer accounts from Google Ads API
+      const accountsResponse = await fetch(
+        "https://googleads.googleapis.com/v19/customers:listAccessibleCustomers",
+        {
+          headers: {
+            Authorization: `Bearer ${access_token}`,
+            "developer-token": process.env.GOOGLE_DEVELOPER_TOKEN!,
+          },
+        }
+      );
+
+      if (!accountsResponse.ok) {
+        const errorData = await accountsResponse.json();
+        console.error("Google Ads API error:", errorData);
+        throw new Error(`Failed to fetch accounts: ${JSON.stringify(errorData)}`);
+      }
+
+      const accounts = await accountsResponse.json();
+
+      // Store each account in the database
+      for (const resourceName of accounts.resourceNames) {
+        const customerId = resourceName.split('/')[1];
+        await storage.createGoogleAdvertiserAccount({
+          userId: req.user!.id,
+          customerId: customerId,
+          descriptiveName: `Google Ads Account ${customerId}`,
+          currencyCode: "USD",
+          status: "ENABLED",
+        });
+      }
 
       await storage.logTokenRefresh(req.user!.id, true);
       res.sendStatus(200);
@@ -550,49 +582,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
     if (!req.isAuthenticated()) return res.sendStatus(401);
 
     try {
-      const token = await storage.getGoogleToken(req.user!.id);
-      if (!token) {
-        return res.status(400).json({ message: "Google account not connected" });
+      const accounts = await storage.getGoogleAdvertiserAccounts(req.user!.id);
+      if (!accounts.length) {
+        return res.status(400).json({ message: "No Google Ads accounts found" });
       }
-
-      // Check if token needs refresh
-      if (token.expiresAt.getTime() - Date.now() < 5 * 60 * 1000) {
-        token = await refreshGoogleToken(req.user!.id, token.refreshToken);
-      }
-
-      // Fetch customer accounts from Google Ads API
-      const accountsResponse = await fetch(
-        "https://googleads.googleapis.com/v19/customers:listAccessibleCustomers",
-        {
-          headers: {
-            Authorization: `Bearer ${token.accessToken}`,
-            "developer-token": process.env.GOOGLE_DEVELOPER_TOKEN!,
-          },
-        }
-      );
-
-      if (!accountsResponse.ok) {
-        const errorData = await accountsResponse.json();
-        console.error("Google Ads API error:", errorData);
-        throw new Error(`Failed to fetch accounts: ${JSON.stringify(errorData)}`);
-      }
-
-      const accounts = await accountsResponse.json();
-
-      // Transform the response to include account details
-      const customerIds = accounts.resourceNames.map((resourceName: string) => {
-        // Format is "customers/{customer_id}"
-        return resourceName.split('/')[1];
-      });
-
-      // Return basic account information
-      // In a production environment, you would make additional API calls to get full account details
-      res.json(customerIds.map((customerId: string) => ({
-        customerId,
-        descriptiveName: `Google Ads Account ${customerId}`,
-        currencyCode: "USD", // Default currency
-        status: "ENABLED"
-      })));
+      res.json(accounts);
     } catch (error) {
       console.error("Failed to fetch accounts:", error);
       res.status(500).json({ message: "Failed to fetch accounts" });
