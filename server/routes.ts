@@ -184,7 +184,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           startDate.setDate(endDate.getDate() - 7); // Last 7 days
 
           const reportRequest = {
-            name: `SP campaigns report ${startDate.toISOString().split('T')[0]}-${endDate.toISOString().split('T')[0]}`,
+            name: `SP campaigns report ${startDate.toISOString().split('T')[0]}-${endDate.toISOString().split('T')[0]}_${Date.now()}`,
             startDate: startDate.toISOString().split('T')[0],
             endDate: endDate.toISOString().split('T')[0],
             configuration: {
@@ -215,6 +215,88 @@ export async function registerRoutes(app: Express): Promise<Server> {
             if (!createReportResponse.ok) {
               const errorText = await createReportResponse.text();
               console.error(`Failed to create report for profile ${profile.profileId}:`, errorText);
+
+              // If it's a duplicate request, extract the existing report ID
+              if (errorText.includes('"code":"425"')) {
+                const match = errorText.match(/: ([a-f0-9-]+)/);
+                if (match) {
+                  const existingReportId = match[1];
+                  console.log(`Using existing report ID: ${existingReportId}`);
+                  
+                  let attempts = 0;
+                  const maxAttempts = 30; // 5 minutes maximum (10 second intervals)
+                  let reportData = null;
+
+                  while (attempts < maxAttempts) {
+                    const reportStatusResponse = await fetch(`https://advertising-api.amazon.com/reporting/reports/${existingReportId}`, {
+                      headers: {
+                        "Amazon-Advertising-API-ClientId": clientId!,
+                        "Amazon-Advertising-API-Scope": profile.profileId,
+                        "Authorization": `Bearer ${token.accessToken}`
+                      }
+                    });
+
+                    if (!reportStatusResponse.ok) {
+                      console.error(`Failed to check report status:`, await reportStatusResponse.text());
+                      break;
+                    }
+
+                    const statusData = await reportStatusResponse.json();
+                    console.log(`Report status for ${existingReportId}:`, statusData.status);
+
+                    if (statusData.status === 'SUCCESS') {
+                      // Download report data
+                      console.log(`Report ready, downloading from ${statusData.location}`);
+                      const reportDataResponse = await fetch(statusData.location);
+                      if (!reportDataResponse.ok) {
+                        console.error(`Failed to download report data:`, await reportDataResponse.text());
+                        break;
+                      }
+
+                      reportData = await reportDataResponse.json();
+                      console.log(`Successfully downloaded report data:`, reportData);
+                      break;
+                    } else if (statusData.status === 'FAILED') {
+                      console.error(`Report generation failed for profile ${profile.profileId}`);
+                      break;
+                    } else if (statusData.status === 'PENDING'){
+                      console.log(`Report is still pending for ${existingReportId}, retrying in 10 seconds`);
+                    } else {
+                      console.log(`Report status is ${statusData.status} for ${existingReportId}`);
+                    }
+
+                    // Wait 10 seconds before next attempt
+                    await new Promise(resolve => setTimeout(resolve, 10000));
+                    attempts++;
+                  }
+
+                  if (!reportData) {
+                    console.error(`Failed to get report data after ${maxAttempts} attempts for ${existingReportId}`);
+                  } else {
+                    // Store the metrics
+                    for (const record of reportData.data || []) {
+                      try {
+                        console.log(`Processing record:`, record);
+                        await storage.saveCampaignMetrics({
+                          userId: req.user!.id,
+                          profileId: profile.profileId,
+                          campaignId: record.campaignId,
+                          adGroupId: record.adGroupId,
+                          date: record.date,
+                          impressions: record.impressions,
+                          clicks: record.clicks,
+                          cost: record.cost
+                        });
+                      } catch (error) {
+                        console.error(`Error saving metrics for record:`, record, error);
+                      }
+                    }
+
+                    console.log(`Saved metrics for profile ${profile.profileId}`);
+                  }
+                  continue;
+                }
+              }
               continue;
             }
 
@@ -258,8 +340,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
               } else if (statusData.status === 'FAILED') {
                 console.error(`Report generation failed for profile ${profile.profileId}`);
                 break;
+              } else if (statusData.status === 'PENDING'){
+                console.log(`Report is still pending for ${reportId}, retrying in 10 seconds`);
+              } else {
+                console.log(`Report status is ${statusData.status} for ${reportId}`);
               }
-
               // Wait 10 seconds before next attempt
               await new Promise(resolve => setTimeout(resolve, 10000));
               attempts++;
