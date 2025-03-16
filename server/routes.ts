@@ -2,8 +2,12 @@ import { Express, Request, Response } from "express";
 import { createServer, type Server } from "http";
 import { setupAuth } from "./auth";
 import { storage } from "./storage";
-import { insertApiKeySchema, insertAdvertiserSchema } from "@shared/schema";
-import { campaignMetrics } from "@shared/schema";
+import { 
+  insertApiKeySchema, 
+  insertAdvertiserSchema,
+  insertDemoRequestSchema,
+  campaignMetrics 
+} from "@shared/schema";
 
 interface AmazonToken {
   userId: string;
@@ -211,7 +215,14 @@ async function processSingleProfile(profile: AdvertiserAccount, token: AmazonTok
         profileId: profile.profileId,
         reportType: "campaigns",
         requestParams: reportRequest,
-        status: "PENDING"
+        status: "PENDING",
+        downloadUrl: null,
+        urlExpiry: null,
+        localFilePath: null,
+        lastCheckedAt: new Date(),
+        completedAt: null,
+        retryCount: 0,
+        errorMessage: null
       });
     } catch (error) {
       console.error(`Error creating report record:`, error);
@@ -319,7 +330,6 @@ interface GoogleToken {
   userId: string;
   accessToken: string;
   refreshToken: string;
-  tokenScope: string;
   expiresAt: Date;
   lastRefreshed: Date;
   isActive: boolean;
@@ -351,8 +361,7 @@ async function refreshGoogleToken(userId: string, refreshToken: string): Promise
   const token = await storage.saveGoogleToken({
     userId,
     accessToken: access_token,
-    refreshToken: refresh_token || refreshToken, // Use new refresh token if provided
-    tokenScope: "https://www.googleapis.com/auth/adwords",
+    refreshToken: refresh_token || refreshToken, 
     expiresAt: new Date(Date.now() + expires_in * 1000),
     lastRefreshed: new Date(),
     isActive: true,
