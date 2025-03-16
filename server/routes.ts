@@ -83,9 +83,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
           accountInfo: profile,
         };
 
-        const result = insertAdvertiserSchema.safeParse(advertiser);
+        const result = insertAdvertiserSchema.safeParse({
+          profileId: advertiser.profileId,
+          marketplaceId: advertiser.marketplaceId,
+          accountInfo: advertiser.accountInfo,
+        });
+
         if (result.success) {
-          await storage.createAdvertiser(result.data);
+          await storage.createAdvertiser({
+            ...result.data,
+            userId: advertiser.userId,
+          });
+        } else {
+          console.error("Failed to validate advertiser data:", result.error);
         }
       }
 

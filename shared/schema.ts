@@ -1,12 +1,11 @@
-import { pgTable, text, serial, integer, boolean, timestamp, json, decimal } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, integer, boolean, timestamp, json, decimal, uuid } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
 export const users = pgTable("users", {
-  id: serial("id").primaryKey(),
+  id: uuid("id").defaultRandom().primaryKey(),
   username: text("username").notNull().unique(),
   password: text("password").notNull(),
-  // Adding profile fields
   name: text("name"),
   company: text("company"),
   avatarUrl: text("avatar_url"),
@@ -14,7 +13,7 @@ export const users = pgTable("users", {
 
 export const amazonTokens = pgTable("amazon_tokens", {
   id: serial("id").primaryKey(),
-  userId: integer("user_id").notNull().references(() => users.id),
+  userId: uuid("user_id").notNull().references(() => users.id),
   accessToken: text("access_token").notNull(),
   refreshToken: text("refresh_token").notNull(),
   expiresAt: timestamp("expires_at").notNull(),
@@ -22,7 +21,7 @@ export const amazonTokens = pgTable("amazon_tokens", {
 
 export const apiKeys = pgTable("api_keys", {
   id: serial("id").primaryKey(),
-  userId: integer("user_id").notNull().references(() => users.id),
+  userId: uuid("user_id").notNull().references(() => users.id),
   key: text("key").notNull().unique(),
   name: text("name").notNull(),
   active: boolean("active").notNull().default(true),
@@ -31,7 +30,7 @@ export const apiKeys = pgTable("api_keys", {
 
 export const advertisers = pgTable("advertisers", {
   id: serial("id").primaryKey(),
-  userId: integer("user_id").notNull().references(() => users.id),
+  userId: uuid("user_id").notNull().references(() => users.id),
   profileId: text("profile_id").notNull(),
   marketplaceId: text("marketplace_id").notNull(),
   accountInfo: json("account_info").notNull(),
