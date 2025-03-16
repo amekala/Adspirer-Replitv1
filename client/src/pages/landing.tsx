@@ -1,10 +1,63 @@
 import { Link } from "wouter";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/hooks/use-auth";
-import { Loader2, MessageSquare, Zap, Key, BarChart3, Sparkles, Headset, Menu } from "lucide-react";
+import { MessageSquare, Zap, Key, BarChart3, Sparkles, Headset, Menu, ArrowLeft, ArrowRight, Quote, Loader2 } from "lucide-react";
+import { useState, useEffect, useRef } from "react";
 import { DemoRequestForm } from "@/components/demo-request-form";
-import { useRef, useState } from "react";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
+
+type Testimonial = {
+  text: string;
+  author: string;
+  role: string;
+  company: string;
+};
+
+const testimonials: Testimonial[] = [
+  {
+    text: "Adspirer has completely transformed how we manage our Amazon campaigns. The ability to ask Claude questions about performance and make adjustments through chat saves us hours every week.",
+    author: "Sarah Johnson",
+    role: "E-commerce Director",
+    company: "BrightHome Goods"
+  },
+  {
+    text: "The integration between Adspirer and Claude is seamless. Being able to visualize our ad performance across platforms with a simple conversation is game-changing.",
+    author: "Marcus Chen",
+    role: "Digital Marketing Lead",
+    company: "FitLife Brands"
+  },
+  {
+    text: "We've increased our ROAS by 32% since implementing Adspirer. The AI-powered recommendations through Claude have identified opportunities we would have missed.",
+    author: "Priya Patel",
+    role: "CMO",
+    company: "NatureEssentials"
+  },
+  {
+    text: "Setting up the MCP server took less than 10 minutes, and the documentation was clear even for someone non-technical like me. Now our whole team can access campaign insights without specialized training.",
+    author: "James Rodriguez",
+    role: "Owner",
+    company: "Rodriguez Family Imports"
+  },
+  {
+    text: "The natural language interface through Claude is intuitive and powerful. I can inquire about specific products, adjust budgets, and get actionable insights without navigating complex dashboards.",
+    author: "Michael Thompson",
+    role: "Digital Strategist",
+    company: "Outdoor Adventure Brands"
+  }
+];
+
+function TestimonialCard({ testimonial }: { testimonial: Testimonial }) {
+  return (
+    <div className="bg-card rounded-lg border p-6 h-full flex flex-col">
+      <Quote className="h-8 w-8 text-primary/20 mb-4" />
+      <p className="text-muted-foreground flex-1 mb-6">{testimonial.text}</p>
+      <div>
+        <p className="font-semibold">{testimonial.author}</p>
+        <p className="text-sm text-muted-foreground">{testimonial.role}, {testimonial.company}</p>
+      </div>
+    </div>
+  );
+}
 
 export default function LandingPage() {
   const { user, isLoading } = useAuth();
@@ -179,6 +232,24 @@ export default function LandingPage() {
             </p>
           </div>
         </div>
+
+        <div className="py-12 md:py-24">
+          <div className="text-center mb-12">
+            <h2 className="text-3xl font-bold mb-4">What Our Customers Say</h2>
+            <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
+              See how businesses are transforming their retail media strategy with Adspirer
+            </p>
+          </div>
+
+          <div className="relative">
+            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6 md:gap-8">
+              {testimonials.slice(0, 3).map((testimonial, index) => (
+                <TestimonialCard key={index} testimonial={testimonial} />
+              ))}
+            </div>
+          </div>
+        </div>
+
 
         <div className="py-12 md:py-24">
           <h2 className="text-3xl font-bold text-center mb-16">How It Works</h2>
