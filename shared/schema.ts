@@ -2,6 +2,7 @@ import { pgTable, text, serial, integer, boolean, timestamp, json, uuid } from "
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
+// User schema with email-based authentication
 export const users = pgTable("users", {
   id: uuid("id").defaultRandom().primaryKey(),
   email: text("email").notNull().unique(),
@@ -9,6 +10,14 @@ export const users = pgTable("users", {
   role: text("role").notNull().default("user"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
+
+// Insert schemas with proper validation
+export const insertUserSchema = createInsertSchema(users, {
+  email: z.string().email("Invalid email address"),
+  password: z.string().min(6, "Password must be at least 6 characters"),
+}).omit({ id: true, role: true, createdAt: true });
+
+export const loginSchema = insertUserSchema;
 
 export const amazonTokens = pgTable("amazon_tokens", {
   id: serial("id").primaryKey(),
@@ -59,17 +68,6 @@ export const apiRequests = pgTable("api_requests", {
   timestamp: timestamp("timestamp").notNull().defaultNow(),
   statusCode: integer("status_code").notNull(),
   responseTime: integer("response_time").notNull(),
-});
-
-// Insert schemas
-export const insertUserSchema = createInsertSchema(users, {
-  email: z.string().email("Invalid email address"),
-  password: z.string().min(6, "Password must be at least 6 characters"),
-});
-
-export const loginSchema = insertUserSchema.pick({
-  email: true,
-  password: true,
 });
 
 export const insertApiKeySchema = createInsertSchema(apiKeys).pick({

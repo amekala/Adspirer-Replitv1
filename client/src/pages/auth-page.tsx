@@ -12,12 +12,13 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { insertUserSchema, loginSchema } from "@shared/schema";
 import { z } from "zod";
 import { Loader2 } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
 
 const registerSchema = insertUserSchema.extend({
   confirmPassword: z.string().min(1, "Confirm password is required"),
@@ -30,6 +31,7 @@ export default function AuthPage() {
   const [, setLocation] = useLocation();
   const { user, loginMutation, registerMutation } = useAuth();
   const [activeTab, setActiveTab] = useState<"login" | "register">("login");
+  const { toast } = useToast();
 
   const form = useForm({
     resolver: zodResolver(activeTab === "login" ? loginSchema : registerSchema),
@@ -48,20 +50,21 @@ export default function AuthPage() {
 
   const onSubmit = async (data: any) => {
     try {
+      const { email, password } = data;
+
       if (activeTab === "login") {
-        await loginMutation.mutateAsync({
-          email: data.email,
-          password: data.password,
-        });
+        await loginMutation.mutateAsync({ email, password });
       } else {
-        await registerMutation.mutateAsync({
-          email: data.email,
-          password: data.password,
-        });
+        // Validate passwords match before submitting
+        if (data.password !== data.confirmPassword) {
+          form.setError("confirmPassword", { message: "Passwords do not match" });
+          return;
+        }
+        await registerMutation.mutateAsync({ email, password });
       }
-      setLocation("/dashboard"); // Moved setLocation here to handle successful auth
     } catch (error) {
       console.error("Auth error:", error);
+      // Let the mutation error handlers in useAuth handle the toast notifications
     }
   };
 
