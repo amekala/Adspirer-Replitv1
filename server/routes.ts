@@ -315,6 +315,53 @@ async function processSingleProfile(profile: AdvertiserAccount, token: AmazonTok
   }
 }
 
+interface GoogleToken {
+  userId: string;
+  accessToken: string;
+  refreshToken: string;
+  tokenScope: string;
+  expiresAt: Date;
+  lastRefreshed: Date;
+  isActive: boolean;
+}
+
+async function refreshGoogleToken(userId: string, refreshToken: string): Promise<GoogleToken> {
+  const clientId = process.env.VITE_GOOGLE_CLIENT_ID || process.env.GOOGLE_CLIENT_ID;
+  const clientSecret = process.env.VITE_GOOGLE_CLIENT_SECRET || process.env.GOOGLE_CLIENT_SECRET;
+
+  const tokenResponse = await fetch("https://oauth2.googleapis.com/token", {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body: new URLSearchParams({
+      grant_type: "refresh_token",
+      refresh_token: refreshToken,
+      client_id: clientId!,
+      client_secret: clientSecret!,
+    }),
+  });
+
+  if (!tokenResponse.ok) {
+    const error = await tokenResponse.text();
+    throw new Error(`Failed to refresh token: ${error}`);
+  }
+
+  const { access_token, refresh_token, expires_in } = await tokenResponse.json();
+
+  // Save the new token
+  const token = await storage.saveGoogleToken({
+    userId,
+    accessToken: access_token,
+    refreshToken: refresh_token || refreshToken, // Use new refresh token if provided
+    tokenScope: "https://www.googleapis.com/auth/adwords",
+    expiresAt: new Date(Date.now() + expires_in * 1000),
+    lastRefreshed: new Date(),
+    isActive: true,
+  });
+
+  await storage.logTokenRefresh(userId, true);
+  return token;
+}
+
 export async function registerRoutes(app: Express): Promise<Server> {
   setupAuth(app);
 
@@ -439,6 +486,125 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
     await storage.deleteAmazonToken(req.user!.id);
     await storage.deleteAdvertiserAccounts(req.user!.id);
+    res.sendStatus(200);
+  });
+
+  // Google OAuth endpoints
+  app.post("/api/google/connect", async (req: Request, res: Response) => {
+    if (!req.isAuthenticated()) return res.sendStatus(401);
+    const { code } = req.body;
+
+    if (!code) {
+      return res.status(400).json({ message: "Authorization code required" });
+    }
+
+    const clientId = process.env.VITE_GOOGLE_CLIENT_ID || process.env.GOOGLE_CLIENT_ID;
+    const clientSecret = process.env.VITE_GOOGLE_CLIENT_SECRET || process.env.GOOGLE_CLIENT_SECRET;
+
+    if (!clientId || !clientSecret) {
+      console.error("Missing Google credentials:", {
+        hasClientId: !!clientId,
+        hasClientSecret: !!clientSecret
+      });
+      return res.status(500).json({ message: "Google API credentials not configured" });
+    }
+
+    try {
+      // Exchange code for tokens
+      const tokenResponse = await fetch("https://oauth2.googleapis.com/token", {
+        method: "POST",
+        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+        body: new URLSearchParams({
+          grant_type: "authorization_code",
+          code,
+          client_id: clientId,
+          client_secret: clientSecret,
+          redirect_uri: `${req.protocol}://${req.get('host')}/auth/callback`,
+        }),
+      });
+
+      if (!tokenResponse.ok) {
+        const error = await tokenResponse.text();
+        console.error("Google OAuth error response:", error);
+        throw new Error(`Failed to exchange authorization code: ${error}`);
+      }
+
+      const { access_token, refresh_token, expires_in, scope } = await tokenResponse.json();
+
+      // Store tokens
+      await storage.saveGoogleToken({
+        userId: req.user!.id,
+        accessToken: access_token,
+        refreshToken: refresh_token,
+        tokenScope: scope || "https://www.googleapis.com/auth/adwords",
+        expiresAt: new Date(Date.now() + expires_in * 1000),
+        lastRefreshed: new Date(),
+        isActive: true,
+      });
+
+      await storage.logTokenRefresh(req.user!.id, true);
+      res.sendStatus(200);
+    } catch (error) {
+      console.error("Google OAuth error:", error);
+      await storage.logTokenRefresh(req.user!.id, false, error instanceof Error ? error.message : "Unknown error");
+      res.status(500).json({ message: error instanceof Error ? error.message : "Failed to connect Google account" });
+    }
+  });
+
+  app.get("/api/google/status", async (req: Request, res: Response) => {
+    if (!req.isAuthenticated()) return res.sendStatus(401);
+
+    const token = await storage.getGoogleToken(req.user!.id);
+    res.json({ connected: !!token });
+  });
+
+  app.get("/api/google/accounts", async (req: Request, res: Response) => {
+    if (!req.isAuthenticated()) return res.sendStatus(401);
+
+    try {
+      const token = await storage.getGoogleToken(req.user!.id);
+      if (!token) {
+        return res.status(400).json({ message: "Google account not connected" });
+      }
+
+      // Check if token needs refresh
+      if (token.expiresAt.getTime() - Date.now() < 5 * 60 * 1000) {
+        token = await refreshGoogleToken(req.user!.id, token.refreshToken);
+      }
+
+      // Fetch customer accounts from Google Ads API
+      const accountsResponse = await fetch(
+        "https://googleads.googleapis.com/v16/customers:listAccessibleCustomers",
+        {
+          headers: {
+            Authorization: `Bearer ${token.accessToken}`,
+            "developer-token": process.env.GOOGLE_DEVELOPER_TOKEN!,
+          },
+        }
+      );
+
+      if (!accountsResponse.ok) {
+        throw new Error(`Failed to fetch accounts: ${await accountsResponse.text()}`);
+      }
+
+      const accounts = await accountsResponse.json();
+      res.json(accounts.resourceNames.map((name: string) => ({
+        customerId: name.split('/')[1],
+        descriptiveName: "Google Ads Account", // You would typically fetch this in a separate call
+        currencyCode: "USD", // Default currency
+        status: "ENABLED"
+      })));
+    } catch (error) {
+      console.error("Failed to fetch accounts:", error);
+      res.status(500).json({ message: "Failed to fetch accounts" });
+    }
+  });
+
+  app.delete("/api/google/disconnect", async (req: Request, res: Response) => {
+    if (!req.isAuthenticated()) return res.sendStatus(401);
+
+    await storage.deleteGoogleToken(req.user!.id);
+    await storage.deleteGoogleAccounts(req.user!.id);
     res.sendStatus(200);
   });
 

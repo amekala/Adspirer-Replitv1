@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { SiAmazon, SiMeta, SiWalmart, SiInstacart, SiGoogleads } from "react-icons/si";
 import { Badge } from "@/components/ui/badge";
+import { GoogleConnect } from "@/components/google-connect";
 
 export default function Dashboard() {
   return (
@@ -31,6 +32,21 @@ export default function Dashboard() {
                   </div>
                   <div className="flex-1 p-3 pt-0">
                     <AmazonConnect />
+                  </div>
+                </div>
+
+                {/* Google Ads - Active */}
+                <div className="flex flex-col min-h-[200px] bg-card border rounded-lg overflow-hidden">
+                  <div className="flex items-center gap-3 p-3">
+                    <div className="h-10 w-10 sm:h-12 sm:w-12 flex-shrink-0 rounded-lg bg-[#4285F4]/10 flex items-center justify-center">
+                      <SiGoogleads className="h-5 w-5 sm:h-6 sm:w-6 text-[#4285F4]" />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="font-semibold text-sm sm:text-base truncate">Google Ads</p>
+                    </div>
+                  </div>
+                  <div className="flex-1 p-3 pt-0">
+                    <GoogleConnect />
                   </div>
                 </div>
 
@@ -78,22 +94,6 @@ export default function Dashboard() {
                         <Badge variant="secondary" className="text-xs">Coming Soon</Badge>
                       </div>
                       <p className="text-xs sm:text-sm text-muted-foreground truncate">Retail Media</p>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Google Ads - Coming Soon */}
-                <div className="flex flex-col min-h-[200px] bg-muted/30 border rounded-lg overflow-hidden">
-                  <div className="flex items-center gap-3 p-3">
-                    <div className="h-10 w-10 sm:h-12 sm:w-12 flex-shrink-0 rounded-lg bg-[#4285F4]/10 flex items-center justify-center">
-                      <SiGoogleads className="h-5 w-5 sm:h-6 sm:w-6 text-[#4285F4]" />
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <p className="font-semibold text-sm sm:text-base">Google Ads</p>
-                        <Badge variant="secondary" className="text-xs">Coming Soon</Badge>
-                      </div>
-                      <p className="text-xs sm:text-sm text-muted-foreground truncate">Performance Max</p>
                     </div>
                   </div>
                 </div>
