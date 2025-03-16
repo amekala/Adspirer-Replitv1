@@ -1,17 +1,21 @@
 import { Link } from "wouter";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/hooks/use-auth";
-import { Loader2, MessageSquare, Zap, Key, BarChart3, Sparkles, Headset } from "lucide-react";
+import { Loader2, MessageSquare, Zap, Key, BarChart3, Sparkles, Headset, Menu } from "lucide-react";
 import { DemoRequestForm } from "@/components/demo-request-form";
-import { useRef } from "react";
+import { useRef, useState } from "react";
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 
 export default function LandingPage() {
   const { user, isLoading } = useAuth();
   const demoFormRef = useRef<HTMLDivElement>(null);
+  const [isOpen, setIsOpen] = useState(false);
 
   const scrollToDemo = () => {
     demoFormRef.current?.scrollIntoView({ behavior: 'smooth' });
   };
+
+  const closeSheet = () => setIsOpen(false);
 
   return (
     <div className="min-h-screen bg-background">
@@ -20,30 +24,75 @@ export default function LandingPage() {
           <h1 className="text-2xl font-bold bg-gradient-to-r from-primary to-blue-600 bg-clip-text text-transparent">
             Adspirer
           </h1>
-          <div className="hidden md:flex items-center space-x-6">
-            <Link href="/about" className="text-muted-foreground hover:text-foreground transition-colors">
-              About Us
-            </Link>
-            <Link href="/privacy" className="text-muted-foreground hover:text-foreground transition-colors">
-              Privacy
-            </Link>
-            <button 
-              onClick={scrollToDemo} 
-              className="text-muted-foreground hover:text-foreground transition-colors"
-            >
-              Contact Us
-            </button>
-            {isLoading ? (
-              <Loader2 className="h-5 w-5 animate-spin" />
-            ) : user ? (
-              <Button asChild>
-                <Link href="/dashboard">Dashboard</Link>
-              </Button>
-            ) : (
-              <Button asChild>
-                <Link href="/auth">Get Started</Link>
-              </Button>
-            )}
+          <div className="flex items-center gap-4">
+            <div className="hidden md:flex items-center space-x-6">
+              <Link href="/about" className="text-muted-foreground hover:text-foreground transition-colors">
+                About Us
+              </Link>
+              <Link href="/privacy" className="text-muted-foreground hover:text-foreground transition-colors">
+                Privacy
+              </Link>
+              <button 
+                onClick={scrollToDemo} 
+                className="text-muted-foreground hover:text-foreground transition-colors"
+              >
+                Contact Us
+              </button>
+              {isLoading ? (
+                <Loader2 className="h-5 w-5 animate-spin" />
+              ) : user ? (
+                <Button asChild>
+                  <Link href="/dashboard">Dashboard</Link>
+                </Button>
+              ) : (
+                <Button asChild>
+                  <Link href="/auth">Get Started</Link>
+                </Button>
+              )}
+            </div>
+
+            {/* Mobile Menu */}
+            <Sheet open={isOpen} onOpenChange={setIsOpen}>
+              <SheetTrigger asChild className="md:hidden">
+                <Button variant="ghost" size="icon">
+                  <Menu className="h-5 w-5" />
+                </Button>
+              </SheetTrigger>
+              <SheetContent side="right">
+                <SheetHeader>
+                  <SheetTitle className="text-left">Menu</SheetTitle>
+                </SheetHeader>
+                <div className="flex flex-col gap-4 mt-8">
+                  <Link href="/" onClick={closeSheet} className="text-muted-foreground hover:text-foreground transition-colors">
+                    Home
+                  </Link>
+                  <Link href="/about" onClick={closeSheet} className="text-muted-foreground hover:text-foreground transition-colors">
+                    About Us
+                  </Link>
+                  <Link href="/privacy" onClick={closeSheet} className="text-muted-foreground hover:text-foreground transition-colors">
+                    Privacy
+                  </Link>
+                  <button 
+                    onClick={() => {
+                      scrollToDemo();
+                      closeSheet();
+                    }} 
+                    className="text-left text-muted-foreground hover:text-foreground transition-colors"
+                  >
+                    Contact Us
+                  </button>
+                  {user ? (
+                    <Link href="/dashboard" onClick={closeSheet} className="text-muted-foreground hover:text-foreground transition-colors">
+                      Dashboard
+                    </Link>
+                  ) : (
+                    <Link href="/auth" onClick={closeSheet} className="text-muted-foreground hover:text-foreground transition-colors">
+                      Get Started
+                    </Link>
+                  )}
+                </div>
+              </SheetContent>
+            </Sheet>
           </div>
         </div>
       </nav>
