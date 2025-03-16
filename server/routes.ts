@@ -16,7 +16,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       return res.status(400).json({ message: "Authorization code required" });
     }
 
-    // Use either VITE_AMAZON_CLIENT_ID or AMAZON_CLIENT_ID
     const clientId = process.env.VITE_AMAZON_CLIENT_ID || process.env.AMAZON_CLIENT_ID;
     const clientSecret = process.env.VITE_AMAZON_CLIENT_SECRET || process.env.AMAZON_CLIENT_SECRET;
 
@@ -48,14 +47,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
         throw new Error(`Failed to exchange authorization code: ${error}`);
       }
 
-      const { access_token, refresh_token, expires_in } = await tokenResponse.json();
+      const { access_token, refresh_token, expires_in, scope } = await tokenResponse.json();
 
-      // Store tokens
+      // Store tokens with the new schema
       await storage.saveAmazonToken({
         userId: req.user!.id,
         accessToken: access_token,
         refreshToken: refresh_token,
+        tokenScope: scope || "advertising::campaign_management",
         expiresAt: new Date(Date.now() + expires_in * 1000),
+        lastRefreshed: new Date(),
+        isActive: true,
       });
 
       // Fetch profiles after successful token exchange
@@ -74,34 +76,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const profiles = await profilesResponse.json();
 
-      // Store each profile in the advertisers table
+      // Store each profile in the advertiser_accounts table
       for (const profile of profiles) {
         const advertiser = {
           userId: req.user!.id,
           profileId: profile.profileId.toString(),
-          marketplaceId: profile.accountInfo.marketplaceStringId,
-          accountInfo: profile,
+          accountName: profile.accountInfo.name || `Account ${profile.profileId}`,
+          marketplace: profile.countryCode,
+          accountType: profile.accountInfo.type,
+          status: 'active'
         };
 
-        const result = insertAdvertiserSchema.safeParse({
-          profileId: advertiser.profileId,
-          marketplaceId: advertiser.marketplaceId,
-          accountInfo: advertiser.accountInfo,
-        });
-
+        const result = insertAdvertiserSchema.safeParse(advertiser);
         if (result.success) {
-          await storage.createAdvertiser({
-            ...result.data,
-            userId: advertiser.userId,
-          });
+          await storage.createAdvertiserAccount(advertiser);
         } else {
           console.error("Failed to validate advertiser data:", result.error);
         }
       }
 
+      await storage.logTokenRefresh(req.user!.id, true);
       res.sendStatus(200);
     } catch (error) {
       console.error("Amazon OAuth error:", error);
+      await storage.logTokenRefresh(req.user!.id, false, error instanceof Error ? error.message : "Unknown error");
       res.status(500).json({ message: error instanceof Error ? error.message : "Failed to connect Amazon account" });
     }
   });

@@ -1,9 +1,9 @@
-import { User, InsertUser, AmazonToken, ApiKey, Advertiser, insertAdvertiserSchema } from "@shared/schema";
+import { User, InsertUser, AmazonToken, ApiKey, AdvertiserAccount } from "@shared/schema";
 import session from "express-session";
 import { drizzle } from "drizzle-orm/postgres-js";
 import { eq } from "drizzle-orm";
 import postgres from "postgres";
-import { users, amazonTokens, apiKeys, advertisers } from "@shared/schema";
+import { users, amazonTokens, apiKeys, advertiserAccounts, tokenRefreshLog, apiRequests } from "@shared/schema";
 import connectPg from "connect-pg-simple";
 import { nanoid } from "nanoid";
 
@@ -13,24 +13,27 @@ const queryClient = postgres(process.env.DATABASE_URL!);
 const db = drizzle(queryClient);
 
 export interface IStorage {
-  getUser(id: number): Promise<User | undefined>;
+  // User management
+  getUser(id: string): Promise<User | undefined>;
   getUserByUsername(username: string): Promise<User | undefined>;
   createUser(user: InsertUser): Promise<User>;
 
   // Amazon token management
-  getAmazonToken(userId: number): Promise<AmazonToken | undefined>;
+  getAmazonToken(userId: string): Promise<AmazonToken | undefined>;
   saveAmazonToken(token: Omit<AmazonToken, "id">): Promise<AmazonToken>;
-  deleteAmazonToken(userId: number): Promise<void>;
+  deleteAmazonToken(userId: string): Promise<void>;
+  logTokenRefresh(userId: string, success: boolean, errorMessage?: string): Promise<void>;
 
   // API key management
-  createApiKey(userId: number, name: string): Promise<ApiKey>;
-  getApiKeys(userId: number): Promise<ApiKey[]>;
-  deactivateApiKey(id: number, userId: number): Promise<void>;
+  createApiKey(userId: string, name: string): Promise<ApiKey>;
+  getApiKeys(userId: string): Promise<ApiKey[]>;
+  deactivateApiKey(id: number, userId: string): Promise<void>;
+  logApiRequest(apiKeyId: number, endpoint: string, statusCode: number, responseTime: number): Promise<void>;
 
   // Advertiser management
-  createAdvertiser(advertiser: Omit<Advertiser, "id" | "createdAt" | "updatedAt">): Promise<Advertiser>;
-  getAdvertisers(userId: number): Promise<Advertiser[]>;
-  deleteAdvertisers(userId: number): Promise<void>;
+  createAdvertiserAccount(advertiser: Omit<AdvertiserAccount, "id" | "createdAt" | "lastSynced">): Promise<AdvertiserAccount>;
+  getAdvertiserAccounts(userId: string): Promise<AdvertiserAccount[]>;
+  deleteAdvertiserAccounts(userId: string): Promise<void>;
 
   sessionStore: session.Store;
 }
@@ -47,7 +50,7 @@ export class DatabaseStorage implements IStorage {
     });
   }
 
-  async getUser(id: number): Promise<User | undefined> {
+  async getUser(id: string): Promise<User | undefined> {
     const result = await db.select().from(users).where(eq(users.id, id));
     return result[0];
   }
@@ -62,7 +65,7 @@ export class DatabaseStorage implements IStorage {
     return result[0];
   }
 
-  async getAmazonToken(userId: number): Promise<AmazonToken | undefined> {
+  async getAmazonToken(userId: string): Promise<AmazonToken | undefined> {
     const result = await db.select().from(amazonTokens).where(eq(amazonTokens.userId, userId));
     return result[0];
   }
@@ -72,47 +75,64 @@ export class DatabaseStorage implements IStorage {
     return result[0];
   }
 
-  async deleteAmazonToken(userId: number): Promise<void> {
+  async deleteAmazonToken(userId: string): Promise<void> {
     await db.delete(amazonTokens).where(eq(amazonTokens.userId, userId));
   }
 
-  async createApiKey(userId: number, name: string): Promise<ApiKey> {
+  async logTokenRefresh(userId: string, success: boolean, errorMessage?: string): Promise<void> {
+    await db.insert(tokenRefreshLog).values({
+      userId,
+      success,
+      errorMessage,
+    });
+  }
+
+  async createApiKey(userId: string, name: string): Promise<ApiKey> {
     const result = await db.insert(apiKeys).values({
       userId,
       name,
-      key: nanoid(32),
-      active: true,
+      keyValue: nanoid(32),
+      isActive: true,
       createdAt: new Date(),
     }).returning();
     return result[0];
   }
 
-  async getApiKeys(userId: number): Promise<ApiKey[]> {
+  async getApiKeys(userId: string): Promise<ApiKey[]> {
     return await db.select().from(apiKeys).where(eq(apiKeys.userId, userId));
   }
 
-  async deactivateApiKey(id: number, userId: number): Promise<void> {
+  async deactivateApiKey(id: number, userId: string): Promise<void> {
     await db.update(apiKeys)
-      .set({ active: false })
+      .set({ isActive: false })
       .where(eq(apiKeys.id, id))
       .where(eq(apiKeys.userId, userId));
   }
 
-  async createAdvertiser(advertiser: Omit<Advertiser, "id" | "createdAt" | "updatedAt">): Promise<Advertiser> {
-    const result = await db.insert(advertisers).values({
+  async logApiRequest(apiKeyId: number, endpoint: string, statusCode: number, responseTime: number): Promise<void> {
+    await db.insert(apiRequests).values({
+      apiKeyId,
+      endpoint,
+      statusCode,
+      responseTime,
+    });
+  }
+
+  async createAdvertiserAccount(advertiser: Omit<AdvertiserAccount, "id" | "createdAt" | "lastSynced">): Promise<AdvertiserAccount> {
+    const result = await db.insert(advertiserAccounts).values({
       ...advertiser,
       createdAt: new Date(),
-      updatedAt: new Date(),
+      lastSynced: new Date(),
     }).returning();
     return result[0];
   }
 
-  async getAdvertisers(userId: number): Promise<Advertiser[]> {
-    return await db.select().from(advertisers).where(eq(advertisers.userId, userId));
+  async getAdvertiserAccounts(userId: string): Promise<AdvertiserAccount[]> {
+    return await db.select().from(advertiserAccounts).where(eq(advertiserAccounts.userId, userId));
   }
 
-  async deleteAdvertisers(userId: number): Promise<void> {
-    await db.delete(advertisers).where(eq(advertisers.userId, userId));
+  async deleteAdvertiserAccounts(userId: string): Promise<void> {
+    await db.delete(advertiserAccounts).where(eq(advertiserAccounts.userId, userId));
   }
 }
 
