@@ -200,7 +200,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
           console.log(`Requesting report for profile ${profile.profileId}`);
 
           try {
-            const reportResponse = await fetch("https://advertising-api.amazon.com/reporting/reports", {
+            // Step 1: Request report generation
+            const createReportResponse = await fetch("https://advertising-api.amazon.com/reporting/reports", {
               method: "POST",
               headers: {
                 "Content-Type": "application/vnd.createasyncreportrequest.v3+json",
@@ -211,14 +212,61 @@ export async function registerRoutes(app: Express): Promise<Server> {
               body: JSON.stringify(reportRequest)
             });
 
-            if (!reportResponse.ok) {
-              const errorText = await reportResponse.text();
-              console.error(`Failed to fetch report for profile ${profile.profileId}:`, errorText);
+            if (!createReportResponse.ok) {
+              const errorText = await createReportResponse.text();
+              console.error(`Failed to create report for profile ${profile.profileId}:`, errorText);
               continue;
             }
 
-            const reportData = await reportResponse.json();
-            console.log(`Got report data for profile ${profile.profileId}:`, reportData);
+            const { reportId } = await createReportResponse.json();
+            console.log(`Got report ID ${reportId} for profile ${profile.profileId}`);
+
+            // Step 2: Poll for report completion (with timeout)
+            let attempts = 0;
+            const maxAttempts = 30; // 5 minutes maximum (10 second intervals)
+            let reportData = null;
+
+            while (attempts < maxAttempts) {
+              const reportStatusResponse = await fetch(`https://advertising-api.amazon.com/reporting/reports/${reportId}`, {
+                headers: {
+                  "Amazon-Advertising-API-ClientId": clientId!,
+                  "Amazon-Advertising-API-Scope": profile.profileId,
+                  "Authorization": `Bearer ${token.accessToken}`
+                }
+              });
+
+              if (!reportStatusResponse.ok) {
+                console.error(`Failed to check report status:`, await reportStatusResponse.text());
+                break;
+              }
+
+              const statusData = await reportStatusResponse.json();
+              console.log(`Report status for ${reportId}:`, statusData.status);
+
+              if (statusData.status === 'COMPLETED') {
+                // Download report data
+                const reportDataResponse = await fetch(statusData.url);
+                if (!reportDataResponse.ok) {
+                  console.error(`Failed to download report data:`, await reportDataResponse.text());
+                  break;
+                }
+
+                reportData = await reportDataResponse.json();
+                break;
+              } else if (statusData.status === 'FAILED') {
+                console.error(`Report generation failed for profile ${profile.profileId}`);
+                break;
+              }
+
+              // Wait 10 seconds before next attempt
+              await new Promise(resolve => setTimeout(resolve, 10000));
+              attempts++;
+            }
+
+            if (!reportData) {
+              console.error(`Failed to get report data after ${maxAttempts} attempts`);
+              continue;
+            }
 
             // Store the metrics
             for (const record of reportData.data || []) {
