@@ -12,7 +12,7 @@ import { Loader2, Menu, UserCircle } from "lucide-react";
 import { useState } from "react";
 
 export function Layout({ children }: { children: React.ReactNode }) {
-  const { user, logoutMutation } = useAuth();
+  const { user, logoutMutation, isLoading } = useAuth();
   const [, setLocation] = useLocation();
   const [isOpen, setIsOpen] = useState(false);
 
