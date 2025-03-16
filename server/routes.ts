@@ -562,7 +562,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Fetch customer accounts from Google Ads API
       const accountsResponse = await fetch(
-        "https://googleads.googleapis.com/v15/customers:listAccessibleCustomers",
+        "https://googleads.googleapis.com/v19/customers:listAccessibleCustomers",
         {
           headers: {
             Authorization: `Bearer ${token.accessToken}`,
@@ -572,13 +572,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
       );
 
       if (!accountsResponse.ok) {
-        throw new Error(`Failed to fetch accounts: ${await accountsResponse.text()}`);
+        const errorData = await accountsResponse.json();
+        console.error("Google Ads API error:", errorData);
+        throw new Error(`Failed to fetch accounts: ${JSON.stringify(errorData)}`);
       }
 
       const accounts = await accountsResponse.json();
-      res.json(accounts.resourceNames.map((name: string) => ({
-        customerId: name.split('/')[1],
-        descriptiveName: "Google Ads Account", // You would typically fetch this in a separate call
+
+      // Transform the response to include account details
+      const customerIds = accounts.resourceNames.map((resourceName: string) => {
+        // Format is "customers/{customer_id}"
+        return resourceName.split('/')[1];
+      });
+
+      // Return basic account information
+      // In a production environment, you would make additional API calls to get full account details
+      res.json(customerIds.map((customerId: string) => ({
+        customerId,
+        descriptiveName: `Google Ads Account ${customerId}`,
         currencyCode: "USD", // Default currency
         status: "ENABLED"
       })));
