@@ -3,28 +3,48 @@ import { Button } from "@/components/ui/button";
 import { useAuth } from "@/hooks/use-auth";
 import { Loader2, MessageSquare, Zap, Key, BarChart3, Sparkles, Headset } from "lucide-react";
 import { DemoRequestForm } from "@/components/demo-request-form";
+import { useRef } from "react";
 
 export default function LandingPage() {
   const { user, isLoading } = useAuth();
+  const demoFormRef = useRef<HTMLDivElement>(null);
+
+  const scrollToDemo = () => {
+    demoFormRef.current?.scrollIntoView({ behavior: 'smooth' });
+  };
 
   return (
     <div className="min-h-screen bg-background">
-      <nav className="container mx-auto px-4 py-6 flex justify-between items-center">
-        <h1 className="text-2xl font-bold bg-gradient-to-r from-primary to-blue-600 bg-clip-text text-transparent">
-          Adspirer
-        </h1>
-        <div className="flex gap-4">
-          {isLoading ? (
-            <Loader2 className="h-5 w-5 animate-spin" />
-          ) : user ? (
-            <Button asChild>
-              <Link href="/dashboard">Dashboard</Link>
-            </Button>
-          ) : (
-            <Button asChild>
-              <Link href="/auth">Get Started</Link>
-            </Button>
-          )}
+      <nav className="sticky top-0 z-50 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 border-b">
+        <div className="container mx-auto px-4 py-4 flex justify-between items-center">
+          <h1 className="text-2xl font-bold bg-gradient-to-r from-primary to-blue-600 bg-clip-text text-transparent">
+            Adspirer
+          </h1>
+          <div className="hidden md:flex items-center space-x-6">
+            <Link href="/about" className="text-muted-foreground hover:text-foreground transition-colors">
+              About Us
+            </Link>
+            <Link href="/privacy" className="text-muted-foreground hover:text-foreground transition-colors">
+              Privacy
+            </Link>
+            <button 
+              onClick={scrollToDemo} 
+              className="text-muted-foreground hover:text-foreground transition-colors"
+            >
+              Contact Us
+            </button>
+            {isLoading ? (
+              <Loader2 className="h-5 w-5 animate-spin" />
+            ) : user ? (
+              <Button asChild>
+                <Link href="/dashboard">Dashboard</Link>
+              </Button>
+            ) : (
+              <Button asChild>
+                <Link href="/auth">Get Started</Link>
+              </Button>
+            )}
+          </div>
         </div>
       </nav>
 
@@ -43,8 +63,8 @@ export default function LandingPage() {
             <Button size="lg" asChild>
               <Link href="/auth">Get Started</Link>
             </Button>
-            <Button size="lg" variant="outline">
-              See It In Action
+            <Button size="lg" variant="outline" onClick={scrollToDemo}>
+              Request Demo
             </Button>
           </div>
 
@@ -138,7 +158,7 @@ export default function LandingPage() {
           </div>
         </div>
 
-        <div className="py-24">
+        <div ref={demoFormRef} className="py-24 scroll-mt-20">
           <div className="text-center max-w-3xl mx-auto mb-16">
             <h2 className="text-4xl font-bold mb-6">
               Ready to Transform Your Retail Media Strategy?
