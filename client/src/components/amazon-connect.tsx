@@ -115,8 +115,16 @@ export function AmazonConnect() {
 
     window.addEventListener("message", handleCallback);
 
-    const amazonOAuthUrl = `https://www.amazon.com/ap/oa?client_id=${clientId}&scope=advertising::campaign_management&response_type=code&redirect_uri=${window.location.origin}/auth/callback`;
+    // Add mode=web-sdk to force web authentication even on mobile
+    const amazonOAuthUrl = `https://www.amazon.com/ap/oa?client_id=${clientId}&scope=advertising::campaign_management&response_type=code&redirect_uri=${window.location.origin}/auth/callback&mode=web-sdk`;
 
+    // On mobile, open in a new tab instead of popup
+    if (/Mobi|Android/i.test(navigator.userAgent)) {
+      window.location.href = amazonOAuthUrl;
+      return;
+    }
+
+    // Desktop: use popup
     popup = window.open(
       amazonOAuthUrl,
       "Connect Amazon Ads",
