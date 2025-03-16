@@ -15,11 +15,10 @@ import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { insertUserSchema } from "@shared/schema";
+import { insertUserSchema, loginSchema } from "@shared/schema";
 import { z } from "zod";
 import { Loader2 } from "lucide-react";
 
-const loginSchema = insertUserSchema;
 const registerSchema = insertUserSchema.extend({
   confirmPassword: z.string().min(1, "Confirm password is required"),
 }).refine((data) => data.password === data.confirmPassword, {
@@ -37,6 +36,7 @@ export default function AuthPage() {
     defaultValues: {
       username: "",
       password: "",
+      email: "",
       confirmPassword: "",
     },
   });
@@ -56,6 +56,7 @@ export default function AuthPage() {
       await registerMutation.mutateAsync({
         username: data.username,
         password: data.password,
+        email: data.email,
       });
     }
     setLocation("/dashboard");
@@ -86,6 +87,21 @@ export default function AuthPage() {
                     </FormItem>
                   )}
                 />
+                {activeTab === "register" && (
+                  <FormField
+                    control={form.control}
+                    name="email"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Email</FormLabel>
+                        <FormControl>
+                          <Input type="email" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                )}
                 <FormField
                   control={form.control}
                   name="password"
