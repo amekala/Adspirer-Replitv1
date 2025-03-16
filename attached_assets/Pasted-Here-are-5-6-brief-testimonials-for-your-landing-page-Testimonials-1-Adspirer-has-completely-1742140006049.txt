@@ -2,17 +2,15 @@ Here are 5-6 brief testimonials for your landing page:
 
 ## Testimonials
 
-1. "Adspirer has completely transformed how we manage our Amazon campaigns. The ability to ask Claude questions about performance and make adjustments through chat saves us hours every week." - Sarah Johnson, E-commerce Director at BrightHome Goods
+1. "Adspirer has completely transformed how we manage our Amazon campaigns. The centralized dashboard and real-time insights save us hours every week." - Sarah Johnson, E-commerce Director at BrightHome Goods
 
-2. "The integration between Adspirer and Claude is seamless. Being able to visualize our ad performance across platforms with a simple conversation is game-changing." - Marcus Chen, Digital Marketing Lead, FitLife Brands
+2. "The integration between platforms is seamless. Being able to visualize our ad performance across marketplaces with a unified interface is game-changing." - Marcus Chen, Digital Marketing Lead, FitLife Brands
 
-3. "We've increased our ROAS by 32% since implementing Adspirer. The AI-powered recommendations through Claude have identified opportunities we would have missed." - Priya Patel, CMO at NatureEssentials
+3. "We've increased our ROAS by 32% since implementing Adspirer. The data-driven recommendations have identified opportunities we would have missed." - Priya Patel, CMO at NatureEssentials
 
-4. "Setting up the MCP server took less than 10 minutes, and the documentation was clear even for someone non-technical like me. Now our whole team can access campaign insights without specialized training." - James Rodriguez, Owner, Rodriguez Family Imports
+4. "Setting up the platform took less than 10 minutes, and the documentation was clear even for someone non-technical like me. Now our whole team can access campaign insights without specialized training." - James Rodriguez, Owner, Rodriguez Family Imports
 
-5. "Adspirer gives us the competitive edge we needed. Being able to quickly analyze trends across Amazon, Walmart and Instacart in one place has revolutionized our strategy." - Dana Kim, Advertising Manager, TechAccessories Direct
-
-6. "The natural language interface through Claude is intuitive and powerful. I can inquire about specific products, adjust budgets, and get actionable insights without navigating complex dashboards." - Michael Thompson, Digital Strategist, Outdoor Adventure Brands
+5. "The intuitive interface makes it easy to manage campaigns. I can analyze trends, adjust budgets, and get actionable insights without navigating complex dashboards." - Michael Thompson, Digital Strategist, Outdoor Adventure Brands
 
 ## Implementation Instructions
 
@@ -27,7 +25,7 @@ For implementing these testimonials on your landing page:
       <!-- Testimonial 1 -->
       <div class="testimonial-card">
         <div class="testimonial-content">
-          <p>"Adspirer has completely transformed how we manage our Amazon campaigns. The ability to ask Claude questions about performance and make adjustments through chat saves us hours every week."</p>
+          <p>"Adspirer has completely transformed how we manage our Amazon campaigns. The centralized dashboard and real-time insights save us hours every week."</p>
         </div>
         <div class="testimonial-author">
           <h4>Sarah Johnson</h4>

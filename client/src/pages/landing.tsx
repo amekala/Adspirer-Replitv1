@@ -15,7 +15,7 @@ type Testimonial = {
 
 const testimonials: Testimonial[] = [
   {
-    text: "Adspirer has completely transformed how we manage our Amazon campaigns. The AI-powered insights and automated optimizations save us hours every week.",
+    text: "Adspirer has completely transformed how we manage our Amazon campaigns. The automated optimizations save us hours every week.",
     author: "Sarah Johnson",
     role: "E-commerce Director",
     company: "BrightHome Goods"
@@ -27,7 +27,7 @@ const testimonials: Testimonial[] = [
     company: "FitLife Brands"
   },
   {
-    text: "We've increased our ROAS by 32% since implementing Adspirer. The AI-powered recommendations have identified opportunities we would have missed.",
+    text: "We've increased our ROAS by 32% since implementing Adspirer. The data-driven recommendations have identified opportunities we would have missed.",
     author: "Priya Patel",
     role: "CMO",
     company: "NatureEssentials"
@@ -159,7 +159,7 @@ export default function LandingPage() {
             </span>
           </h2>
           <p className="text-lg md:text-xl text-muted-foreground mb-8 md:mb-12 max-w-3xl mx-auto">
-            Turn complex advertising data into actionable insights. Connect your ad accounts and optimize your campaigns with AI-powered recommendations.
+            Turn complex advertising data into actionable insights. Connect your ad accounts and optimize your campaigns with data-driven recommendations.
           </p>
           <div className="flex flex-col md:flex-row gap-4 justify-center">
             <Button size="lg" asChild className="w-full md:w-auto">
