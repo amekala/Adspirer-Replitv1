@@ -1,4 +1,4 @@
-import { pgTable, text, serial, integer, boolean, timestamp, json, uuid } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, integer, boolean, timestamp, json, uuid, numeric, date } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -53,6 +53,19 @@ export const advertiserAccounts = pgTable("advertiser_accounts", {
   status: text("status").notNull().default("active"),
 });
 
+export const campaignMetrics = pgTable("campaign_metrics", {
+  id: serial("id").primaryKey(),
+  userId: uuid("user_id").notNull().references(() => users.id),
+  profileId: text("profile_id").notNull(),
+  campaignId: text("campaign_id").notNull(),
+  adGroupId: text("ad_group_id").notNull(),
+  date: date("date").notNull(),
+  impressions: integer("impressions").notNull(),
+  clicks: integer("clicks").notNull(),
+  cost: numeric("cost").notNull(),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
 export const tokenRefreshLog = pgTable("token_refresh_log", {
   id: serial("id").primaryKey(),
   userId: uuid("user_id").notNull().references(() => users.id),
@@ -73,6 +86,13 @@ export const insertAdvertiserSchema = createInsertSchema(advertiserAccounts, {
   accountType: z.string(),
 }).omit({ id: true, createdAt: true, lastSynced: true, status: true });
 
+export const insertCampaignMetricsSchema = createInsertSchema(campaignMetrics, {
+  impressions: z.number().int().min(0),
+  clicks: z.number().int().min(0),
+  cost: z.number().min(0),
+}).omit({ id: true, createdAt: true });
+
+
 // Export types
 export type LoginData = z.infer<typeof loginSchema>;
 export type InsertUser = z.infer<typeof insertUserSchema>;
@@ -81,3 +101,4 @@ export type AmazonToken = typeof amazonTokens.$inferSelect;
 export type ApiKey = typeof apiKeys.$inferSelect;
 export type AdvertiserAccount = typeof advertiserAccounts.$inferSelect;
 export type TokenRefreshLog = typeof tokenRefreshLog.$inferSelect;
+export type CampaignMetrics = typeof campaignMetrics.$inferSelect;

@@ -1,9 +1,9 @@
-import { User, InsertUser, AmazonToken, ApiKey, AdvertiserAccount } from "@shared/schema";
+import { User, InsertUser, AmazonToken, ApiKey, AdvertiserAccount, CampaignMetrics } from "@shared/schema";
 import session from "express-session";
 import { drizzle } from "drizzle-orm/postgres-js";
 import postgres from "postgres";
-import { and, eq } from "drizzle-orm";
-import { users, amazonTokens, apiKeys, advertiserAccounts, tokenRefreshLog } from "@shared/schema";
+import { and, eq, gte, lte, desc } from "drizzle-orm";
+import { users, amazonTokens, apiKeys, advertiserAccounts, tokenRefreshLog, campaignMetrics } from "@shared/schema";
 import connectPg from "connect-pg-simple";
 import { nanoid } from "nanoid";
 
@@ -33,6 +33,10 @@ export interface IStorage {
   createAdvertiserAccount(advertiser: Omit<AdvertiserAccount, "id" | "createdAt" | "lastSynced">): Promise<AdvertiserAccount>;
   getAdvertiserAccounts(userId: string): Promise<AdvertiserAccount[]>;
   deleteAdvertiserAccounts(userId: string): Promise<void>;
+
+  // Campaign metrics management
+  saveCampaignMetrics(metrics: Omit<CampaignMetrics, "id" | "createdAt">): Promise<CampaignMetrics>;
+  getCampaignMetrics(userId: string, startDate: Date, endDate: Date): Promise<CampaignMetrics[]>;
 
   sessionStore: session.Store;
 }
@@ -142,6 +146,36 @@ export class DatabaseStorage implements IStorage {
 
   async deleteAdvertiserAccounts(userId: string): Promise<void> {
     await db.delete(advertiserAccounts).where(eq(advertiserAccounts.userId, userId));
+  }
+
+  async saveCampaignMetrics(metrics: Omit<CampaignMetrics, "id" | "createdAt">): Promise<CampaignMetrics> {
+    try {
+      const result = await db.insert(campaignMetrics)
+        .values(metrics)
+        .returning();
+      return result[0];
+    } catch (error) {
+      console.error('Error saving campaign metrics:', error);
+      throw error;
+    }
+  }
+
+  async getCampaignMetrics(userId: string, startDate: Date, endDate: Date): Promise<CampaignMetrics[]> {
+    try {
+      return await db.select()
+        .from(campaignMetrics)
+        .where(
+          and(
+            eq(campaignMetrics.userId, userId),
+            gte(campaignMetrics.date, startDate),
+            lte(campaignMetrics.date, endDate)
+          )
+        )
+        .orderBy(desc(campaignMetrics.date));
+    } catch (error) {
+      console.error('Error fetching campaign metrics:', error);
+      throw error;
+    }
   }
 }
 
