@@ -1,9 +1,15 @@
-import { User, InsertUser, AmazonToken, ApiKey, AdvertiserAccount, CampaignMetrics, amazonAdReports, type AmazonAdReport, DemoRequest, InsertDemoRequest, demoRequests } from "@shared/schema";
+import { 
+  User, InsertUser, AmazonToken, ApiKey, AdvertiserAccount, 
+  CampaignMetrics, amazonAdReports, type AmazonAdReport,
+  DemoRequest, InsertDemoRequest, demoRequests,
+  GoogleToken, GoogleAdvertiserAccount, GoogleCampaignMetrics,
+  users, amazonTokens, apiKeys, advertiserAccounts, tokenRefreshLog, 
+  campaignMetrics, googleTokens, googleAdvertiserAccounts, googleCampaignMetrics
+} from "@shared/schema";
 import session from "express-session";
 import { drizzle } from "drizzle-orm/postgres-js";
 import postgres from "postgres";
-import { and, eq, gte, lte, desc, or } from "drizzle-orm";
-import { users, amazonTokens, apiKeys, advertiserAccounts, tokenRefreshLog, campaignMetrics } from "@shared/schema";
+import { and, eq, gte, lte, desc, or, sql } from "drizzle-orm";
 import connectPg from "connect-pg-simple";
 import { nanoid } from "nanoid";
 
@@ -49,6 +55,19 @@ export interface IStorage {
   getDemoRequest(id: number): Promise<DemoRequest | undefined>;
   getDemoRequests(): Promise<DemoRequest[]>;
 
+  // Google token management
+  getGoogleToken(userId: string): Promise<GoogleToken | undefined>;
+  saveGoogleToken(token: Omit<GoogleToken, "id">): Promise<GoogleToken>;
+  deleteGoogleToken(userId: string): Promise<void>;
+
+  // Google advertiser management
+  createGoogleAdvertiserAccount(advertiser: Omit<GoogleAdvertiserAccount, "id" | "createdAt" | "lastSynced">): Promise<GoogleAdvertiserAccount>;
+  getGoogleAdvertiserAccounts(userId: string): Promise<GoogleAdvertiserAccount[]>;
+  deleteGoogleAdvertiserAccount(userId: string, customerId: string): Promise<void>;
+
+  // Google campaign metrics
+  saveGoogleCampaignMetrics(metrics: Omit<GoogleCampaignMetrics, "id" | "createdAt">): Promise<GoogleCampaignMetrics>;
+  getGoogleCampaignMetrics(userId: string, startDate: Date, endDate: Date): Promise<GoogleCampaignMetrics[]>;
   sessionStore: session.Store;
 }
 
@@ -225,7 +244,7 @@ export class DatabaseStorage implements IStorage {
     const updates: Partial<AmazonAdReport> = {
       status,
       lastCheckedAt: new Date(),
-      retryCount: db.raw('retry_count + 1'),
+      retryCount: sql`retry_count + 1`,
     };
 
     if (url) {
@@ -283,6 +302,98 @@ export class DatabaseStorage implements IStorage {
 
   async getDemoRequests(): Promise<DemoRequest[]> {
     return await db.select().from(demoRequests);
+  }
+
+  async getGoogleToken(userId: string): Promise<GoogleToken | undefined> {
+    const result = await db.select().from(googleTokens).where(eq(googleTokens.userId, userId));
+    return result[0];
+  }
+
+  async saveGoogleToken(token: Omit<GoogleToken, "id">): Promise<GoogleToken> {
+    // First try to update existing token
+    const [existingToken] = await db
+      .select()
+      .from(googleTokens)
+      .where(eq(googleTokens.userId, token.userId));
+
+    if (existingToken) {
+      const [updatedToken] = await db
+        .update(googleTokens)
+        .set({
+          ...token,
+          lastRefreshed: new Date(),
+        })
+        .where(eq(googleTokens.userId, token.userId))
+        .returning();
+      return updatedToken;
+    }
+
+    // If no existing token, create new one
+    const [newToken] = await db
+      .insert(googleTokens)
+      .values({
+        ...token,
+        lastRefreshed: new Date(),
+      })
+      .returning();
+    return newToken;
+  }
+
+  async deleteGoogleToken(userId: string): Promise<void> {
+    await db.delete(googleTokens).where(eq(googleTokens.userId, userId));
+  }
+
+  async createGoogleAdvertiserAccount(advertiser: Omit<GoogleAdvertiserAccount, "id" | "createdAt" | "lastSynced">): Promise<GoogleAdvertiserAccount> {
+    const result = await db.insert(googleAdvertiserAccounts).values({
+      ...advertiser,
+      createdAt: new Date(),
+      lastSynced: new Date(),
+    }).returning();
+    return result[0];
+  }
+
+  async getGoogleAdvertiserAccounts(userId: string): Promise<GoogleAdvertiserAccount[]> {
+    return await db.select().from(googleAdvertiserAccounts).where(eq(googleAdvertiserAccounts.userId, userId));
+  }
+
+  async deleteGoogleAdvertiserAccount(userId: string, customerId: string): Promise<void> {
+    await db.delete(googleAdvertiserAccounts)
+      .where(
+        and(
+          eq(googleAdvertiserAccounts.userId, userId),
+          eq(googleAdvertiserAccounts.customerId, customerId)
+        )
+      );
+  }
+
+  async saveGoogleCampaignMetrics(metrics: Omit<GoogleCampaignMetrics, "id" | "createdAt">): Promise<GoogleCampaignMetrics> {
+    try {
+      const result = await db.insert(googleCampaignMetrics)
+        .values(metrics)
+        .returning();
+      return result[0];
+    } catch (error) {
+      console.error('Error saving Google campaign metrics:', error);
+      throw error;
+    }
+  }
+
+  async getGoogleCampaignMetrics(userId: string, startDate: Date, endDate: Date): Promise<GoogleCampaignMetrics[]> {
+    try {
+      return await db.select()
+        .from(googleCampaignMetrics)
+        .where(
+          and(
+            eq(googleCampaignMetrics.userId, userId),
+            gte(googleCampaignMetrics.date, startDate),
+            lte(googleCampaignMetrics.date, endDate)
+          )
+        )
+        .orderBy(desc(googleCampaignMetrics.date));
+    } catch (error) {
+      console.error('Error fetching Google campaign metrics:', error);
+      throw error;
+    }
   }
 }
 

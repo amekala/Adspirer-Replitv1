@@ -74,7 +74,6 @@ export const tokenRefreshLog = pgTable("token_refresh_log", {
   errorMessage: text("error_message"),
 });
 
-// Add after existing table definitions
 export const amazonAdReports = pgTable("amazon_ad_reports", {
   id: serial("id").primaryKey(),
   reportId: text("report_id").notNull(),
@@ -92,7 +91,6 @@ export const amazonAdReports = pgTable("amazon_ad_reports", {
   errorMessage: text("error_message"),
 });
 
-// Add after existing table definitions
 export const demoRequests = pgTable("demo_requests", {
   id: serial("id").primaryKey(),
   firstName: text("first_name").notNull(),
@@ -109,7 +107,43 @@ export const demoRequests = pgTable("demo_requests", {
   status: text("status").notNull().default("pending"),
 });
 
-// Insert schemas for API routes
+// Add Google token management
+export const googleTokens = pgTable("google_tokens", {
+  id: serial("id").primaryKey(),
+  userId: uuid("user_id").notNull().references(() => users.id),
+  accessToken: text("access_token").notNull(),
+  refreshToken: text("refresh_token").notNull(),
+  expiresAt: timestamp("expires_at").notNull(),
+  lastRefreshed: timestamp("last_refreshed").notNull().defaultNow(),
+  isActive: boolean("is_active").notNull().default(true),
+});
+
+// Google Ads account management
+export const googleAdvertiserAccounts = pgTable("google_advertiser_accounts", {
+  id: serial("id").primaryKey(),
+  userId: uuid("user_id").notNull().references(() => users.id),
+  customerId: text("customer_id").notNull(),
+  accountName: text("account_name").notNull(),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  lastSynced: timestamp("last_synced").notNull().defaultNow(),
+  status: text("status").notNull().default("active"),
+});
+
+// Google Ads campaign metrics
+export const googleCampaignMetrics = pgTable("google_campaign_metrics", {
+  id: serial("id").primaryKey(),
+  userId: uuid("user_id").notNull().references(() => users.id),
+  customerId: text("customer_id").notNull(),
+  campaignId: text("campaign_id").notNull(),
+  adGroupId: text("ad_group_id"),
+  date: date("date").notNull(),
+  impressions: integer("impressions").notNull(),
+  clicks: integer("clicks").notNull(),
+  cost: numeric("cost").notNull(),
+  conversions: integer("conversions").notNull(),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
 export const insertApiKeySchema = createInsertSchema(apiKeys).pick({
   name: true,
 });
@@ -127,7 +161,6 @@ export const insertCampaignMetricsSchema = createInsertSchema(campaignMetrics, {
   cost: z.number().min(0),
 }).omit({ id: true, createdAt: true });
 
-// Add after other insert schemas
 export const insertDemoRequestSchema = createInsertSchema(demoRequests, {
   firstName: z.string().min(1, "First name is required"),
   lastName: z.string().min(1, "Last name is required"),
@@ -151,6 +184,23 @@ export type AdvertiserAccount = typeof advertiserAccounts.$inferSelect;
 export type TokenRefreshLog = typeof tokenRefreshLog.$inferSelect;
 export type CampaignMetrics = typeof campaignMetrics.$inferSelect;
 export type AmazonAdReport = typeof amazonAdReports.$inferSelect;
-// Add to exports
 export type DemoRequest = typeof demoRequests.$inferSelect;
 export type InsertDemoRequest = z.infer<typeof insertDemoRequestSchema>;
+
+// Add insert schemas for google tables
+export const insertGoogleAdvertiserSchema = createInsertSchema(googleAdvertiserAccounts, {
+  customerId: z.string(),
+  accountName: z.string(),
+}).omit({ id: true, createdAt: true, lastSynced: true, status: true });
+
+export const insertGoogleCampaignMetricsSchema = createInsertSchema(googleCampaignMetrics, {
+  impressions: z.number().int().min(0),
+  clicks: z.number().int().min(0),
+  cost: z.number().min(0),
+  conversions: z.number().int().min(0),
+}).omit({ id: true, createdAt: true });
+
+// Export additional types for google tables
+export type GoogleToken = typeof googleTokens.$inferSelect;
+export type GoogleAdvertiserAccount = typeof googleAdvertiserAccounts.$inferSelect;
+export type GoogleCampaignMetrics = typeof googleCampaignMetrics.$inferSelect;
