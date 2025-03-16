@@ -28,15 +28,67 @@ export function Layout({ children }: { children: React.ReactNode }) {
       {/* Navigation Bar */}
       <nav className="sticky top-0 z-50 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 border-b">
         <div className="container mx-auto px-4 h-16 flex items-center justify-between">
+          {/* Logo */}
+          <Link href="/" className="text-2xl font-bold bg-gradient-to-r from-primary to-blue-600 bg-clip-text text-transparent">
+            Adspirer
+          </Link>
+
           <div className="flex items-center gap-4">
-            {/* Mobile Menu */}
+            {/* Desktop Navigation */}
+            <div className="hidden md:flex items-center gap-6">
+              <Link href="/about" className="text-muted-foreground hover:text-foreground transition-colors">
+                About Us
+              </Link>
+              <Link href="/privacy" className="text-muted-foreground hover:text-foreground transition-colors">
+                Privacy
+              </Link>
+
+              {/* User Menu for Desktop */}
+              {user && (
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="outline" className="gap-2">
+                      <UserCircle className="h-5 w-5" />
+                      {user.email}
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="w-48">
+                    <DropdownMenuItem asChild>
+                      <Link href="/dashboard">Dashboard</Link>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem
+                      onClick={handleLogout}
+                      disabled={logoutMutation.isPending}
+                      className="cursor-pointer"
+                    >
+                      {logoutMutation.isPending && (
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      )}
+                      Logout
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              )}
+
+              {/* Auth Button for Desktop */}
+              {!user && !isLoading && (
+                <Button asChild>
+                  <Link href="/auth">Get Started</Link>
+                </Button>
+              )}
+
+              {/* Loading State */}
+              {isLoading && <Loader2 className="h-5 w-5 animate-spin" />}
+            </div>
+
+            {/* Mobile Menu Trigger */}
             <Sheet open={isOpen} onOpenChange={setIsOpen}>
               <SheetTrigger asChild className="md:hidden">
                 <Button variant="ghost" size="icon">
                   <Menu className="h-5 w-5" />
                 </Button>
               </SheetTrigger>
-              <SheetContent side="left">
+              <SheetContent side="right">
                 <SheetHeader>
                   <SheetTitle className="text-left">Menu</SheetTitle>
                 </SheetHeader>
@@ -51,65 +103,36 @@ export function Layout({ children }: { children: React.ReactNode }) {
                     Privacy
                   </Link>
                   {user ? (
-                    <Link href="/dashboard" onClick={closeSheet} className="text-muted-foreground hover:text-foreground transition-colors">
-                      Dashboard
+                    <>
+                      <Link href="/dashboard" onClick={closeSheet} className="text-muted-foreground hover:text-foreground transition-colors">
+                        Dashboard
+                      </Link>
+                      <button
+                        onClick={() => {
+                          handleLogout();
+                          closeSheet();
+                        }}
+                        className="text-left text-muted-foreground hover:text-foreground transition-colors"
+                        disabled={logoutMutation.isPending}
+                      >
+                        {logoutMutation.isPending ? (
+                          <span className="flex items-center">
+                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                            Logging out...
+                          </span>
+                        ) : (
+                          "Logout"
+                        )}
+                      </button>
+                    </>
+                  ) : (
+                    <Link href="/auth" onClick={closeSheet} className="text-muted-foreground hover:text-foreground transition-colors">
+                      Get Started
                     </Link>
-                  ) : null}
+                  )}
                 </div>
               </SheetContent>
             </Sheet>
-
-            {/* Logo */}
-            <Link href="/" className="text-2xl font-bold bg-gradient-to-r from-primary to-blue-600 bg-clip-text text-transparent">
-              Adspirer
-            </Link>
-          </div>
-
-          {/* Desktop Navigation */}
-          <div className="hidden md:flex items-center gap-6">
-            <Link href="/about" className="text-muted-foreground hover:text-foreground transition-colors">
-              About Us
-            </Link>
-            <Link href="/privacy" className="text-muted-foreground hover:text-foreground transition-colors">
-              Privacy
-            </Link>
-
-            {/* User Menu */}
-            {user && (
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button variant="outline" className="gap-2">
-                    <UserCircle className="h-5 w-5" />
-                    {user.email}
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-48">
-                  <DropdownMenuItem asChild>
-                    <Link href="/dashboard">Dashboard</Link>
-                  </DropdownMenuItem>
-                  <DropdownMenuItem
-                    onClick={handleLogout}
-                    disabled={logoutMutation.isPending}
-                    className="cursor-pointer"
-                  >
-                    {logoutMutation.isPending && (
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    )}
-                    Logout
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
-            )}
-
-            {/* Auth Buttons for non-authenticated users */}
-            {!user && !isLoading && (
-              <Button asChild>
-                <Link href="/auth">Get Started</Link>
-              </Button>
-            )}
-
-            {/* Loading State */}
-            {isLoading && <Loader2 className="h-5 w-5 animate-spin" />}
           </div>
         </div>
       </nav>
