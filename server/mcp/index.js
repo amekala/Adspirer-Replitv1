@@ -1,7 +1,6 @@
 import { McpServer, ResourceTemplate } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import postgres from 'postgres';
-import { getDatabaseUrl } from './config.js';
 
 // Create an MCP server instance
 const server = new McpServer({
@@ -13,7 +12,7 @@ const server = new McpServer({
       schemes: [
         "campaigns",
         "amazon-profiles",
-        "amazon-accounts",
+        "amazon-accounts", 
         "google-accounts",
         "google-campaigns"
       ]
@@ -28,49 +27,99 @@ const ErrorCodes = {
   ValidationError: -32003
 };
 
-let sql;
-try {
-  // Database connection
-  sql = postgres(getDatabaseUrl());
-} catch (error) {
-  console.error('Failed to initialize database connection:', error.message);
-  process.exit(1);
-}
+// Database connection with retry logic
+const maxRetries = 3;
+const retryDelay = 5000; // 5 seconds
 
-// API key validation
-async function validateApiKey(apiKey) {
+async function connectWithRetry(retries = maxRetries) {
   try {
-    const [key] = await sql`
-      SELECT * FROM api_keys 
-      WHERE key_value = ${apiKey} AND is_active = true
-    `;
+    const sql = postgres('postgresql://neondb_owner:npg_WiCH5ywPK8ta@ep-lucky-hat-a4m2qapz.us-east-1.aws.neon.tech/neondb?sslmode=require', {
+      max: 10, // connection pool size
+      idle_timeout: 30000, // 30 second idle timeout
+      connect_timeout: 10000, // 10 second connection timeout
+      ssl: {
+        rejectUnauthorized: false // Required for Neon database
+      }
+    });
 
-    if (!key) {
-      throw {
-        code: ErrorCodes.InvalidApiKey,
-        message: "Invalid or inactive API key"
-      };
-    }
-
-    return key;
+    // Test the connection
+    await sql`SELECT 1`;
+    console.log("Connected to Adspirer database");
+    return sql;
   } catch (error) {
-    if (error.code === ErrorCodes.InvalidApiKey) {
-      throw error;
+    if (retries > 0) {
+      console.log(`Database connection failed, retrying in ${retryDelay/1000} seconds...`);
+      await new Promise(resolve => setTimeout(resolve, retryDelay));
+      return connectWithRetry(retries - 1);
     }
-    throw {
-      code: ErrorCodes.DatabaseError,
-      message: "Error validating API key"
-    };
+    throw error;
   }
 }
 
-// Report progress helper
+let sql;
+try {
+  sql = await connectWithRetry();
+} catch (error) {
+  console.error('Failed to initialize database connection:', error);
+  process.exit(1);
+}
+
 function reportProgress(progress, message, percentage) {
   if (progress?.onProgress) {
     progress.onProgress({
       message,
       percentage
     });
+  }
+}
+
+// Helper function to retry database operations
+async function withRetry(operation, maxRetries = 3) {
+  let lastError;
+  for (let i = 0; i < maxRetries; i++) {
+    try {
+      return await operation();
+    } catch (error) {
+      lastError = error;
+      if (i < maxRetries - 1) {
+        const delay = Math.min(1000 * Math.pow(2, i), 5000); // Exponential backoff, max 5s
+        console.log(`Operation failed, retrying in ${delay/1000}s...`);
+        await new Promise(resolve => setTimeout(resolve, delay));
+      }
+    }
+  }
+  throw lastError;
+}
+
+// API key validation with error handling and retry
+async function validateApiKey(apiKey) {
+  try {
+    const [key] = await withRetry(async () => {
+      const result = await sql`
+        SELECT * FROM api_keys 
+        WHERE key_value = ${apiKey} 
+        AND is_active = true
+      `;
+
+      if (!result.length) {
+        throw {
+          code: ErrorCodes.InvalidApiKey,
+          message: "Invalid or inactive API key"
+        };
+      }
+      return result;
+    });
+
+    return key;
+  } catch (error) {
+    if (error.code === ErrorCodes.InvalidApiKey) {
+      throw error;
+    }
+    console.error('Database error during API key validation:', error);
+    throw {
+      code: ErrorCodes.DatabaseError,
+      message: "Error validating API key"
+    };
   }
 }
 
@@ -91,10 +140,13 @@ server.resource(
       const key = await validateApiKey(apiKey);
       reportProgress(extra.progress, "Fetching Amazon profiles...", 50);
 
-      const profiles = await sql`
-        SELECT * FROM advertiser_accounts 
-        WHERE user_id = ${key.user_id}
-      `;
+      const profiles = await withRetry(async () => {
+        return sql`
+          SELECT profile_id, account_name, marketplace, account_type, status 
+          FROM advertiser_accounts 
+          WHERE user_id = ${key.user_id}
+        `;
+      });
 
       reportProgress(extra.progress, "Profiles retrieved successfully", 100);
 
@@ -105,6 +157,7 @@ server.resource(
         }))
       };
     } catch (error) {
+      console.error('Error in amazon-profiles resource:', error);
       throw {
         code: error.code || ErrorCodes.DatabaseError,
         message: error.message || "Error fetching Amazon profiles"
@@ -130,10 +183,13 @@ server.resource(
       const key = await validateApiKey(apiKey);
       reportProgress(extra.progress, "Fetching Google Ads accounts...", 50);
 
-      const accounts = await sql`
-        SELECT * FROM google_advertiser_accounts 
-        WHERE user_id = ${key.user_id}
-      `;
+      const accounts = await withRetry(async () => {
+        return sql`
+          SELECT customer_id, account_name, status 
+          FROM google_advertiser_accounts 
+          WHERE user_id = ${key.user_id}
+        `;
+      });
 
       reportProgress(extra.progress, "Accounts retrieved successfully", 100);
 
@@ -144,6 +200,7 @@ server.resource(
         }))
       };
     } catch (error) {
+      console.error('Error in google-accounts resource:', error);
       throw {
         code: error.code || ErrorCodes.DatabaseError,
         message: error.message || "Error fetching Google Ads accounts"
@@ -169,11 +226,14 @@ server.resource(
       const key = await validateApiKey(apiKey);
       reportProgress(extra.progress, "Fetching campaign data...", 50);
 
-      const campaigns = await sql`
-        SELECT * FROM campaign_metrics 
-        WHERE user_id = ${key.user_id} 
-        AND profile_id = ${params.profileId}
-      `;
+      const campaigns = await withRetry(async () => {
+        return sql`
+          SELECT campaign_id, profile_id, ad_group_id, impressions, clicks, cost, date
+          FROM campaign_metrics 
+          WHERE user_id = ${key.user_id} 
+          AND profile_id = ${params.profileId}
+        `;
+      });
 
       reportProgress(extra.progress, "Data retrieved successfully", 100);
 
@@ -184,6 +244,7 @@ server.resource(
         }))
       };
     } catch (error) {
+      console.error('Error in campaigns resource:', error);
       throw {
         code: error.code || ErrorCodes.DatabaseError,
         message: error.message || "Error fetching campaign data"
@@ -191,9 +252,6 @@ server.resource(
     }
   }
 );
-
-// Start the server with stdio transport
-const transport = new StdioServerTransport();
 
 // Handle graceful shutdown
 process.on('SIGINT', async () => {
@@ -207,6 +265,9 @@ process.on('SIGINT', async () => {
     process.exit(1);
   }
 });
+
+// Start the server with stdio transport
+const transport = new StdioServerTransport();
 
 const startServer = async () => {
   try {

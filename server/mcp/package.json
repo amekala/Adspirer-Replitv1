@@ -10,7 +10,6 @@
   "files": [
     "index.js",
     "start.js",
-    "config.js",
     "README.md",
     "claude-config.json"
   ],
@@ -28,8 +27,6 @@
   "license": "MIT",
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.0.0",
-    "drizzle-orm": "^0.29.3",
-    "postgres": "^3.4.3",
-    "dotenv": "^16.4.1"
+    "postgres": "^3.4.3"
   }
 }
