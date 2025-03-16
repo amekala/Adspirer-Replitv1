@@ -1,6 +1,6 @@
 # Adspirer MCP Server
 
-This MCP (Model Context Protocol) server enables Claude Desktop integration with Adspirer's Amazon Ads management platform.
+This MCP (Model Context Protocol) server enables Claude Desktop integration with Adspirer's Amazon Ads and Google Ads management platform.
 
 ## Installation
 
@@ -19,26 +19,40 @@ npm install adspirer-mcp
 
 ## Features
 
-- View campaign performance metrics
-- Analyze campaign data
-- Access real-time advertising insights
-
-## API Reference
-
 ### Resources
 
-#### `campaigns://{profileId}`
+#### Amazon Advertising
+- `amazon-profiles://`: List all Amazon Advertising profiles
+- `campaigns://{profileId}`: View campaign performance metrics for a specific profile
 
-Returns campaign data for the specified profile ID.
+#### Google Ads
+- `google-accounts://`: List all Google Ads accounts
+- `google-campaigns://{customerId}`: View campaign performance for a specific account
 
 ### Tools
 
-#### `analyze-performance`
-
+#### analyze-performance
 Analyzes campaign performance with the following parameters:
-- `profileId`: Amazon Ads profile ID
+- `platformType`: "amazon" or "google"
+- `accountId`: Amazon profile ID or Google customer ID
 - `campaignId`: Campaign ID to analyze
 - `dateRange`: Object containing `start` and `end` dates (YYYY-MM-DD format)
+
+### Prompts
+
+#### campaign-insights
+Get AI-powered insights about your campaigns:
+- `platformType`: "amazon" or "google"
+- `accountId`: Account identifier
+- `dateRange`: Date range for analysis
+
+## Sample Queries
+
+You can ask Claude questions like:
+- "Show me all my Amazon Advertising profiles"
+- "What campaigns are running in my Google Ads account?"
+- "Analyze the performance of campaign X on Amazon"
+- "Compare CTR across my Google Ads campaigns"
 
 ## Error Codes
 
@@ -60,4 +74,3 @@ npm run build
 
 # Start production server
 npm start
-```
