@@ -92,6 +92,23 @@ export const amazonAdReports = pgTable("amazon_ad_reports", {
   errorMessage: text("error_message"),
 });
 
+// Add after existing table definitions
+export const demoRequests = pgTable("demo_requests", {
+  id: serial("id").primaryKey(),
+  firstName: text("first_name").notNull(),
+  lastName: text("last_name").notNull(),
+  email: text("email").notNull(),
+  phone: text("phone"),
+  companyName: text("company_name").notNull(),
+  jobRole: text("job_role").notNull(),
+  country: text("country").notNull(),
+  monthlyAdSpend: text("monthly_ad_spend").notNull(),
+  retailers: text("retailers").array().notNull(),
+  solutions: text("solutions").array().notNull(),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  status: text("status").notNull().default("pending"),
+});
+
 // Insert schemas for API routes
 export const insertApiKeySchema = createInsertSchema(apiKeys).pick({
   name: true,
@@ -110,6 +127,19 @@ export const insertCampaignMetricsSchema = createInsertSchema(campaignMetrics, {
   cost: z.number().min(0),
 }).omit({ id: true, createdAt: true });
 
+// Add after other insert schemas
+export const insertDemoRequestSchema = createInsertSchema(demoRequests, {
+  firstName: z.string().min(1, "First name is required"),
+  lastName: z.string().min(1, "Last name is required"),
+  email: z.string().email("Invalid email address"),
+  phone: z.string().optional(),
+  companyName: z.string().min(1, "Company name is required"),
+  jobRole: z.string().min(1, "Job role is required"),
+  country: z.string().min(1, "Country is required"),
+  monthlyAdSpend: z.string().min(1, "Monthly ad spend is required"),
+  retailers: z.array(z.string()).min(1, "Select at least one retailer"),
+  solutions: z.array(z.string()).min(1, "Select at least one solution"),
+}).omit({ id: true, createdAt: true, status: true });
 
 // Export types
 export type LoginData = z.infer<typeof loginSchema>;
@@ -121,3 +151,6 @@ export type AdvertiserAccount = typeof advertiserAccounts.$inferSelect;
 export type TokenRefreshLog = typeof tokenRefreshLog.$inferSelect;
 export type CampaignMetrics = typeof campaignMetrics.$inferSelect;
 export type AmazonAdReport = typeof amazonAdReports.$inferSelect;
+// Add to exports
+export type DemoRequest = typeof demoRequests.$inferSelect;
+export type InsertDemoRequest = z.infer<typeof insertDemoRequestSchema>;

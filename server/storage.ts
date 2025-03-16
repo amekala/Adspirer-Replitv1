@@ -1,4 +1,4 @@
-import { User, InsertUser, AmazonToken, ApiKey, AdvertiserAccount, CampaignMetrics, amazonAdReports, type AmazonAdReport } from "@shared/schema";
+import { User, InsertUser, AmazonToken, ApiKey, AdvertiserAccount, CampaignMetrics, amazonAdReports, type AmazonAdReport, DemoRequest, InsertDemoRequest, demoRequests } from "@shared/schema";
 import session from "express-session";
 import { drizzle } from "drizzle-orm/postgres-js";
 import postgres from "postgres";
@@ -43,6 +43,11 @@ export interface IStorage {
   updateAdReportStatus(reportId: string, status: string, url?: string): Promise<void>;
   getAdReport(reportId: string): Promise<AmazonAdReport | undefined>;
   getActiveReports(profileId: string): Promise<AmazonAdReport[]>;
+
+  // Add demo request methods
+  createDemoRequest(request: InsertDemoRequest): Promise<DemoRequest>;
+  getDemoRequest(id: number): Promise<DemoRequest | undefined>;
+  getDemoRequests(): Promise<DemoRequest[]>;
 
   sessionStore: session.Store;
 }
@@ -256,6 +261,28 @@ export class DatabaseStorage implements IStorage {
           )
         )
       );
+  }
+
+  async createDemoRequest(request: InsertDemoRequest): Promise<DemoRequest> {
+    const [demoRequest] = await db.insert(demoRequests)
+      .values({
+        ...request,
+        createdAt: new Date(),
+        status: "pending"
+      })
+      .returning();
+    return demoRequest;
+  }
+
+  async getDemoRequest(id: number): Promise<DemoRequest | undefined> {
+    const [demoRequest] = await db.select()
+      .from(demoRequests)
+      .where(eq(demoRequests.id, id));
+    return demoRequest;
+  }
+
+  async getDemoRequests(): Promise<DemoRequest[]> {
+    return await db.select().from(demoRequests);
   }
 }
 

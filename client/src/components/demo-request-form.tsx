@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useToast } from "@/hooks/use-toast";
+import { apiRequest } from "@/lib/queryClient";
 
 const formSchema = z.object({
   firstName: z.string().min(1, "First name is required"),
@@ -63,13 +64,21 @@ export function DemoRequestForm() {
     },
   });
 
-  function onSubmit(values: z.infer<typeof formSchema>) {
-    console.log(values);
-    toast({
-      title: "Demo Request Submitted",
-      description: "We'll be in touch with you shortly.",
-    });
-    form.reset();
+  async function onSubmit(values: z.infer<typeof formSchema>) {
+    try {
+      await apiRequest("POST", "/api/demo-request", values);
+      toast({
+        title: "Demo Request Submitted",
+        description: "We'll be in touch with you shortly.",
+      });
+      form.reset();
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to submit demo request. Please try again.",
+        variant: "destructive",
+      });
+    }
   }
 
   return (

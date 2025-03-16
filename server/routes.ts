@@ -558,7 +558,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
     })().catch(console.error);
   });
 
-  // Keep rest of the routes code
+  app.post("/api/demo-request", async (req: Request, res: Response) => {
+    const result = insertDemoRequestSchema.safeParse(req.body);
+    if (!result.success) {
+      return res.status(400).json({ message: "Invalid request data", errors: result.error.errors });
+    }
+
+    try {
+      const demoRequest = await storage.createDemoRequest(result.data);
+      res.status(201).json(demoRequest);
+    } catch (error) {
+      console.error("Failed to create demo request:", error);
+      res.status(500).json({ message: "Failed to submit demo request" });
+    }
+  });
+
   const httpServer = createServer(app);
   return httpServer;
 }
