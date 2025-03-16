@@ -506,8 +506,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         body: new URLSearchParams({
           grant_type: "authorization_code",
           code,
-          client_id: process.env.GOOGLE_CLIENT_ID!,
-          client_secret: process.env.GOOGLE_CLIENT_SECRET!,
+          client_id: process.env.VITE_GOOGLE_CLIENT_ID!,
+          client_secret: process.env.VITE_GOOGLE_CLIENT_SECRET!,
           redirect_uri: `${req.protocol}://${req.get('host')}/auth/callback`,
         }),
       });
@@ -525,7 +525,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
         userId: req.user!.id,
         accessToken: access_token,
         refreshToken: refresh_token,
-        tokenScope: "https://www.googleapis.com/auth/adwords",
         expiresAt: new Date(Date.now() + expires_in * 1000),
         lastRefreshed: new Date(),
         isActive: true,
