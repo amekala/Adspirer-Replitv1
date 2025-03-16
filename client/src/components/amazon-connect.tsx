@@ -115,11 +115,11 @@ export function AmazonConnect() {
 
     window.addEventListener("message", handleCallback);
 
-    // Add mode=web-sdk to force web authentication even on mobile
-    const amazonOAuthUrl = `https://www.amazon.com/ap/oa?client_id=${clientId}&scope=advertising::campaign_management&response_type=code&redirect_uri=${window.location.origin}/auth/callback&mode=web-sdk`;
+    // Force web authentication by using signin endpoint and additional parameters
+    const amazonOAuthUrl = `https://www.amazon.com/ap/signin?openid.assoc_handle=amzn_developer_central&openid.return_to=${encodeURIComponent(`${window.location.origin}/auth/callback`)}&openid.mode=checkid_setup&openid.ns=http://specs.openid.net/auth/2.0&client_id=${clientId}&scope=advertising::campaign_management&response_type=code&forceMobileApp=0&forceWebView=1`;
 
-    // On mobile, open in a new tab instead of popup
-    if (/Mobi|Android/i.test(navigator.userAgent)) {
+    // On mobile devices, open in current window
+    if (/Mobi|Android|iPhone|iPad|iPod/i.test(navigator.userAgent)) {
       window.location.href = amazonOAuthUrl;
       return;
     }
