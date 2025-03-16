@@ -22,9 +22,11 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 export function ApiKeys() {
   const { toast } = useToast();
+  const isMobile = useIsMobile();
   const [showGenerateDialog, setShowGenerateDialog] = useState(false);
   const [showNewKeyDialog, setShowNewKeyDialog] = useState(false);
   const [newKey, setNewKey] = useState<ApiKey | null>(null);
@@ -33,6 +35,12 @@ export function ApiKeys() {
   const { data: keys, isLoading } = useQuery<ApiKey[]>({
     queryKey: ["/api/keys"],
   });
+
+  const showToast = (title: string, description: string, variant?: "default" | "destructive") => {
+    if (!isMobile) {
+      toast({ title, description, variant });
+    }
+  };
 
   const createMutation = useMutation({
     mutationFn: async (name: string) => {
@@ -49,17 +57,10 @@ export function ApiKeys() {
       setKeyName("");
       setShowGenerateDialog(false);
       setShowNewKeyDialog(true);
-      toast({
-        title: "Success",
-        description: "API key generated successfully",
-      });
+      showToast("Success", "API key generated successfully");
     },
     onError: (error: Error) => {
-      toast({
-        title: "Error",
-        description: error.message,
-        variant: "destructive",
-      });
+      showToast("Error", error.message, "destructive");
     },
   });
 
@@ -69,26 +70,16 @@ export function ApiKeys() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/keys"] });
-      toast({
-        title: "Success",
-        description: "API key revoked successfully",
-      });
+      showToast("Success", "API key revoked successfully");
     },
     onError: (error: Error) => {
-      toast({
-        title: "Error",
-        description: error.message,
-        variant: "destructive",
-      });
+      showToast("Error", error.message, "destructive");
     },
   });
 
   const copyToClipboard = (key: string) => {
     navigator.clipboard.writeText(key);
-    toast({
-      title: "Copied",
-      description: "API key copied to clipboard",
-    });
+    showToast("Copied", "API key copied to clipboard");
   };
 
   const truncateKey = (key: string) => {
@@ -241,7 +232,7 @@ export function ApiKeys() {
                 <Copy className="mr-2 h-4 w-4" />
                 Copy
               </Button>
-              <Button 
+              <Button
                 className="w-full sm:w-auto"
                 onClick={() => setShowNewKeyDialog(false)}
               >
