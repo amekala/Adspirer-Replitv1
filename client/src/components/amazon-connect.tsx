@@ -67,6 +67,15 @@ export function AmazonConnect() {
       return;
     }
 
+    // Force web browser flow with proper OAuth endpoint
+    const amazonOAuthUrl = `https://www.amazon.com/ap/oa?client_id=${clientId}&scope=advertising::campaign_management&response_type=code&redirect_uri=${encodeURIComponent(`${window.location.origin}/auth/callback`)}&mode=web-sdk&forceLoginScreen=true`;
+
+    // On mobile devices, open in current window
+    if (/Mobi|Android|iPhone|iPad|iPod/i.test(navigator.userAgent)) {
+      window.location.href = amazonOAuthUrl;
+      return;
+    }
+
     const width = 600;
     const height = 800;
     const left = window.screenX + (window.outerWidth - width) / 2;
@@ -105,15 +114,6 @@ export function AmazonConnect() {
     };
 
     window.addEventListener("message", handleCallback);
-
-    // Force web browser flow with proper OAuth endpoint
-    const amazonOAuthUrl = `https://www.amazon.com/ap/oa?client_id=${clientId}&scope=advertising::campaign_management&response_type=code&redirect_uri=${encodeURIComponent(`${window.location.origin}/auth/callback`)}&mode=web-sdk&forceLoginScreen=true`;
-
-    // On mobile devices, open in current window
-    if (/Mobi|Android|iPhone|iPad|iPod/i.test(navigator.userAgent)) {
-      window.location.href = amazonOAuthUrl;
-      return;
-    }
 
     // Desktop: use popup
     popup = window.open(

@@ -30,7 +30,7 @@ export default function AuthCallback() {
           window.opener.postMessage({ code }, "*");
           window.close();
         } else {
-          // If opened directly, handle the code server-side
+          // If opened directly (mobile flow), handle the code server-side
           fetch("/api/amazon/connect", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
