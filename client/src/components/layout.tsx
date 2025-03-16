@@ -23,10 +23,8 @@ export function Layout({ children }: { children: React.ReactNode }) {
       {/* Navigation Bar */}
       <nav className="border-b">
         <div className="container mx-auto px-4 h-16 flex items-center justify-between">
-          <Link href="/dashboard">
-            <a className="text-2xl font-bold bg-gradient-to-r from-primary to-blue-600 bg-clip-text text-transparent">
-              AdsConnect
-            </a>
+          <Link href="/dashboard" className="text-2xl font-bold bg-gradient-to-r from-primary to-blue-600 bg-clip-text text-transparent">
+            AdsConnect
           </Link>
 
           {/* User Menu */}
