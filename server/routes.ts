@@ -184,7 +184,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           startDate.setDate(endDate.getDate() - 7); // Last 7 days
 
           const reportRequest = {
-            name: `SP campaigns report ${startDate.toLocaleDateString()}-${endDate.toLocaleDateString()}`,
+            name: `SP campaigns report ${startDate.toISOString().split('T')[0]}-${endDate.toISOString().split('T')[0]}`,
             startDate: startDate.toISOString().split('T')[0],
             endDate: endDate.toISOString().split('T')[0],
             configuration: {
