@@ -498,17 +498,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       return res.status(400).json({ message: "Authorization code required" });
     }
 
-    const clientId = process.env.VITE_GOOGLE_CLIENT_ID || process.env.GOOGLE_CLIENT_ID;
-    const clientSecret = process.env.VITE_GOOGLE_CLIENT_SECRET || process.env.GOOGLE_CLIENT_SECRET;
-
-    if (!clientId || !clientSecret) {
-      console.error("Missing Google credentials:", {
-        hasClientId: !!clientId,
-        hasClientSecret: !!clientSecret
-      });
-      return res.status(500).json({ message: "Google API credentials not configured" });
-    }
-
     try {
       // Exchange code for tokens
       const tokenResponse = await fetch("https://oauth2.googleapis.com/token", {
@@ -517,8 +506,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         body: new URLSearchParams({
           grant_type: "authorization_code",
           code,
-          client_id: clientId,
-          client_secret: clientSecret,
+          client_id: process.env.GOOGLE_CLIENT_ID!,
+          client_secret: process.env.GOOGLE_CLIENT_SECRET!,
           redirect_uri: `${req.protocol}://${req.get('host')}/auth/callback`,
         }),
       });
@@ -529,14 +518,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
         throw new Error(`Failed to exchange authorization code: ${error}`);
       }
 
-      const { access_token, refresh_token, expires_in, scope } = await tokenResponse.json();
+      const { access_token, refresh_token, expires_in } = await tokenResponse.json();
 
       // Store tokens
       await storage.saveGoogleToken({
         userId: req.user!.id,
         accessToken: access_token,
         refreshToken: refresh_token,
-        tokenScope: scope || "https://www.googleapis.com/auth/adwords",
         expiresAt: new Date(Date.now() + expires_in * 1000),
         lastRefreshed: new Date(),
         isActive: true,
