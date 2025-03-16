@@ -1,108 +1,97 @@
 import { User, InsertUser, AmazonToken, ApiKey } from "@shared/schema";
 import session from "express-session";
-import createMemoryStore from "memorystore";
+import { drizzle } from "drizzle-orm/postgres-js";
+import { eq } from "drizzle-orm";
+import postgres from "postgres";
+import { users, amazonTokens, apiKeys } from "@shared/schema";
+import connectPg from "connect-pg-simple";
 import { nanoid } from "nanoid";
 
-const MemoryStore = createMemoryStore(session);
+const PostgresSessionStore = connectPg(session);
+
+const queryClient = postgres(process.env.DATABASE_URL!);
+const db = drizzle(queryClient);
 
 export interface IStorage {
   getUser(id: number): Promise<User | undefined>;
   getUserByUsername(username: string): Promise<User | undefined>;
   createUser(user: InsertUser): Promise<User>;
-  
+
   // Amazon token management
   getAmazonToken(userId: number): Promise<AmazonToken | undefined>;
   saveAmazonToken(token: Omit<AmazonToken, "id">): Promise<AmazonToken>;
   deleteAmazonToken(userId: number): Promise<void>;
-  
+
   // API key management
   createApiKey(userId: number, name: string): Promise<ApiKey>;
   getApiKeys(userId: number): Promise<ApiKey[]>;
   deactivateApiKey(id: number, userId: number): Promise<void>;
-  
+
   sessionStore: session.Store;
 }
 
-export class MemStorage implements IStorage {
-  private users: Map<number, User>;
-  private amazonTokens: Map<number, AmazonToken>;
-  private apiKeys: Map<number, ApiKey>;
+export class DatabaseStorage implements IStorage {
   sessionStore: session.Store;
-  currentId: number;
 
   constructor() {
-    this.users = new Map();
-    this.amazonTokens = new Map();
-    this.apiKeys = new Map();
-    this.currentId = 1;
-    this.sessionStore = new MemoryStore({
-      checkPeriod: 86400000,
+    this.sessionStore = new PostgresSessionStore({
+      conObject: {
+        connectionString: process.env.DATABASE_URL,
+      },
+      createTableIfMissing: true,
     });
   }
 
   async getUser(id: number): Promise<User | undefined> {
-    return this.users.get(id);
+    const result = await db.select().from(users).where(eq(users.id, id));
+    return result[0];
   }
 
   async getUserByUsername(username: string): Promise<User | undefined> {
-    return Array.from(this.users.values()).find(
-      (user) => user.username === username,
-    );
+    const result = await db.select().from(users).where(eq(users.username, username));
+    return result[0];
   }
 
   async createUser(insertUser: InsertUser): Promise<User> {
-    const id = this.currentId++;
-    const user: User = { ...insertUser, id };
-    this.users.set(id, user);
-    return user;
+    const result = await db.insert(users).values(insertUser).returning();
+    return result[0];
   }
 
   async getAmazonToken(userId: number): Promise<AmazonToken | undefined> {
-    return Array.from(this.amazonTokens.values()).find(
-      (token) => token.userId === userId,
-    );
+    const result = await db.select().from(amazonTokens).where(eq(amazonTokens.userId, userId));
+    return result[0];
   }
 
   async saveAmazonToken(token: Omit<AmazonToken, "id">): Promise<AmazonToken> {
-    const id = this.currentId++;
-    const newToken = { ...token, id };
-    this.amazonTokens.set(id, newToken);
-    return newToken;
+    const result = await db.insert(amazonTokens).values(token).returning();
+    return result[0];
   }
 
   async deleteAmazonToken(userId: number): Promise<void> {
-    const token = await this.getAmazonToken(userId);
-    if (token) {
-      this.amazonTokens.delete(token.id);
-    }
+    await db.delete(amazonTokens).where(eq(amazonTokens.userId, userId));
   }
 
   async createApiKey(userId: number, name: string): Promise<ApiKey> {
-    const id = this.currentId++;
-    const apiKey: ApiKey = {
-      id,
+    const result = await db.insert(apiKeys).values({
       userId,
-      key: nanoid(32),
       name,
+      key: nanoid(32),
       active: true,
       createdAt: new Date(),
-    };
-    this.apiKeys.set(id, apiKey);
-    return apiKey;
+    }).returning();
+    return result[0];
   }
 
   async getApiKeys(userId: number): Promise<ApiKey[]> {
-    return Array.from(this.apiKeys.values()).filter(
-      (key) => key.userId === userId,
-    );
+    return await db.select().from(apiKeys).where(eq(apiKeys.userId, userId));
   }
 
   async deactivateApiKey(id: number, userId: number): Promise<void> {
-    const key = this.apiKeys.get(id);
-    if (key && key.userId === userId) {
-      this.apiKeys.set(id, { ...key, active: false });
-    }
+    await db.update(apiKeys)
+      .set({ active: false })
+      .where(eq(apiKeys.id, id))
+      .where(eq(apiKeys.userId, userId));
   }
 }
 
-export const storage = new MemStorage();
+export const storage = new DatabaseStorage();
