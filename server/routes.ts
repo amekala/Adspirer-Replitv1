@@ -11,9 +11,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/amazon/connect", async (req: Request, res: Response) => {
     if (!req.isAuthenticated()) return res.sendStatus(401);
     const { code } = req.body;
-    
+
     if (!code) {
       return res.status(400).json({ message: "Authorization code required" });
+    }
+
+    // Use either VITE_AMAZON_CLIENT_ID or AMAZON_CLIENT_ID
+    const clientId = process.env.VITE_AMAZON_CLIENT_ID || process.env.AMAZON_CLIENT_ID;
+    const clientSecret = process.env.VITE_AMAZON_CLIENT_SECRET || process.env.AMAZON_CLIENT_SECRET;
+
+    if (!clientId || !clientSecret) {
+      console.error("Missing Amazon credentials:", { 
+        hasClientId: !!clientId,
+        hasClientSecret: !!clientSecret
+      });
+      return res.status(500).json({ message: "Amazon API credentials not configured" });
     }
 
     try {
@@ -24,17 +36,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
         body: new URLSearchParams({
           grant_type: "authorization_code",
           code,
-          client_id: process.env.AMAZON_CLIENT_ID!,
-          client_secret: process.env.AMAZON_CLIENT_SECRET!,
+          client_id: clientId,
+          client_secret: clientSecret,
         }),
       });
 
       if (!response.ok) {
+        const error = await response.text();
+        console.error("Amazon OAuth error response:", error);
         throw new Error("Failed to exchange authorization code");
       }
 
       const { access_token, refresh_token, expires_in } = await response.json();
-      
+
       // Store tokens
       await storage.saveAmazonToken({
         userId: req.user!.id,
