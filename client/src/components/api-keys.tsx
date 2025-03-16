@@ -1,27 +1,34 @@
 import { useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { insertApiKeySchema, type ApiKey } from "@shared/schema";
-import { Loader2, Copy, Key, Shield } from "lucide-react";
-import { Badge } from "@/components/ui/badge";
-import { Card, CardContent } from "@/components/ui/card";
+import { Loader2, Copy, Key, AlertCircle } from "lucide-react";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 
 export function ApiKeys() {
   const { toast } = useToast();
-  const [name, setName] = useState("");
-  const [isOpen, setIsOpen] = useState(false);
-  const [showNewKey, setShowNewKey] = useState<string | null>(null);
+  const [showGenerateDialog, setShowGenerateDialog] = useState(false);
+  const [showNewKeyDialog, setShowNewKeyDialog] = useState(false);
+  const [newKey, setNewKey] = useState<ApiKey | null>(null);
+  const [keyName, setKeyName] = useState("");
 
   const { data: keys, isLoading } = useQuery<ApiKey[]>({
     queryKey: ["/api/keys"],
@@ -31,18 +38,20 @@ export function ApiKeys() {
     mutationFn: async (name: string) => {
       const result = insertApiKeySchema.safeParse({ name });
       if (!result.success) {
-        throw new Error("Invalid key name");
+        throw new Error("Please provide a name for your API key");
       }
       const res = await apiRequest("POST", "/api/keys", result.data);
       return res.json();
     },
-    onSuccess: (newKey: ApiKey) => {
+    onSuccess: (key: ApiKey) => {
       queryClient.invalidateQueries({ queryKey: ["/api/keys"] });
-      setShowNewKey(newKey.keyValue);
-      setName("");
+      setNewKey(key);
+      setKeyName("");
+      setShowGenerateDialog(false);
+      setShowNewKeyDialog(true);
       toast({
         title: "Success",
-        description: "API key created successfully",
+        description: "API key generated successfully",
       });
     },
     onError: (error: Error) => {
@@ -82,6 +91,12 @@ export function ApiKeys() {
     });
   };
 
+  const truncateKey = (key: string) => {
+    const start = key.slice(0, 8);
+    const end = key.slice(-8);
+    return `${start}...${end}`;
+  };
+
   if (isLoading) {
     return (
       <div className="flex justify-center py-8">
@@ -89,6 +104,8 @@ export function ApiKeys() {
       </div>
     );
   }
+
+  const activeKeys = keys?.filter(key => key.isActive) || [];
 
   return (
     <div className="space-y-6">
@@ -99,113 +116,130 @@ export function ApiKeys() {
             Manage your API keys for accessing the AdsConnect API
           </p>
         </div>
-        <Dialog open={isOpen} onOpenChange={setIsOpen}>
-          <DialogTrigger asChild>
-            <Button>
-              <Key className="mr-2 h-4 w-4" />
-              Generate New Key
-            </Button>
-          </DialogTrigger>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Generate API Key</DialogTitle>
-            </DialogHeader>
-            <form
-              onSubmit={(e) => {
-                e.preventDefault();
-                createMutation.mutate(name);
-                setIsOpen(false);
-              }}
-              className="space-y-4"
-            >
-              <div>
-                <Label htmlFor="name">Key Name</Label>
-                <Input
-                  id="name"
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  placeholder="e.g. Development Key"
-                />
-              </div>
-              <Button
-                type="submit"
-                className="w-full"
-                disabled={createMutation.isPending}
-              >
-                {createMutation.isPending && (
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                )}
-                Generate Key
-              </Button>
-            </form>
-          </DialogContent>
-        </Dialog>
+        <Button onClick={() => setShowGenerateDialog(true)}>
+          <Key className="mr-2 h-4 w-4" />
+          Generate New API Key
+        </Button>
       </div>
 
-      {showNewKey && (
-        <Card className="border-green-200 bg-green-50 dark:bg-green-950/10">
-          <CardContent className="pt-6">
-            <div className="flex items-center justify-between">
-              <div className="space-y-1">
-                <p className="font-medium text-green-600 dark:text-green-400">
-                  New API Key Generated
-                </p>
-                <p className="text-sm text-muted-foreground">
-                  Copy this key now. You won't be able to see it again!
-                </p>
-              </div>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => copyToClipboard(showNewKey)}
-              >
-                <Copy className="h-4 w-4" />
-              </Button>
-            </div>
-            <pre className="mt-4 rounded-lg bg-green-100 p-4 text-sm font-mono dark:bg-green-950/30">
-              {showNewKey}
-            </pre>
-          </CardContent>
-        </Card>
+      {activeKeys.length > 0 ? (
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Name</TableHead>
+              <TableHead>Key</TableHead>
+              <TableHead>Created</TableHead>
+              <TableHead>Last Used</TableHead>
+              <TableHead className="text-right">Actions</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {activeKeys.map((key) => (
+              <TableRow key={key.id}>
+                <TableCell className="font-medium">{key.name}</TableCell>
+                <TableCell className="font-mono">{truncateKey(key.keyValue)}</TableCell>
+                <TableCell>{new Date(key.createdAt).toLocaleDateString()}</TableCell>
+                <TableCell>
+                  {key.lastUsed ? new Date(key.lastUsed).toLocaleDateString() : 'Never'}
+                </TableCell>
+                <TableCell className="text-right space-x-2">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => copyToClipboard(key.keyValue)}
+                  >
+                    <Copy className="h-4 w-4" />
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="destructive"
+                    onClick={() => deactivateMutation.mutate(key.id)}
+                    disabled={deactivateMutation.isPending}
+                  >
+                    {deactivateMutation.isPending && (
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    )}
+                    Revoke
+                  </Button>
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      ) : (
+        <Alert>
+          <AlertCircle className="h-4 w-4" />
+          <AlertDescription>
+            No active API keys. Generate a new key to get started.
+          </AlertDescription>
+        </Alert>
       )}
 
-      <div className="space-y-4">
-        {keys?.map((key) => (
-          <div
-            key={key.id}
-            className="flex items-center justify-between p-4 bg-muted rounded-lg"
+      {/* Generate Key Dialog */}
+      <Dialog open={showGenerateDialog} onOpenChange={setShowGenerateDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Generate New API Key</DialogTitle>
+          </DialogHeader>
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              createMutation.mutate(keyName);
+            }}
+            className="space-y-4"
           >
-            <div className="space-y-1">
-              <div className="flex items-center gap-2">
-                <h3 className="font-medium">{key.name}</h3>
-                <Badge variant={key.isActive ? "secondary" : "destructive"}>
-                  {key.isActive ? "Active" : "Revoked"}
-                </Badge>
-              </div>
-              <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                <Shield className="h-4 w-4" />
-                <span>Created {new Date(key.createdAt).toLocaleDateString()}</span>
-                {key.lastUsed && (
-                  <span>• Last used {new Date(key.lastUsed).toLocaleDateString()}</span>
-                )}
-              </div>
+            <div>
+              <Label htmlFor="name">Key Name</Label>
+              <Input
+                id="name"
+                value={keyName}
+                onChange={(e) => setKeyName(e.target.value)}
+                placeholder="e.g. Production API Key"
+              />
             </div>
-            {key.isActive && (
+            <Button
+              type="submit"
+              className="w-full"
+              disabled={createMutation.isPending}
+            >
+              {createMutation.isPending && (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              )}
+              Generate Key
+            </Button>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* New Key Dialog */}
+      <Dialog open={showNewKeyDialog} onOpenChange={setShowNewKeyDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>New API Key Generated</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <Alert variant="warning">
+              <AlertCircle className="h-4 w-4" />
+              <AlertDescription>
+                Make sure to copy your API key now. You won't be able to see it again!
+              </AlertDescription>
+            </Alert>
+            <div className="p-4 bg-muted rounded-lg">
+              <code className="text-sm break-all">{newKey?.keyValue}</code>
+            </div>
+            <div className="flex justify-end gap-2">
               <Button
-                size="sm"
-                variant="destructive"
-                onClick={() => deactivateMutation.mutate(key.id)}
-                disabled={deactivateMutation.isPending}
+                variant="outline"
+                onClick={() => newKey && copyToClipboard(newKey.keyValue)}
               >
-                {deactivateMutation.isPending && (
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                )}
-                Revoke
+                <Copy className="mr-2 h-4 w-4" />
+                Copy
               </Button>
-            )}
+              <Button onClick={() => setShowNewKeyDialog(false)}>Done</Button>
+            </div>
           </div>
-        ))}
-      </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
