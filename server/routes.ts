@@ -334,6 +334,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
             const maxAttempts = 30; // 5 minutes maximum
             let reportData = null;
 
+            try {
+              // Create initial report record
+              const report = await storage.createAdReport({
+                reportId,
+                profileId: profile.profileId,
+                reportType: "campaigns",
+                requestParams: reportRequest,
+                status: "PENDING"
+              });
+            } catch (error) {
+              console.error(`Error creating report record:`, error);
+              profileStats.failed++;
+              profileStats.byMarketplace[profile.marketplace].failed++;
+              continue;
+            }
+
+
             while (attempts < maxAttempts) {
               const reportStatusResponse = await fetch(`https://advertising-api.amazon.com/reporting/reports/${reportId}`, {
                 headers: {
@@ -351,26 +368,36 @@ export async function registerRoutes(app: Express): Promise<Server> {
               const statusData = await reportStatusResponse.json();
               console.log(`Report status for ${reportId}:`, statusData.status);
 
-              if (statusData.status === 'SUCCESS') {
-                // Download report data
-                console.log(`Report ready, downloading from ${statusData.location}`);
-                const reportDataResponse = await fetch(statusData.location);
-                if (!reportDataResponse.ok) {
-                  console.error(`Failed to download report data:`, await reportDataResponse.text());
-                  break;
-                }
+              try {
+                if (statusData.status === 'SUCCESS') {
+                  // Download report data
+                  console.log(`Report ready, downloading from ${statusData.location}`);
+                  const reportDataResponse = await fetch(statusData.location);
+                  if (!reportDataResponse.ok) {
+                    console.error(`Failed to download report data:`, await reportDataResponse.text());
+                    break;
+                  }
 
-                reportData = await reportDataResponse.json();
-                console.log(`Successfully downloaded report data with ${reportData.data?.length || 0} records`);
+                  reportData = await reportDataResponse.json();
+                  console.log(`Successfully downloaded report data with ${reportData.data?.length || 0} records`);
+                  await storage.updateAdReportStatus(reportId, 'SUCCESS', statusData.location);
+                  break;
+                } else if (statusData.status === 'FAILED') {
+                  console.error(`Report generation failed for profile ${profile.profileId}`);
+                  await storage.updateAdReportStatus(reportId, 'FAILED');
+                  break;
+                } else if (statusData.status === 'PENDING' || statusData.status === 'IN_PROGRESS') {
+                  console.log(`Report is still ${statusData.status} for ${reportId}, waiting before next check`);
+                } else {
+                  console.log(`Unknown report status ${statusData.status} for ${reportId}`);
+                }
+              } catch (error) {
+                console.error(`Error tracking report status:`, error);
+                profileStats.failed++;
+                profileStats.byMarketplace[profile.marketplace].failed++;
                 break;
-              } else if (statusData.status === 'FAILED') {
-                console.error(`Report generation failed for profile ${profile.profileId}`);
-                break;
-              } else if (statusData.status === 'PENDING' || statusData.status === 'IN_PROGRESS') {
-                console.log(`Report is still ${statusData.status} for ${reportId}, waiting before next check`);
-              } else {
-                console.log(`Unknown report status ${statusData.status} for ${reportId}`);
               }
+
 
               // Exponential backoff
               const backoffTime = Math.min(10000 * Math.pow(1.2, attempts), 30000);

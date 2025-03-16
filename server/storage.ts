@@ -1,8 +1,8 @@
-import { User, InsertUser, AmazonToken, ApiKey, AdvertiserAccount, CampaignMetrics } from "@shared/schema";
+import { User, InsertUser, AmazonToken, ApiKey, AdvertiserAccount, CampaignMetrics, amazonAdReports, type AmazonAdReport } from "@shared/schema";
 import session from "express-session";
 import { drizzle } from "drizzle-orm/postgres-js";
 import postgres from "postgres";
-import { and, eq, gte, lte, desc } from "drizzle-orm";
+import { and, eq, gte, lte, desc, or } from "drizzle-orm";
 import { users, amazonTokens, apiKeys, advertiserAccounts, tokenRefreshLog, campaignMetrics } from "@shared/schema";
 import connectPg from "connect-pg-simple";
 import { nanoid } from "nanoid";
@@ -37,6 +37,12 @@ export interface IStorage {
   // Campaign metrics management
   saveCampaignMetrics(metrics: Omit<CampaignMetrics, "id" | "createdAt">): Promise<CampaignMetrics>;
   getCampaignMetrics(userId: string, startDate: Date, endDate: Date): Promise<CampaignMetrics[]>;
+
+  // Report tracking methods
+  createAdReport(data: Omit<AmazonAdReport, "id" | "createdAt" | "lastCheckedAt">): Promise<AmazonAdReport>;
+  updateAdReportStatus(reportId: string, status: string, url?: string): Promise<void>;
+  getAdReport(reportId: string): Promise<AmazonAdReport | undefined>;
+  getActiveReports(profileId: string): Promise<AmazonAdReport[]>;
 
   sessionStore: session.Store;
 }
@@ -176,6 +182,55 @@ export class DatabaseStorage implements IStorage {
       console.error('Error fetching campaign metrics:', error);
       throw error;
     }
+  }
+
+  async createAdReport(data: Omit<AmazonAdReport, "id" | "createdAt" | "lastCheckedAt">): Promise<AmazonAdReport> {
+    const [report] = await db.insert(amazonAdReports)
+      .values(data)
+      .returning();
+    return report;
+  }
+
+  async updateAdReportStatus(reportId: string, status: string, url?: string): Promise<void> {
+    const updates: Partial<AmazonAdReport> = {
+      status,
+      lastCheckedAt: new Date(),
+      retryCount: db.raw('retry_count + 1'),
+    };
+
+    if (url) {
+      updates.downloadUrl = url;
+      updates.urlExpiry = new Date(Date.now() + 60 * 60 * 1000); // 1 hour expiry
+    }
+
+    if (status === 'SUCCESS' || status === 'FAILED') {
+      updates.completedAt = new Date();
+    }
+
+    await db.update(amazonAdReports)
+      .set(updates)
+      .where(eq(amazonAdReports.reportId, reportId));
+  }
+
+  async getAdReport(reportId: string): Promise<AmazonAdReport | undefined> {
+    const [report] = await db.select()
+      .from(amazonAdReports)
+      .where(eq(amazonAdReports.reportId, reportId));
+    return report;
+  }
+
+  async getActiveReports(profileId: string): Promise<AmazonAdReport[]> {
+    return db.select()
+      .from(amazonAdReports)
+      .where(
+        and(
+          eq(amazonAdReports.profileId, profileId),
+          or(
+            eq(amazonAdReports.status, 'PENDING'),
+            eq(amazonAdReports.status, 'IN_PROGRESS')
+          )
+        )
+      );
   }
 }
 

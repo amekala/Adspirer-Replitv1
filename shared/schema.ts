@@ -74,6 +74,24 @@ export const tokenRefreshLog = pgTable("token_refresh_log", {
   errorMessage: text("error_message"),
 });
 
+// Add after existing table definitions
+export const amazonAdReports = pgTable("amazon_ad_reports", {
+  id: serial("id").primaryKey(),
+  reportId: text("report_id").notNull(),
+  profileId: text("profile_id").notNull(),
+  reportType: text("report_type").notNull(),
+  status: text("status").notNull().default("PENDING"),
+  requestParams: json("request_params"),
+  downloadUrl: text("download_url"),
+  urlExpiry: timestamp("url_expiry"),
+  localFilePath: text("local_file_path"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  lastCheckedAt: timestamp("last_checked_at").notNull().defaultNow(),
+  completedAt: timestamp("completed_at"),
+  retryCount: integer("retry_count").notNull().default(0),
+  errorMessage: text("error_message"),
+});
+
 // Insert schemas for API routes
 export const insertApiKeySchema = createInsertSchema(apiKeys).pick({
   name: true,
@@ -102,3 +120,4 @@ export type ApiKey = typeof apiKeys.$inferSelect;
 export type AdvertiserAccount = typeof advertiserAccounts.$inferSelect;
 export type TokenRefreshLog = typeof tokenRefreshLog.$inferSelect;
 export type CampaignMetrics = typeof campaignMetrics.$inferSelect;
+export type AmazonAdReport = typeof amazonAdReports.$inferSelect;
