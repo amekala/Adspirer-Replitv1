@@ -243,15 +243,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
               const statusData = await reportStatusResponse.json();
               console.log(`Report status for ${reportId}:`, statusData.status);
 
-              if (statusData.status === 'COMPLETED') {
+              if (statusData.status === 'SUCCESS') {
                 // Download report data
-                const reportDataResponse = await fetch(statusData.url);
+                console.log(`Report ready, downloading from ${statusData.location}`);
+                const reportDataResponse = await fetch(statusData.location);
                 if (!reportDataResponse.ok) {
                   console.error(`Failed to download report data:`, await reportDataResponse.text());
                   break;
                 }
 
                 reportData = await reportDataResponse.json();
+                console.log(`Successfully downloaded report data:`, reportData);
                 break;
               } else if (statusData.status === 'FAILED') {
                 console.error(`Report generation failed for profile ${profile.profileId}`);
@@ -271,6 +273,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             // Store the metrics
             for (const record of reportData.data || []) {
               try {
+                console.log(`Processing record:`, record);
                 await storage.saveCampaignMetrics({
                   userId: req.user!.id,
                   profileId: profile.profileId,
