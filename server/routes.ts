@@ -176,9 +176,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const clientId = process.env.VITE_AMAZON_CLIENT_ID || process.env.AMAZON_CLIENT_ID;
         const profiles = await storage.getAdvertiserAccounts(req.user!.id);
 
-        console.log(`Starting campaign sync for ${profiles.length} profiles`);
+        const syncStartTime = new Date();
+        console.log(`Starting campaign sync for ${profiles.length} profiles at ${syncStartTime.toISOString()}`);
+
+        // Track success rates
+        const profileStats = {
+          total: profiles.length,
+          success: 0,
+          failed: 0,
+          byMarketplace: {} as Record<string, { success: number; failed: number }>
+        };
 
         for (const profile of profiles) {
+          const profileStartTime = new Date();
+          console.log(`\n=== Processing profile ${profile.profileId} (${profile.marketplace}) ===`);
+          console.log(`Started at: ${profileStartTime.toISOString()}`);
+
+          // Initialize marketplace stats if not exists
+          if (!profileStats.byMarketplace[profile.marketplace]) {
+            profileStats.byMarketplace[profile.marketplace] = { success: 0, failed: 0 };
+          }
+
           const endDate = new Date();
           const startDate = new Date();
           startDate.setDate(endDate.getDate() - 7); // Last 7 days
@@ -254,15 +272,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
                       }
 
                       reportData = await reportDataResponse.json();
-                      console.log(`Successfully downloaded report data:`, reportData);
+                      console.log(`Successfully downloaded report data with ${reportData.data?.length || 0} records`);
                       break;
                     } else if (statusData.status === 'FAILED') {
                       console.error(`Report generation failed for profile ${profile.profileId}`);
                       break;
-                    } else if (statusData.status === 'PENDING') {
-                      console.log(`Report is still pending for ${existingReportId}, retrying in 10 seconds`);
-                    } else {
-                      console.log(`Report status is ${statusData.status} for ${existingReportId}`);
+                    } else if (statusData.status === 'PENDING' || statusData.status === 'IN_PROGRESS') {
+                      console.log(`Report is still ${statusData.status} for ${existingReportId}`);
                     }
 
                     // Wait before next attempt with exponential backoff
@@ -274,7 +290,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
                   if (!reportData) {
                     console.error(`Failed to get report data after ${maxAttempts} attempts for ${existingReportId}`);
+                    profileStats.failed++;
+                    profileStats.byMarketplace[profile.marketplace].failed++;
                   } else {
+                    let recordsProcessed = 0;
                     // Store the metrics
                     for (const record of reportData.data || []) {
                       try {
@@ -289,16 +308,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
                           clicks: record.clicks,
                           cost: record.cost
                         });
+                        recordsProcessed++;
                       } catch (error) {
                         console.error(`Error saving metrics for record:`, record, error);
                       }
                     }
 
-                    console.log(`Saved metrics for profile ${profile.profileId}`);
+                    console.log(`Successfully processed ${recordsProcessed} records for profile ${profile.profileId}`);
+                    profileStats.success++;
+                    profileStats.byMarketplace[profile.marketplace].success++;
                   }
                   continue;
                 }
               }
+              profileStats.failed++;
+              profileStats.byMarketplace[profile.marketplace].failed++;
               continue;
             }
 
@@ -337,7 +361,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
                 }
 
                 reportData = await reportDataResponse.json();
-                console.log(`Successfully downloaded report data:`, reportData);
+                console.log(`Successfully downloaded report data with ${reportData.data?.length || 0} records`);
                 break;
               } else if (statusData.status === 'FAILED') {
                 console.error(`Report generation failed for profile ${profile.profileId}`);
@@ -357,9 +381,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
             if (!reportData) {
               console.error(`Failed to get report data after ${maxAttempts} attempts`);
+              profileStats.failed++;
+              profileStats.byMarketplace[profile.marketplace].failed++;
               continue;
             }
 
+            let recordsProcessed = 0;
             // Store the metrics
             for (const record of reportData.data || []) {
               try {
@@ -374,18 +401,46 @@ export async function registerRoutes(app: Express): Promise<Server> {
                   clicks: record.clicks,
                   cost: record.cost
                 });
+                recordsProcessed++;
               } catch (error) {
                 console.error(`Error saving metrics for record:`, record, error);
               }
             }
 
-            console.log(`Saved metrics for profile ${profile.profileId}`);
+            console.log(`Successfully processed ${recordsProcessed} records for profile ${profile.profileId}`);
+            profileStats.success++;
+            profileStats.byMarketplace[profile.marketplace].success++;
+
           } catch (error) {
             console.error(`Error processing profile ${profile.profileId}:`, error);
+            profileStats.failed++;
+            profileStats.byMarketplace[profile.marketplace].failed++;
           }
+
+          const profileEndTime = new Date();
+          const profileDuration = (profileEndTime.getTime() - profileStartTime.getTime()) / 1000;
+          console.log(`\nProfile ${profile.profileId} processing completed`);
+          console.log(`Duration: ${profileDuration} seconds`);
+          console.log(`End time: ${profileEndTime.toISOString()}\n`);
         }
 
-        console.log('Campaign sync completed');
+        const syncEndTime = new Date();
+        const totalDuration = (syncEndTime.getTime() - syncStartTime.getTime()) / 1000;
+
+        console.log('\n=== Campaign Sync Summary ===');
+        console.log(`Total Duration: ${totalDuration} seconds`);
+        console.log(`Start Time: ${syncStartTime.toISOString()}`);
+        console.log(`End Time: ${syncEndTime.toISOString()}`);
+        console.log('\nSuccess Rate:');
+        console.log(`Total: ${profileStats.success}/${profileStats.total} (${(profileStats.success/profileStats.total*100).toFixed(1)}%)`);
+        console.log('\nBy Marketplace:');
+        Object.entries(profileStats.byMarketplace).forEach(([marketplace, stats]) => {
+          const total = stats.success + stats.failed;
+          const successRate = (stats.success/total*100).toFixed(1);
+          console.log(`${marketplace}: ${stats.success}/${total} (${successRate}%)`);
+        });
+        console.log('\nCampaign sync completed');
+
       } catch (error) {
         console.error("Error in background campaign sync:", error);
       }
