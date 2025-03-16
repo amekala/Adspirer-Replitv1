@@ -92,8 +92,8 @@ export function ApiKeys() {
   };
 
   const truncateKey = (key: string) => {
-    const start = key.slice(0, 8);
-    const end = key.slice(-8);
+    const start = key.slice(0, 6);
+    const end = key.slice(-6);
     return `${start}...${end}`;
   };
 
@@ -109,63 +109,68 @@ export function ApiKeys() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h2 className="text-2xl font-bold tracking-tight">API Keys</h2>
-          <p className="text-muted-foreground">
+          <h2 className="text-lg font-semibold tracking-tight">API Keys</h2>
+          <p className="text-sm text-muted-foreground">
             Manage your API keys for accessing the AdsConnect API
           </p>
         </div>
-        <Button onClick={() => setShowGenerateDialog(true)}>
+        <Button onClick={() => setShowGenerateDialog(true)} className="w-full sm:w-auto">
           <Key className="mr-2 h-4 w-4" />
           Generate New API Key
         </Button>
       </div>
 
       {activeKeys.length > 0 ? (
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Name</TableHead>
-              <TableHead>Key</TableHead>
-              <TableHead>Created</TableHead>
-              <TableHead>Last Used</TableHead>
-              <TableHead className="text-right">Actions</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {activeKeys.map((key) => (
-              <TableRow key={key.id}>
-                <TableCell className="font-medium">{key.name}</TableCell>
-                <TableCell className="font-mono">{truncateKey(key.keyValue)}</TableCell>
-                <TableCell>{new Date(key.createdAt).toLocaleDateString()}</TableCell>
-                <TableCell>
-                  {key.lastUsed ? new Date(key.lastUsed).toLocaleDateString() : 'Never'}
-                </TableCell>
-                <TableCell className="text-right space-x-2">
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => copyToClipboard(key.keyValue)}
-                  >
-                    <Copy className="h-4 w-4" />
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="destructive"
-                    onClick={() => deactivateMutation.mutate(key.id)}
-                    disabled={deactivateMutation.isPending}
-                  >
-                    {deactivateMutation.isPending && (
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    )}
-                    Revoke
-                  </Button>
-                </TableCell>
+        <div className="overflow-auto">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Name</TableHead>
+                <TableHead className="hidden sm:table-cell">Key</TableHead>
+                <TableHead className="hidden sm:table-cell">Created</TableHead>
+                <TableHead className="hidden sm:table-cell">Last Used</TableHead>
+                <TableHead className="text-right">Actions</TableHead>
               </TableRow>
-            ))}
-          </TableBody>
-        </Table>
+            </TableHeader>
+            <TableBody>
+              {activeKeys.map((key) => (
+                <TableRow key={key.id}>
+                  <TableCell className="font-medium">
+                    <div className="sm:hidden text-xs text-muted-foreground mb-1">Name</div>
+                    {key.name}
+                  </TableCell>
+                  <TableCell className="hidden sm:table-cell font-mono">{truncateKey(key.keyValue)}</TableCell>
+                  <TableCell className="hidden sm:table-cell">{new Date(key.createdAt).toLocaleDateString()}</TableCell>
+                  <TableCell className="hidden sm:table-cell">
+                    {key.lastUsed ? new Date(key.lastUsed).toLocaleDateString() : 'Never'}
+                  </TableCell>
+                  <TableCell className="text-right space-x-2">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => copyToClipboard(key.keyValue)}
+                    >
+                      <Copy className="h-4 w-4" />
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="destructive"
+                      onClick={() => deactivateMutation.mutate(key.id)}
+                      disabled={deactivateMutation.isPending}
+                    >
+                      {deactivateMutation.isPending && (
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      )}
+                      Revoke
+                    </Button>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </div>
       ) : (
         <Alert>
           <AlertCircle className="h-4 w-4" />
@@ -177,7 +182,7 @@ export function ApiKeys() {
 
       {/* Generate Key Dialog */}
       <Dialog open={showGenerateDialog} onOpenChange={setShowGenerateDialog}>
-        <DialogContent>
+        <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle>Generate New API Key</DialogTitle>
           </DialogHeader>
@@ -213,29 +218,35 @@ export function ApiKeys() {
 
       {/* New Key Dialog */}
       <Dialog open={showNewKeyDialog} onOpenChange={setShowNewKeyDialog}>
-        <DialogContent>
+        <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle>New API Key Generated</DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
-            <Alert variant="warning">
+            <Alert>
               <AlertCircle className="h-4 w-4" />
               <AlertDescription>
                 Make sure to copy your API key now. You won't be able to see it again!
               </AlertDescription>
             </Alert>
-            <div className="p-4 bg-muted rounded-lg">
-              <code className="text-sm break-all">{newKey?.keyValue}</code>
+            <div className="p-4 bg-muted rounded-lg overflow-x-auto">
+              <code className="text-xs sm:text-sm break-all whitespace-pre-wrap">{newKey?.keyValue}</code>
             </div>
-            <div className="flex justify-end gap-2">
+            <div className="flex flex-col sm:flex-row justify-end gap-2">
               <Button
                 variant="outline"
+                className="w-full sm:w-auto"
                 onClick={() => newKey && copyToClipboard(newKey.keyValue)}
               >
                 <Copy className="mr-2 h-4 w-4" />
                 Copy
               </Button>
-              <Button onClick={() => setShowNewKeyDialog(false)}>Done</Button>
+              <Button 
+                className="w-full sm:w-auto"
+                onClick={() => setShowNewKeyDialog(false)}
+              >
+                Done
+              </Button>
             </div>
           </div>
         </DialogContent>

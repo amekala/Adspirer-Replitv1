@@ -18,7 +18,7 @@ export default function Dashboard() {
               <CardTitle>Platform Integrations</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
+              <div className="grid sm:grid-cols-2 md:grid-cols-3 gap-4 sm:gap-6">
                 {/* Amazon - Active */}
                 <div className="flex items-center gap-4 p-4 bg-card border rounded-lg">
                   <div className="h-12 w-12 flex-shrink-0 rounded-lg bg-primary/10 flex items-center justify-center">
