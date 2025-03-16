@@ -4,12 +4,18 @@ import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { AlertCircle, Loader2 } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 
 export function AmazonConnect() {
   const { toast } = useToast();
 
-  const { data: status, isLoading } = useQuery({
+  const { data: status, isLoading: statusLoading } = useQuery({
     queryKey: ["/api/amazon/status"],
+  });
+
+  const { data: profiles, isLoading: profilesLoading } = useQuery({
+    queryKey: ["/api/amazon/profiles"],
+    enabled: status?.connected === true,
   });
 
   const disconnectMutation = useMutation({
@@ -18,6 +24,7 @@ export function AmazonConnect() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/amazon/status"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/amazon/profiles"] });
       toast({
         title: "Success",
         description: "Amazon Advertising account disconnected",
@@ -61,6 +68,7 @@ export function AmazonConnect() {
 
         await apiRequest("POST", "/api/amazon/connect", { code });
         queryClient.invalidateQueries({ queryKey: ["/api/amazon/status"] });
+        queryClient.invalidateQueries({ queryKey: ["/api/amazon/profiles"] });
         toast({
           title: "Success",
           description: "Amazon Advertising account connected successfully",
@@ -103,7 +111,7 @@ export function AmazonConnect() {
     }
   };
 
-  if (isLoading) {
+  if (statusLoading) {
     return <Loader2 className="h-5 w-5 animate-spin" />;
   }
 
@@ -124,29 +132,73 @@ export function AmazonConnect() {
   }
 
   return (
-    <div>
+    <div className="space-y-6">
       {status?.connected ? (
-        <div className="flex items-center gap-4">
-          <div className="flex-1">
-            <div className="flex items-center gap-2">
-              <div className="h-2 w-2 rounded-full bg-green-500" />
-              <span className="font-medium">Connected</span>
+        <>
+          <div className="flex items-center gap-4">
+            <div className="flex-1">
+              <div className="flex items-center gap-2">
+                <div className="h-2 w-2 rounded-full bg-green-500" />
+                <span className="font-medium">Connected</span>
+              </div>
+              <p className="text-sm text-muted-foreground">
+                Your Amazon Advertising account is connected
+              </p>
             </div>
-            <p className="text-sm text-muted-foreground">
-              Your Amazon Advertising account is connected
-            </p>
+            <Button
+              variant="destructive"
+              onClick={() => disconnectMutation.mutate()}
+              disabled={disconnectMutation.isPending}
+            >
+              {disconnectMutation.isPending && (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              )}
+              Disconnect
+            </Button>
           </div>
-          <Button
-            variant="destructive"
-            onClick={() => disconnectMutation.mutate()}
-            disabled={disconnectMutation.isPending}
-          >
-            {disconnectMutation.isPending && (
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-            )}
-            Disconnect
-          </Button>
-        </div>
+
+          {profilesLoading ? (
+            <Loader2 className="h-5 w-5 animate-spin" />
+          ) : profiles?.length > 0 ? (
+            <div>
+              <h3 className="text-lg font-semibold mb-4">Connected Profiles</h3>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Profile ID</TableHead>
+                    <TableHead>Marketplace</TableHead>
+                    <TableHead>Type</TableHead>
+                    <TableHead>Status</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {profiles.map((profile) => (
+                    <TableRow key={profile.profileId}>
+                      <TableCell>{profile.profileId}</TableCell>
+                      <TableCell>{profile.marketplaceId}</TableCell>
+                      <TableCell>{profile.accountInfo.type}</TableCell>
+                      <TableCell>
+                        {profile.accountInfo.validPaymentMethod ? (
+                          <span className="text-green-600">Active</span>
+                        ) : (
+                          <span className="text-red-600">Payment Required</span>
+                        )}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          ) : (
+            <Alert>
+              <AlertCircle className="h-4 w-4" />
+              <AlertTitle>No Profiles Found</AlertTitle>
+              <AlertDescription>
+                No advertising profiles were found for your account.
+              </AlertDescription>
+            </Alert>
+          )}
+        </>
       ) : (
         <div className="flex items-center gap-4">
           <div className="flex-1">

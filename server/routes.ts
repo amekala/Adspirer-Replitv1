@@ -2,7 +2,7 @@ import { Express, Request, Response } from "express";
 import { createServer, type Server } from "http";
 import { setupAuth } from "./auth";
 import { storage } from "./storage";
-import { insertApiKeySchema } from "@shared/schema";
+import { insertApiKeySchema, insertAdvertiserSchema } from "@shared/schema";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   setupAuth(app);
@@ -30,7 +30,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
     try {
       // Exchange code for tokens with Amazon Ads API
-      const response = await fetch("https://api.amazon.com/auth/o2/token", {
+      const tokenResponse = await fetch("https://api.amazon.com/auth/o2/token", {
         method: "POST",
         headers: { "Content-Type": "application/x-www-form-urlencoded" },
         body: new URLSearchParams({
@@ -42,13 +42,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }),
       });
 
-      if (!response.ok) {
-        const error = await response.text();
+      if (!tokenResponse.ok) {
+        const error = await tokenResponse.text();
         console.error("Amazon OAuth error response:", error);
         throw new Error(`Failed to exchange authorization code: ${error}`);
       }
 
-      const { access_token, refresh_token, expires_in } = await response.json();
+      const { access_token, refresh_token, expires_in } = await tokenResponse.json();
 
       // Store tokens
       await storage.saveAmazonToken({
@@ -57,6 +57,37 @@ export async function registerRoutes(app: Express): Promise<Server> {
         refreshToken: refresh_token,
         expiresAt: new Date(Date.now() + expires_in * 1000),
       });
+
+      // Fetch profiles after successful token exchange
+      const profilesResponse = await fetch("https://advertising-api.amazon.com/v2/profiles", {
+        headers: {
+          "Amazon-Advertising-API-ClientId": clientId,
+          "Authorization": `Bearer ${access_token}`,
+        },
+      });
+
+      if (!profilesResponse.ok) {
+        const error = await profilesResponse.text();
+        console.error("Amazon Profiles API error:", error);
+        throw new Error(`Failed to fetch profiles: ${error}`);
+      }
+
+      const profiles = await profilesResponse.json();
+
+      // Store each profile in the advertisers table
+      for (const profile of profiles) {
+        const advertiser = {
+          userId: req.user!.id,
+          profileId: profile.profileId.toString(),
+          marketplaceId: profile.accountInfo.marketplaceStringId,
+          accountInfo: profile,
+        };
+
+        const result = insertAdvertiserSchema.safeParse(advertiser);
+        if (result.success) {
+          await storage.createAdvertiser(result.data);
+        }
+      }
 
       res.sendStatus(200);
     } catch (error) {
@@ -72,10 +103,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
     res.json({ connected: !!token });
   });
 
+  app.get("/api/amazon/profiles", async (req: Request, res: Response) => {
+    if (!req.isAuthenticated()) return res.sendStatus(401);
+
+    try {
+      const advertisers = await storage.getAdvertisers(req.user!.id);
+      res.json(advertisers);
+    } catch (error) {
+      console.error("Failed to fetch profiles:", error);
+      res.status(500).json({ message: "Failed to fetch profiles" });
+    }
+  });
+
   app.delete("/api/amazon/disconnect", async (req: Request, res: Response) => {
     if (!req.isAuthenticated()) return res.sendStatus(401);
 
     await storage.deleteAmazonToken(req.user!.id);
+    await storage.deleteAdvertisers(req.user!.id);
     res.sendStatus(200);
   });
 

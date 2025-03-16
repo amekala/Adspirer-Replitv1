@@ -1,9 +1,9 @@
-import { User, InsertUser, AmazonToken, ApiKey } from "@shared/schema";
+import { User, InsertUser, AmazonToken, ApiKey, Advertiser, insertAdvertiserSchema } from "@shared/schema";
 import session from "express-session";
 import { drizzle } from "drizzle-orm/postgres-js";
 import { eq } from "drizzle-orm";
 import postgres from "postgres";
-import { users, amazonTokens, apiKeys } from "@shared/schema";
+import { users, amazonTokens, apiKeys, advertisers } from "@shared/schema";
 import connectPg from "connect-pg-simple";
 import { nanoid } from "nanoid";
 
@@ -26,6 +26,11 @@ export interface IStorage {
   createApiKey(userId: number, name: string): Promise<ApiKey>;
   getApiKeys(userId: number): Promise<ApiKey[]>;
   deactivateApiKey(id: number, userId: number): Promise<void>;
+
+  // Advertiser management
+  createAdvertiser(advertiser: Omit<Advertiser, "id" | "createdAt" | "updatedAt">): Promise<Advertiser>;
+  getAdvertisers(userId: number): Promise<Advertiser[]>;
+  deleteAdvertisers(userId: number): Promise<void>;
 
   sessionStore: session.Store;
 }
@@ -91,6 +96,23 @@ export class DatabaseStorage implements IStorage {
       .set({ active: false })
       .where(eq(apiKeys.id, id))
       .where(eq(apiKeys.userId, userId));
+  }
+
+  async createAdvertiser(advertiser: Omit<Advertiser, "id" | "createdAt" | "updatedAt">): Promise<Advertiser> {
+    const result = await db.insert(advertisers).values({
+      ...advertiser,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    }).returning();
+    return result[0];
+  }
+
+  async getAdvertisers(userId: number): Promise<Advertiser[]> {
+    return await db.select().from(advertisers).where(eq(advertisers.userId, userId));
+  }
+
+  async deleteAdvertisers(userId: number): Promise<void> {
+    await db.delete(advertisers).where(eq(advertisers.userId, userId));
   }
 }
 
