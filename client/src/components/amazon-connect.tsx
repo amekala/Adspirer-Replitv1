@@ -34,8 +34,10 @@ export function AmazonConnect() {
 
   const handleConnect = () => {
     const clientId = import.meta.env.VITE_AMAZON_CLIENT_ID;
+    console.log("Client ID:", clientId); // Debug log
 
     if (!clientId) {
+      console.error("VITE_AMAZON_CLIENT_ID not found in environment"); // Debug log
       toast({
         title: "Configuration Error",
         description: "Amazon Client ID is not configured. Please contact support.",
@@ -75,10 +77,11 @@ export function AmazonConnect() {
     // Add message listener for the popup callback
     window.addEventListener("message", handleCallback);
 
+    const amazonOAuthUrl = `https://www.amazon.com/ap/oa?client_id=${clientId}&scope=advertising::campaign_management&response_type=code&redirect_uri=${window.location.origin}/auth/callback`;
+    console.log("OAuth URL:", amazonOAuthUrl); // Debug log
+
     const popup = window.open(
-      `https://www.amazon.com/ap/oa?client_id=${clientId}&scope=advertising::campaign_management&response_type=code&redirect_uri=${
-        window.location.origin
-      }/auth/callback`,
+      amazonOAuthUrl,
       "Connect Amazon Ads",
       `width=${width},height=${height},left=${left},top=${top}`
     );
@@ -90,6 +93,13 @@ export function AmazonConnect() {
           window.removeEventListener("message", handleCallback);
         }
       }, 500);
+    } else {
+      console.error("Failed to open popup window"); // Debug log
+      toast({
+        title: "Error",
+        description: "Failed to open the connection window. Please allow popups for this site.",
+        variant: "destructive",
+      });
     }
   };
 
@@ -97,13 +107,17 @@ export function AmazonConnect() {
     return <Loader2 className="h-5 w-5 animate-spin" />;
   }
 
-  if (!import.meta.env.VITE_AMAZON_CLIENT_ID) {
+  // More detailed error message for debugging
+  const clientId = import.meta.env.VITE_AMAZON_CLIENT_ID;
+  if (!clientId) {
+    console.error("Environment variables:", import.meta.env); // Debug log
     return (
       <Alert variant="destructive">
         <AlertCircle className="h-4 w-4" />
         <AlertTitle>Configuration Error</AlertTitle>
         <AlertDescription>
-          Amazon Client ID is not configured. Please contact support.
+          Amazon Client ID is not configured (VITE_AMAZON_CLIENT_ID not found).
+          This environment variable must be set and start with VITE_ to be accessible in the frontend.
         </AlertDescription>
       </Alert>
     );
