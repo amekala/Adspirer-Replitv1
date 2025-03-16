@@ -1,9 +1,9 @@
 import { User, InsertUser, AmazonToken, ApiKey, AdvertiserAccount } from "@shared/schema";
 import session from "express-session";
 import { drizzle } from "drizzle-orm/postgres-js";
-import { eq } from "drizzle-orm";
 import postgres from "postgres";
-import { users, amazonTokens, apiKeys, advertiserAccounts, tokenRefreshLog, apiRequests } from "@shared/schema";
+import { and, eq } from "drizzle-orm";
+import { users, amazonTokens, apiKeys, advertiserAccounts, tokenRefreshLog } from "@shared/schema";
 import connectPg from "connect-pg-simple";
 import { nanoid } from "nanoid";
 
@@ -28,7 +28,6 @@ export interface IStorage {
   createApiKey(userId: string, name: string): Promise<ApiKey>;
   getApiKeys(userId: string): Promise<ApiKey[]>;
   deactivateApiKey(id: number, userId: string): Promise<void>;
-  logApiRequest(apiKeyId: number, endpoint: string, statusCode: number, responseTime: number): Promise<void>;
 
   // Advertiser management
   createAdvertiserAccount(advertiser: Omit<AdvertiserAccount, "id" | "createdAt" | "lastSynced">): Promise<AdvertiserAccount>;
@@ -103,19 +102,29 @@ export class DatabaseStorage implements IStorage {
   }
 
   async deactivateApiKey(id: number, userId: string): Promise<void> {
-    await db.update(apiKeys)
-      .set({ isActive: false })
-      .where(eq(apiKeys.id, id))
-      .where(eq(apiKeys.userId, userId));
-  }
+    console.log(`Deactivating API key ${id} for user ${userId}`);
 
-  async logApiRequest(apiKeyId: number, endpoint: string, statusCode: number, responseTime: number): Promise<void> {
-    await db.insert(apiRequests).values({
-      apiKeyId,
-      endpoint,
-      statusCode,
-      responseTime,
-    });
+    try {
+      const result = await db
+        .update(apiKeys)
+        .set({ isActive: false })
+        .where(
+          and(
+            eq(apiKeys.id, id),
+            eq(apiKeys.userId, userId)
+          )
+        )
+        .returning();
+
+      console.log(`Deactivation result:`, result);
+
+      if (!result.length) {
+        throw new Error(`API key ${id} not found or not owned by user ${userId}`);
+      }
+    } catch (error) {
+      console.error('Error deactivating API key:', error);
+      throw error;
+    }
   }
 
   async createAdvertiserAccount(advertiser: Omit<AdvertiserAccount, "id" | "createdAt" | "lastSynced">): Promise<AdvertiserAccount> {

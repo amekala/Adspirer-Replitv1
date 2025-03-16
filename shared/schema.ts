@@ -61,27 +61,19 @@ export const tokenRefreshLog = pgTable("token_refresh_log", {
   errorMessage: text("error_message"),
 });
 
-export const apiRequests = pgTable("api_requests", {
-  id: serial("id").primaryKey(),
-  apiKeyId: integer("api_key_id").notNull().references(() => apiKeys.id),
-  endpoint: text("endpoint").notNull(),
-  timestamp: timestamp("timestamp").notNull().defaultNow(),
-  statusCode: integer("status_code").notNull(),
-  responseTime: integer("response_time").notNull(),
-});
-
+// Insert schemas for API routes
 export const insertApiKeySchema = createInsertSchema(apiKeys).pick({
   name: true,
 });
 
-export const insertAdvertiserSchema = createInsertSchema(advertiserAccounts).pick({
-  profileId: true,
-  accountName: true,
-  marketplace: true,
-  accountType: true,
-});
+export const insertAdvertiserSchema = createInsertSchema(advertiserAccounts, {
+  profileId: z.string(),
+  accountName: z.string(),
+  marketplace: z.string(),
+  accountType: z.string(),
+}).omit({ id: true, createdAt: true, lastSynced: true, status: true });
 
-// Types
+// Export types
 export type LoginData = z.infer<typeof loginSchema>;
 export type InsertUser = z.infer<typeof insertUserSchema>;
 export type User = typeof users.$inferSelect;
@@ -89,4 +81,3 @@ export type AmazonToken = typeof amazonTokens.$inferSelect;
 export type ApiKey = typeof apiKeys.$inferSelect;
 export type AdvertiserAccount = typeof advertiserAccounts.$inferSelect;
 export type TokenRefreshLog = typeof tokenRefreshLog.$inferSelect;
-export type ApiRequest = typeof apiRequests.$inferSelect;
