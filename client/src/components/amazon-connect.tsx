@@ -11,11 +11,13 @@ export function AmazonConnect() {
 
   const { data: status, isLoading: statusLoading } = useQuery({
     queryKey: ["/api/amazon/status"],
+    retry: false,
   });
 
-  const { data: profiles, isLoading: profilesLoading } = useQuery({
+  const { data: profiles, isLoading: profilesLoading, error: profilesError } = useQuery({
     queryKey: ["/api/amazon/profiles"],
     enabled: status?.connected === true,
+    retry: 1,
   });
 
   const disconnectMutation = useMutation({
@@ -41,10 +43,9 @@ export function AmazonConnect() {
 
   const handleConnect = () => {
     const clientId = import.meta.env.VITE_AMAZON_CLIENT_ID;
-    console.log("Client ID:", clientId); // Debug log
 
     if (!clientId) {
-      console.error("VITE_AMAZON_CLIENT_ID not found in environment"); // Debug log
+      console.error("VITE_AMAZON_CLIENT_ID not found in environment");
       toast({
         title: "Configuration Error",
         description: "Amazon Client ID is not configured. Please contact support.",
@@ -79,6 +80,8 @@ export function AmazonConnect() {
           description: error instanceof Error ? error.message : "Failed to connect Amazon account",
           variant: "destructive",
         });
+      } finally {
+        window.removeEventListener("message", handleCallback);
       }
     };
 
@@ -86,7 +89,6 @@ export function AmazonConnect() {
     window.addEventListener("message", handleCallback);
 
     const amazonOAuthUrl = `https://www.amazon.com/ap/oa?client_id=${clientId}&scope=advertising::campaign_management&response_type=code&redirect_uri=${window.location.origin}/auth/callback`;
-    console.log("OAuth URL:", amazonOAuthUrl); // Debug log
 
     const popup = window.open(
       amazonOAuthUrl,
@@ -102,7 +104,7 @@ export function AmazonConnect() {
         }
       }, 500);
     } else {
-      console.error("Failed to open popup window"); // Debug log
+      console.error("Failed to open popup window");
       toast({
         title: "Error",
         description: "Failed to open the connection window. Please allow popups for this site.",
@@ -118,7 +120,6 @@ export function AmazonConnect() {
   // More detailed error message for debugging
   const clientId = import.meta.env.VITE_AMAZON_CLIENT_ID;
   if (!clientId) {
-    console.error("Environment variables:", import.meta.env); // Debug log
     return (
       <Alert variant="destructive">
         <AlertCircle className="h-4 w-4" />
@@ -158,7 +159,17 @@ export function AmazonConnect() {
           </div>
 
           {profilesLoading ? (
-            <Loader2 className="h-5 w-5 animate-spin" />
+            <div className="flex justify-center py-8">
+              <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+            </div>
+          ) : profilesError ? (
+            <Alert variant="destructive">
+              <AlertCircle className="h-4 w-4" />
+              <AlertTitle>Error Loading Profiles</AlertTitle>
+              <AlertDescription>
+                Failed to load advertising profiles. Please try disconnecting and reconnecting your account.
+              </AlertDescription>
+            </Alert>
           ) : profiles?.length > 0 ? (
             <div>
               <h3 className="text-lg font-semibold mb-4">Connected Profiles</h3>
@@ -166,6 +177,7 @@ export function AmazonConnect() {
                 <TableHeader>
                   <TableRow>
                     <TableHead>Profile ID</TableHead>
+                    <TableHead>Account Name</TableHead>
                     <TableHead>Marketplace</TableHead>
                     <TableHead>Type</TableHead>
                     <TableHead>Status</TableHead>
@@ -175,14 +187,13 @@ export function AmazonConnect() {
                   {profiles.map((profile) => (
                     <TableRow key={profile.profileId}>
                       <TableCell>{profile.profileId}</TableCell>
-                      <TableCell>{profile.marketplaceId}</TableCell>
-                      <TableCell>{profile.accountInfo.type}</TableCell>
+                      <TableCell>{profile.accountName}</TableCell>
+                      <TableCell>{profile.marketplace}</TableCell>
+                      <TableCell>{profile.accountType}</TableCell>
                       <TableCell>
-                        {profile.accountInfo.validPaymentMethod ? (
-                          <span className="text-green-600">Active</span>
-                        ) : (
-                          <span className="text-red-600">Payment Required</span>
-                        )}
+                        <span className={profile.status === 'active' ? 'text-green-600' : 'text-red-600'}>
+                          {profile.status === 'active' ? 'Active' : 'Inactive'}
+                        </span>
                       </TableCell>
                     </TableRow>
                   ))}

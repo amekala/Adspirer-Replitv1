@@ -1,0 +1,123 @@
+Failed to load resource: the server responded with a status of 401 (Unauthorized)Understand this errorAI
+auth-page.tsx:44 Warning: Cannot update a component (`Switch`) while rendering a different component (`AuthPage`). To locate the bad setState() call inside `AuthPage`, follow the stack trace as described in https://reactjs.org/link/setstate-in-render
+    at AuthPage (https://974fb22c-7bf2-435f-92b8-6b8a9968e57b-00-a2py9mwxuu7p.riker.replit.dev/src/pages/auth-page.tsx:46:27)
+    at Route (https://974fb22c-7bf2-435f-92b8-6b8a9968e57b-00-a2py9mwxuu7p.riker.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/wouter.js?v=9fe2d222:323:16)
+    at Switch (https://974fb22c-7bf2-435f-92b8-6b8a9968e57b-00-a2py9mwxuu7p.riker.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/wouter.js?v=9fe2d222:379:17)
+    at Router
+    at AuthProvider (https://974fb22c-7bf2-435f-92b8-6b8a9968e57b-00-a2py9mwxuu7p.riker.replit.dev/src/hooks/use-auth.tsx:26:32)
+    at QueryClientProvider (https://974fb22c-7bf2-435f-92b8-6b8a9968e57b-00-a2py9mwxuu7p.riker.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/@tanstack_react-query.js?v=9fe2d222:2805:3)
+    at App
+printWarning @ chunk-RPCDYKBN.js?v=9fe2d222:521
+error @ chunk-RPCDYKBN.js?v=9fe2d222:505
+warnAboutRenderPhaseUpdatesInDEV @ chunk-RPCDYKBN.js?v=9fe2d222:19793
+scheduleUpdateOnFiber @ chunk-RPCDYKBN.js?v=9fe2d222:18546
+forceStoreRerender @ chunk-RPCDYKBN.js?v=9fe2d222:11999
+handleStoreChange @ chunk-RPCDYKBN.js?v=9fe2d222:11981
+history.<computed> @ wouter.js?v=9fe2d222:224
+navigate @ wouter.js?v=9fe2d222:214
+(anonymous) @ wouter.js?v=9fe2d222:265
+(anonymous) @ wouter.js?v=9fe2d222:178
+AuthPage @ auth-page.tsx:44
+renderWithHooks @ chunk-RPCDYKBN.js?v=9fe2d222:11548
+updateFunctionComponent @ chunk-RPCDYKBN.js?v=9fe2d222:14582
+beginWork @ chunk-RPCDYKBN.js?v=9fe2d222:15924
+beginWork$1 @ chunk-RPCDYKBN.js?v=9fe2d222:19753
+performUnitOfWork @ chunk-RPCDYKBN.js?v=9fe2d222:19198
+workLoopSync @ chunk-RPCDYKBN.js?v=9fe2d222:19137
+renderRootSync @ chunk-RPCDYKBN.js?v=9fe2d222:19116
+performSyncWorkOnRoot @ chunk-RPCDYKBN.js?v=9fe2d222:18874
+flushSyncCallbacks @ chunk-RPCDYKBN.js?v=9fe2d222:9119
+(anonymous) @ chunk-RPCDYKBN.js?v=9fe2d222:18627
+setTimeout
+scheduleFn @ @tanstack_react-query.js?v=9fe2d222:555
+flush @ @tanstack_react-query.js?v=9fe2d222:569
+batch @ @tanstack_react-query.js?v=9fe2d222:587
+dispatch_fn @ @tanstack_react-query.js?v=9fe2d222:996
+setData @ @tanstack_react-query.js?v=9fe2d222:696
+setQueryData @ @tanstack_react-query.js?v=9fe2d222:1661
+onSuccess @ use-auth.tsx:57
+execute @ @tanstack_react-query.js?v=9fe2d222:1233
+await in execute
+mutate @ @tanstack_react-query.js?v=9fe2d222:2630
+onSubmit @ auth-page.tsx:55
+(anonymous) @ chunk-YABUFNLM.js?v=9fe2d222:1675
+await in (anonymous)
+callCallback2 @ chunk-RPCDYKBN.js?v=9fe2d222:3674
+invokeGuardedCallbackDev @ chunk-RPCDYKBN.js?v=9fe2d222:3699
+invokeGuardedCallback @ chunk-RPCDYKBN.js?v=9fe2d222:3733
+invokeGuardedCallbackAndCatchFirstError @ chunk-RPCDYKBN.js?v=9fe2d222:3736
+executeDispatch @ chunk-RPCDYKBN.js?v=9fe2d222:7014
+processDispatchQueueItemsInOrder @ chunk-RPCDYKBN.js?v=9fe2d222:7034
+processDispatchQueue @ chunk-RPCDYKBN.js?v=9fe2d222:7043
+dispatchEventsForPlugins @ chunk-RPCDYKBN.js?v=9fe2d222:7051
+(anonymous) @ chunk-RPCDYKBN.js?v=9fe2d222:7174
+batchedUpdates$1 @ chunk-RPCDYKBN.js?v=9fe2d222:18913
+batchedUpdates @ chunk-RPCDYKBN.js?v=9fe2d222:3579
+dispatchEventForPluginEventSystem @ chunk-RPCDYKBN.js?v=9fe2d222:7173
+dispatchEventWithEnableCapturePhaseSelectiveHydrationWithoutDiscreteEventReplay @ chunk-RPCDYKBN.js?v=9fe2d222:5478
+dispatchEvent @ chunk-RPCDYKBN.js?v=9fe2d222:5472
+dispatchDiscreteEvent @ chunk-RPCDYKBN.js?v=9fe2d222:5449Understand this errorAI
+amazon-connect.tsx:44 Client ID: amzn1.application-oa2-client.44ed4eff7d964255af8760e45f33be05
+amazon-connect.tsx:89 OAuth URL: https://www.amazon.com/ap/oa?client_id=amzn1.application-oa2-client.44ed4eff7d964255af8760e45f33be05&scope=advertising::campaign_management&response_type=code&redirect_uri=https://974fb22c-7bf2-435f-92b8-6b8a9968e57b-00-a2py9mwxuu7p.riker.replit.dev/auth/callback
+queryClient.ts:32 
+            
+            
+           GET https://974fb22c-7bf2-435f-92b8-6b8a9968e57b-00-a2py9mwxuu7p.riker.replit.dev/api/amazon/profiles 500 (Internal Server Error)
+(anonymous) @ queryClient.ts:32
+fetchFn @ @tanstack_react-query.js?v=9fe2d222:840
+run @ @tanstack_react-query.js?v=9fe2d222:494
+start @ @tanstack_react-query.js?v=9fe2d222:536
+fetch @ @tanstack_react-query.js?v=9fe2d222:926
+executeFetch_fn @ @tanstack_react-query.js?v=9fe2d222:2211
+setOptions @ @tanstack_react-query.js?v=9fe2d222:1955
+(anonymous) @ @tanstack_react-query.js?v=9fe2d222:3032
+commitHookEffectListMount @ chunk-RPCDYKBN.js?v=9fe2d222:16915
+commitPassiveMountOnFiber @ chunk-RPCDYKBN.js?v=9fe2d222:18156
+commitPassiveMountEffects_complete @ chunk-RPCDYKBN.js?v=9fe2d222:18129
+commitPassiveMountEffects_begin @ chunk-RPCDYKBN.js?v=9fe2d222:18119
+commitPassiveMountEffects @ chunk-RPCDYKBN.js?v=9fe2d222:18109
+flushPassiveEffectsImpl @ chunk-RPCDYKBN.js?v=9fe2d222:19490
+flushPassiveEffects @ chunk-RPCDYKBN.js?v=9fe2d222:19447
+commitRootImpl @ chunk-RPCDYKBN.js?v=9fe2d222:19416
+commitRoot @ chunk-RPCDYKBN.js?v=9fe2d222:19277
+performSyncWorkOnRoot @ chunk-RPCDYKBN.js?v=9fe2d222:18895
+flushSyncCallbacks @ chunk-RPCDYKBN.js?v=9fe2d222:9119
+(anonymous) @ chunk-RPCDYKBN.js?v=9fe2d222:18627
+setTimeout
+scheduleFn @ @tanstack_react-query.js?v=9fe2d222:555
+flush @ @tanstack_react-query.js?v=9fe2d222:569
+batch @ @tanstack_react-query.js?v=9fe2d222:587
+dispatch_fn @ @tanstack_react-query.js?v=9fe2d222:996
+setData @ @tanstack_react-query.js?v=9fe2d222:696
+onSuccess @ @tanstack_react-query.js?v=9fe2d222:897
+resolve @ @tanstack_react-query.js?v=9fe2d222:456
+Promise.then
+run @ @tanstack_react-query.js?v=9fe2d222:498
+start @ @tanstack_react-query.js?v=9fe2d222:536
+fetch @ @tanstack_react-query.js?v=9fe2d222:926
+(anonymous) @ @tanstack_react-query.js?v=9fe2d222:1726
+(anonymous) @ @tanstack_react-query.js?v=9fe2d222:1725
+batch @ @tanstack_react-query.js?v=9fe2d222:583
+refetchQueries @ @tanstack_react-query.js?v=9fe2d222:1724
+(anonymous) @ @tanstack_react-query.js?v=9fe2d222:1716
+batch @ @tanstack_react-query.js?v=9fe2d222:583
+invalidateQueries @ @tanstack_react-query.js?v=9fe2d222:1705
+handleCallback @ amazon-connect.tsx:70
+postMessage
+(anonymous) @ auth-callback.tsx:27
+commitHookEffectListMount @ chunk-RPCDYKBN.js:16915
+commitPassiveMountOnFiber @ chunk-RPCDYKBN.js:18156
+commitPassiveMountEffects_complete @ chunk-RPCDYKBN.js:18129
+commitPassiveMountEffects_begin @ chunk-RPCDYKBN.js:18119
+commitPassiveMountEffects @ chunk-RPCDYKBN.js:18109
+flushPassiveEffectsImpl @ chunk-RPCDYKBN.js:19490
+flushPassiveEffects @ chunk-RPCDYKBN.js:19447
+performSyncWorkOnRoot @ chunk-RPCDYKBN.js:18868
+flushSyncCallbacks @ chunk-RPCDYKBN.js:9119
+commitRootImpl @ chunk-RPCDYKBN.js:19432
+commitRoot @ chunk-RPCDYKBN.js:19277
+finishConcurrentRender @ chunk-RPCDYKBN.js:18805
+performConcurrentWorkOnRoot @ chunk-RPCDYKBN.js:18718
+workLoop @ chunk-RPCDYKBN.js:197
+flushWork @ chunk-RPCDYKBN.js:176
+performWorkUntilDeadline @ chunk-RPCDYKBN.js:384Understand this errorAI

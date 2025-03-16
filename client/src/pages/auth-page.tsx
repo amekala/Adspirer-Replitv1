@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useLocation } from "wouter";
 import { useAuth } from "@/hooks/use-auth";
 import { Button } from "@/components/ui/button";
@@ -40,26 +40,32 @@ export default function AuthPage() {
     },
   });
 
-  if (user) {
-    setLocation("/dashboard");
-    return null;
-  }
+  useEffect(() => {
+    if (user) {
+      setLocation("/dashboard");
+    }
+  }, [user, setLocation]);
 
   const onSubmit = async (data: any) => {
-    if (activeTab === "login") {
-      await loginMutation.mutateAsync({
-        email: data.email,
-        password: data.password,
-      });
-    } else {
-      await registerMutation.mutateAsync({
-        email: data.email,
-        password: data.password,
-        confirmPassword: data.confirmPassword
-      });
+    try {
+      if (activeTab === "login") {
+        await loginMutation.mutateAsync({
+          email: data.email,
+          password: data.password,
+        });
+      } else {
+        await registerMutation.mutateAsync({
+          email: data.email,
+          password: data.password,
+        });
+      }
+      setLocation("/dashboard"); // Moved setLocation here to handle successful auth
+    } catch (error) {
+      console.error("Auth error:", error);
     }
-    setLocation("/dashboard");
   };
+
+  if (user) return null;
 
   return (
     <div className="min-h-screen grid md:grid-cols-2">

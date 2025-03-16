@@ -115,7 +115,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     if (!req.isAuthenticated()) return res.sendStatus(401);
 
     try {
-      const advertisers = await storage.getAdvertisers(req.user!.id);
+      const advertisers = await storage.getAdvertiserAccounts(req.user!.id);
       res.json(advertisers);
     } catch (error) {
       console.error("Failed to fetch profiles:", error);
@@ -127,7 +127,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     if (!req.isAuthenticated()) return res.sendStatus(401);
 
     await storage.deleteAmazonToken(req.user!.id);
-    await storage.deleteAdvertisers(req.user!.id);
+    await storage.deleteAdvertiserAccounts(req.user!.id);
     res.sendStatus(200);
   });
 
