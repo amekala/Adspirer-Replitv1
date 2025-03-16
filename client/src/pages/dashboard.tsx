@@ -21,8 +21,8 @@ export default function Dashboard() {
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
                 {/* Amazon - Active */}
                 <div className="flex items-center gap-3 p-3 bg-card border rounded-lg overflow-hidden">
-                  <div className="h-10 w-10 sm:h-12 sm:w-12 flex-shrink-0 rounded-lg bg-primary/10 flex items-center justify-center">
-                    <SiAmazon className="h-5 w-5 sm:h-6 sm:w-6 text-primary" />
+                  <div className="h-10 w-10 sm:h-12 sm:w-12 flex-shrink-0 rounded-lg bg-[#FF9900]/10 flex items-center justify-center">
+                    <SiAmazon className="h-5 w-5 sm:h-6 sm:w-6 text-[#FF9900]" />
                   </div>
                   <div className="min-w-0 flex-1">
                     <p className="font-semibold text-sm sm:text-base truncate">Amazon Ads</p>
@@ -32,8 +32,8 @@ export default function Dashboard() {
 
                 {/* Meta - Coming Soon */}
                 <div className="flex items-center gap-3 p-3 bg-muted/30 border rounded-lg overflow-hidden">
-                  <div className="h-10 w-10 sm:h-12 sm:w-12 flex-shrink-0 rounded-lg bg-muted flex items-center justify-center">
-                    <SiMeta className="h-5 w-5 sm:h-6 sm:w-6 text-muted-foreground" />
+                  <div className="h-10 w-10 sm:h-12 sm:w-12 flex-shrink-0 rounded-lg bg-[#0866FF]/10 flex items-center justify-center">
+                    <SiMeta className="h-5 w-5 sm:h-6 sm:w-6 text-[#0866FF]" />
                   </div>
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-2 flex-wrap">
@@ -46,8 +46,8 @@ export default function Dashboard() {
 
                 {/* Walmart - Coming Soon */}
                 <div className="flex items-center gap-3 p-3 bg-muted/30 border rounded-lg overflow-hidden">
-                  <div className="h-10 w-10 sm:h-12 sm:w-12 flex-shrink-0 rounded-lg bg-muted flex items-center justify-center">
-                    <SiWalmart className="h-5 w-5 sm:h-6 sm:w-6 text-muted-foreground" />
+                  <div className="h-10 w-10 sm:h-12 sm:w-12 flex-shrink-0 rounded-lg bg-[#0071DC]/10 flex items-center justify-center">
+                    <SiWalmart className="h-5 w-5 sm:h-6 sm:w-6 text-[#0071DC]" />
                   </div>
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-2 flex-wrap">
@@ -60,8 +60,8 @@ export default function Dashboard() {
 
                 {/* Instacart - Coming Soon */}
                 <div className="flex items-center gap-3 p-3 bg-muted/30 border rounded-lg overflow-hidden">
-                  <div className="h-10 w-10 sm:h-12 sm:w-12 flex-shrink-0 rounded-lg bg-muted flex items-center justify-center">
-                    <SiInstacart className="h-5 w-5 sm:h-6 sm:w-6 text-muted-foreground" />
+                  <div className="h-10 w-10 sm:h-12 sm:w-12 flex-shrink-0 rounded-lg bg-[#43B02A]/10 flex items-center justify-center">
+                    <SiInstacart className="h-5 w-5 sm:h-6 sm:w-6 text-[#43B02A]" />
                   </div>
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-2 flex-wrap">
@@ -74,8 +74,8 @@ export default function Dashboard() {
 
                 {/* Google Ads - Coming Soon */}
                 <div className="flex items-center gap-3 p-3 bg-muted/30 border rounded-lg overflow-hidden">
-                  <div className="h-10 w-10 sm:h-12 sm:w-12 flex-shrink-0 rounded-lg bg-muted flex items-center justify-center">
-                    <SiGoogleads className="h-5 w-5 sm:h-6 sm:w-6 text-muted-foreground" />
+                  <div className="h-10 w-10 sm:h-12 sm:w-12 flex-shrink-0 rounded-lg bg-[#4285F4]/10 flex items-center justify-center">
+                    <SiGoogleads className="h-5 w-5 sm:h-6 sm:w-6 text-[#4285F4]" />
                   </div>
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-2 flex-wrap">
