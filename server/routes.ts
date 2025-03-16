@@ -574,7 +574,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Fetch customer accounts from Google Ads API
       const accountsResponse = await fetch(
-        "https://googleads.googleapis.com/v16/customers:listAccessibleCustomers",
+        "https://googleads.googleapis.com/v15/customers:listAccessibleCustomers",
         {
           headers: {
             Authorization: `Bearer ${token.accessToken}`,
