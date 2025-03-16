@@ -2,7 +2,8 @@ import { useQuery, useMutation } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
-import { Loader2 } from "lucide-react";
+import { AlertCircle, Loader2 } from "lucide-react";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 
 export function AmazonConnect() {
   const { toast } = useToast();
@@ -32,6 +33,17 @@ export function AmazonConnect() {
   });
 
   const handleConnect = () => {
+    const clientId = import.meta.env.VITE_AMAZON_CLIENT_ID;
+
+    if (!clientId) {
+      toast({
+        title: "Configuration Error",
+        description: "Amazon Client ID is not configured. Please contact support.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     const width = 600;
     const height = 800;
     const left = window.screenX + (window.outerWidth - width) / 2;
@@ -64,9 +76,7 @@ export function AmazonConnect() {
     window.addEventListener("message", handleCallback);
 
     const popup = window.open(
-      `https://www.amazon.com/ap/oa?client_id=${
-        import.meta.env.VITE_AMAZON_CLIENT_ID
-      }&scope=advertising::campaign_management&response_type=code&redirect_uri=${
+      `https://www.amazon.com/ap/oa?client_id=${clientId}&scope=advertising::campaign_management&response_type=code&redirect_uri=${
         window.location.origin
       }/auth/callback`,
       "Connect Amazon Ads",
@@ -85,6 +95,18 @@ export function AmazonConnect() {
 
   if (isLoading) {
     return <Loader2 className="h-5 w-5 animate-spin" />;
+  }
+
+  if (!import.meta.env.VITE_AMAZON_CLIENT_ID) {
+    return (
+      <Alert variant="destructive">
+        <AlertCircle className="h-4 w-4" />
+        <AlertTitle>Configuration Error</AlertTitle>
+        <AlertDescription>
+          Amazon Client ID is not configured. Please contact support.
+        </AlertDescription>
+      </Alert>
+    );
   }
 
   return (
