@@ -2,7 +2,7 @@ import { useQuery, useMutation } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
-import { AlertCircle, Loader2, RefreshCw } from "lucide-react";
+import { AlertCircle, Loader2 } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useIsMobile } from "@/hooks/use-mobile";
@@ -43,7 +43,6 @@ export function GoogleConnect() {
   });
 
   const handleConnect = () => {
-    // Check for environment variables in both dev and prod environments
     const clientId = import.meta.env.VITE_GOOGLE_CLIENT_ID;
 
     if (!clientId) {
@@ -128,12 +127,13 @@ export function GoogleConnect() {
     }, 500);
   };
 
+  // Only show loading state while checking connection status
   if (statusLoading) {
     return <Loader2 className="h-5 w-5 animate-spin" />;
   }
 
-  // Show configuration error if environment variables are missing
-  if (!import.meta.env.VITE_GOOGLE_CLIENT_ID) {
+  // We don't want to show the error until we've at least tried to load the status
+  if (!statusLoading && !import.meta.env.VITE_GOOGLE_CLIENT_ID) {
     return (
       <Alert variant="destructive">
         <AlertCircle className="h-4 w-4" />
