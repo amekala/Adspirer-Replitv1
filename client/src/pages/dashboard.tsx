@@ -17,72 +17,72 @@ export default function Dashboard() {
             <CardHeader>
               <CardTitle>Platform Integrations</CardTitle>
             </CardHeader>
-            <CardContent>
-              <div className="grid sm:grid-cols-2 md:grid-cols-3 gap-4 sm:gap-6">
+            <CardContent className="px-2 sm:px-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
                 {/* Amazon - Active */}
-                <div className="flex items-center gap-4 p-4 bg-card border rounded-lg">
-                  <div className="h-12 w-12 flex-shrink-0 rounded-lg bg-primary/10 flex items-center justify-center">
-                    <SiAmazon className="h-6 w-6 text-primary" />
+                <div className="flex items-center gap-3 p-3 bg-card border rounded-lg overflow-hidden">
+                  <div className="h-10 w-10 sm:h-12 sm:w-12 flex-shrink-0 rounded-lg bg-primary/10 flex items-center justify-center">
+                    <SiAmazon className="h-5 w-5 sm:h-6 sm:w-6 text-primary" />
                   </div>
-                  <div className="min-w-0">
-                    <p className="font-semibold truncate">Amazon Ads</p>
+                  <div className="min-w-0 flex-1">
+                    <p className="font-semibold text-sm sm:text-base truncate">Amazon Ads</p>
                     <AmazonConnect />
                   </div>
                 </div>
 
                 {/* Meta - Coming Soon */}
-                <div className="flex items-center gap-4 p-4 bg-muted/30 border rounded-lg">
-                  <div className="h-12 w-12 flex-shrink-0 rounded-lg bg-muted flex items-center justify-center">
-                    <SiMeta className="h-6 w-6 text-muted-foreground" />
+                <div className="flex items-center gap-3 p-3 bg-muted/30 border rounded-lg overflow-hidden">
+                  <div className="h-10 w-10 sm:h-12 sm:w-12 flex-shrink-0 rounded-lg bg-muted flex items-center justify-center">
+                    <SiMeta className="h-5 w-5 sm:h-6 sm:w-6 text-muted-foreground" />
                   </div>
-                  <div className="min-w-0">
+                  <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-2 flex-wrap">
-                      <p className="font-semibold">Meta Ads</p>
-                      <Badge variant="secondary">Coming Soon</Badge>
+                      <p className="font-semibold text-sm sm:text-base">Meta Ads</p>
+                      <Badge variant="secondary" className="text-xs">Coming Soon</Badge>
                     </div>
-                    <p className="text-sm text-muted-foreground truncate">Facebook & Instagram</p>
+                    <p className="text-xs sm:text-sm text-muted-foreground truncate">Facebook & Instagram</p>
                   </div>
                 </div>
 
                 {/* Walmart - Coming Soon */}
-                <div className="flex items-center gap-4 p-4 bg-muted/30 border rounded-lg">
-                  <div className="h-12 w-12 flex-shrink-0 rounded-lg bg-muted flex items-center justify-center">
-                    <SiWalmart className="h-6 w-6 text-muted-foreground" />
+                <div className="flex items-center gap-3 p-3 bg-muted/30 border rounded-lg overflow-hidden">
+                  <div className="h-10 w-10 sm:h-12 sm:w-12 flex-shrink-0 rounded-lg bg-muted flex items-center justify-center">
+                    <SiWalmart className="h-5 w-5 sm:h-6 sm:w-6 text-muted-foreground" />
                   </div>
-                  <div className="min-w-0">
+                  <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-2 flex-wrap">
-                      <p className="font-semibold">Walmart Connect</p>
-                      <Badge variant="secondary">Coming Soon</Badge>
+                      <p className="font-semibold text-sm sm:text-base">Walmart Connect</p>
+                      <Badge variant="secondary" className="text-xs">Coming Soon</Badge>
                     </div>
-                    <p className="text-sm text-muted-foreground truncate">Walmart DSP</p>
+                    <p className="text-xs sm:text-sm text-muted-foreground truncate">Walmart DSP</p>
                   </div>
                 </div>
 
                 {/* Instacart - Coming Soon */}
-                <div className="flex items-center gap-4 p-4 bg-muted/30 border rounded-lg">
-                  <div className="h-12 w-12 flex-shrink-0 rounded-lg bg-muted flex items-center justify-center">
-                    <SiInstacart className="h-6 w-6 text-muted-foreground" />
+                <div className="flex items-center gap-3 p-3 bg-muted/30 border rounded-lg overflow-hidden">
+                  <div className="h-10 w-10 sm:h-12 sm:w-12 flex-shrink-0 rounded-lg bg-muted flex items-center justify-center">
+                    <SiInstacart className="h-5 w-5 sm:h-6 sm:w-6 text-muted-foreground" />
                   </div>
-                  <div className="min-w-0">
+                  <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-2 flex-wrap">
-                      <p className="font-semibold">Instacart Ads</p>
-                      <Badge variant="secondary">Coming Soon</Badge>
+                      <p className="font-semibold text-sm sm:text-base">Instacart Ads</p>
+                      <Badge variant="secondary" className="text-xs">Coming Soon</Badge>
                     </div>
-                    <p className="text-sm text-muted-foreground truncate">Retail Media</p>
+                    <p className="text-xs sm:text-sm text-muted-foreground truncate">Retail Media</p>
                   </div>
                 </div>
 
                 {/* Google Ads - Coming Soon */}
-                <div className="flex items-center gap-4 p-4 bg-muted/30 border rounded-lg">
-                  <div className="h-12 w-12 flex-shrink-0 rounded-lg bg-muted flex items-center justify-center">
-                    <SiGoogleads className="h-6 w-6 text-muted-foreground" />
+                <div className="flex items-center gap-3 p-3 bg-muted/30 border rounded-lg overflow-hidden">
+                  <div className="h-10 w-10 sm:h-12 sm:w-12 flex-shrink-0 rounded-lg bg-muted flex items-center justify-center">
+                    <SiGoogleads className="h-5 w-5 sm:h-6 sm:w-6 text-muted-foreground" />
                   </div>
-                  <div className="min-w-0">
+                  <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-2 flex-wrap">
-                      <p className="font-semibold">Google Ads</p>
-                      <Badge variant="secondary">Coming Soon</Badge>
+                      <p className="font-semibold text-sm sm:text-base">Google Ads</p>
+                      <Badge variant="secondary" className="text-xs">Coming Soon</Badge>
                     </div>
-                    <p className="text-sm text-muted-foreground truncate">Performance Max</p>
+                    <p className="text-xs sm:text-sm text-muted-foreground truncate">Performance Max</p>
                   </div>
                 </div>
               </div>

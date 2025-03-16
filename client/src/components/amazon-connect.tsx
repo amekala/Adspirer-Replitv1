@@ -78,7 +78,6 @@ export function AmazonConnect() {
     const left = window.screenX + (window.outerWidth - width) / 2;
     const top = window.screenY + (window.outerHeight - height) / 2;
 
-    // Create a function to handle the OAuth callback
     const handleCallback = async (event: MessageEvent) => {
       if (event.origin !== window.location.origin) return;
 
@@ -104,7 +103,6 @@ export function AmazonConnect() {
       }
     };
 
-    // Add message listener for the popup callback
     window.addEventListener("message", handleCallback);
 
     const amazonOAuthUrl = `https://www.amazon.com/ap/oa?client_id=${clientId}&scope=advertising::campaign_management&response_type=code&redirect_uri=${window.location.origin}/auth/callback`;
@@ -136,7 +134,6 @@ export function AmazonConnect() {
     return <Loader2 className="h-5 w-5 animate-spin" />;
   }
 
-  // More detailed error message for debugging
   const clientId = import.meta.env.VITE_AMAZON_CLIENT_ID;
   if (!clientId) {
     return (
@@ -152,46 +149,51 @@ export function AmazonConnect() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       {status?.connected ? (
         <>
-          <div className="flex items-center gap-4">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
             <div className="flex-1">
               <div className="flex items-center gap-2">
                 <div className="h-2 w-2 rounded-full bg-green-500" />
-                <span className="font-medium">Connected</span>
+                <span className="font-medium text-sm sm:text-base">Connected</span>
               </div>
-              <p className="text-sm text-muted-foreground">
+              <p className="text-xs sm:text-sm text-muted-foreground">
                 Your Amazon Advertising account is connected
               </p>
             </div>
-            <Button
-              variant="outline"
-              onClick={() => syncMutation.mutate()}
-              disabled={syncMutation.isPending}
-              className="mr-2"
-            >
-              {syncMutation.isPending ? (
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              ) : (
-                <RefreshCw className="mr-2 h-4 w-4" />
-              )}
-              Sync Campaigns
-            </Button>
-            <Button
-              variant="destructive"
-              onClick={() => disconnectMutation.mutate()}
-              disabled={disconnectMutation.isPending}
-            >
-              {disconnectMutation.isPending && (
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              )}
-              Disconnect
-            </Button>
+            <div className="flex flex-wrap gap-2 w-full sm:w-auto">
+              <Button
+                variant="outline"
+                onClick={() => syncMutation.mutate()}
+                disabled={syncMutation.isPending}
+                className="flex-1 sm:flex-none"
+                size="sm"
+              >
+                {syncMutation.isPending ? (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                ) : (
+                  <RefreshCw className="mr-2 h-4 w-4" />
+                )}
+                Sync
+              </Button>
+              <Button
+                variant="destructive"
+                onClick={() => disconnectMutation.mutate()}
+                disabled={disconnectMutation.isPending}
+                className="flex-1 sm:flex-none"
+                size="sm"
+              >
+                {disconnectMutation.isPending && (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                )}
+                Disconnect
+              </Button>
+            </div>
           </div>
 
           {profilesLoading ? (
-            <div className="flex justify-center py-8">
+            <div className="flex justify-center py-4">
               <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
             </div>
           ) : profilesError ? (
@@ -203,26 +205,36 @@ export function AmazonConnect() {
               </AlertDescription>
             </Alert>
           ) : profiles?.length > 0 ? (
-            <div>
-              <h3 className="text-lg font-semibold mb-4">Connected Profiles</h3>
+            <div className="overflow-auto">
+              <div className="text-sm font-medium mb-2">Connected Profiles</div>
               <Table>
                 <TableHeader>
                   <TableRow>
                     <TableHead>Profile ID</TableHead>
-                    <TableHead>Account Name</TableHead>
-                    <TableHead>Marketplace</TableHead>
-                    <TableHead>Type</TableHead>
+                    <TableHead className="hidden sm:table-cell">Account Name</TableHead>
+                    <TableHead className="hidden sm:table-cell">Marketplace</TableHead>
+                    <TableHead className="hidden sm:table-cell">Type</TableHead>
                     <TableHead>Status</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {profiles.map((profile) => (
                     <TableRow key={profile.profileId}>
-                      <TableCell>{profile.profileId}</TableCell>
-                      <TableCell>{profile.accountName}</TableCell>
-                      <TableCell>{profile.marketplace}</TableCell>
-                      <TableCell>{profile.accountType}</TableCell>
+                      <TableCell className="font-mono text-xs sm:text-sm">
+                        <div className="sm:hidden text-xs text-muted-foreground mb-1">Profile ID</div>
+                        {profile.profileId}
+                      </TableCell>
+                      <TableCell className="hidden sm:table-cell">
+                        {profile.accountName}
+                      </TableCell>
+                      <TableCell className="hidden sm:table-cell">
+                        {profile.marketplace}
+                      </TableCell>
+                      <TableCell className="hidden sm:table-cell">
+                        {profile.accountType}
+                      </TableCell>
                       <TableCell>
+                        <div className="sm:hidden text-xs text-muted-foreground mb-1">Status</div>
                         <span className={profile.status === 'active' ? 'text-green-600' : 'text-red-600'}>
                           {profile.status === 'active' ? 'Active' : 'Inactive'}
                         </span>
@@ -243,17 +255,23 @@ export function AmazonConnect() {
           )}
         </>
       ) : (
-        <div className="flex items-center gap-4">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
           <div className="flex-1">
             <div className="flex items-center gap-2">
               <div className="h-2 w-2 rounded-full bg-gray-300" />
-              <span className="font-medium">Not Connected</span>
+              <span className="font-medium text-sm sm:text-base">Not Connected</span>
             </div>
-            <p className="text-sm text-muted-foreground">
+            <p className="text-xs sm:text-sm text-muted-foreground">
               Connect your Amazon Advertising account to get started
             </p>
           </div>
-          <Button onClick={handleConnect}>Connect Amazon Ads</Button>
+          <Button 
+            onClick={handleConnect}
+            className="w-full sm:w-auto"
+            size="sm"
+          >
+            Connect Amazon Ads
+          </Button>
         </div>
       )}
     </div>
