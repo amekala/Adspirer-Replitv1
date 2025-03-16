@@ -4,9 +4,8 @@ import { z } from "zod";
 
 export const users = pgTable("users", {
   id: uuid("id").defaultRandom().primaryKey(),
-  username: text("username").notNull().unique(),
+  email: text("email").notNull().unique(),
   password: text("password").notNull(),
-  email: text("email").unique(),
   role: text("role").notNull().default("user"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
@@ -59,18 +58,17 @@ export const apiRequests = pgTable("api_requests", {
   endpoint: text("endpoint").notNull(),
   timestamp: timestamp("timestamp").notNull().defaultNow(),
   statusCode: integer("status_code").notNull(),
-  responseTime: integer("response_time").notNull(), // in milliseconds
+  responseTime: integer("response_time").notNull(),
 });
 
 // Insert schemas
 export const insertUserSchema = createInsertSchema(users, {
   email: z.string().email("Invalid email address"),
-  username: z.string().min(1, "Username is required"),
   password: z.string().min(6, "Password must be at least 6 characters"),
 });
 
 export const loginSchema = insertUserSchema.pick({
-  username: true,
+  email: true,
   password: true,
 });
 

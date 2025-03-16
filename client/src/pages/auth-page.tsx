@@ -34,9 +34,8 @@ export default function AuthPage() {
   const form = useForm({
     resolver: zodResolver(activeTab === "login" ? loginSchema : registerSchema),
     defaultValues: {
-      username: "",
-      password: "",
       email: "",
+      password: "",
       confirmPassword: "",
     },
   });
@@ -49,14 +48,14 @@ export default function AuthPage() {
   const onSubmit = async (data: any) => {
     if (activeTab === "login") {
       await loginMutation.mutateAsync({
-        username: data.username,
+        email: data.email,
         password: data.password,
       });
     } else {
       await registerMutation.mutateAsync({
-        username: data.username,
-        password: data.password,
         email: data.email,
+        password: data.password,
+        confirmPassword: data.confirmPassword
       });
     }
     setLocation("/dashboard");
@@ -76,32 +75,17 @@ export default function AuthPage() {
               <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
                 <FormField
                   control={form.control}
-                  name="username"
+                  name="email"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Username</FormLabel>
+                      <FormLabel>Email</FormLabel>
                       <FormControl>
-                        <Input {...field} />
+                        <Input type="email" {...field} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
                   )}
                 />
-                {activeTab === "register" && (
-                  <FormField
-                    control={form.control}
-                    name="email"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Email</FormLabel>
-                        <FormControl>
-                          <Input type="email" {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                )}
                 <FormField
                   control={form.control}
                   name="password"
