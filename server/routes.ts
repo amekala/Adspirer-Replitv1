@@ -73,7 +73,7 @@ async function processSingleProfile(profile: AdvertiserAccount, token: AmazonTok
     startDate.setDate(endDate.getDate() - 7); // Last 7 days
 
     const reportRequest = {
-      name: `SP campaigns report ${startDate.toISOString().split('T')[0]}-${endDate.toISOString().split('T')[0]}_${Date.now()}`,
+      name: `SP campaigns report ${startDate.toISOString().split('T')[0]}-${endDate.toISOString().split('T')[0]}${Date.now()}`,
       startDate: startDate.toISOString().split('T')[0],
       endDate: endDate.toISOString().split('T')[0],
       configuration: {
@@ -603,7 +603,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     if (!req.isAuthenticated()) return res.sendStatus(401);
 
     await storage.deleteGoogleToken(req.user!.id);
-    await storage.deleteGoogleAccounts(req.user!.id);
+    await storage.deleteGoogleAdvertiserAccounts(req.user!.id);
     res.sendStatus(200);
   });
 

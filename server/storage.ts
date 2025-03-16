@@ -395,6 +395,9 @@ export class DatabaseStorage implements IStorage {
       throw error;
     }
   }
+  async deleteGoogleAdvertiserAccounts(userId: string): Promise<void> {
+    await db.delete(googleAdvertiserAccounts).where(eq(googleAdvertiserAccounts.userId, userId));
+  }
 }
 
 export const storage = new DatabaseStorage();
