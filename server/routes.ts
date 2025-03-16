@@ -162,74 +162,89 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/amazon/campaigns/sync", async (req: Request, res: Response) => {
     if (!req.isAuthenticated()) return res.sendStatus(401);
 
-    try {
-      const token = await storage.getAmazonToken(req.user!.id);
-      if (!token) {
-        return res.status(400).json({ message: "Amazon account not connected" });
-      }
-
-      const clientId = process.env.VITE_AMAZON_CLIENT_ID || process.env.AMAZON_CLIENT_ID;
-
-      // Fetch advertiser accounts to get profile IDs
-      const profiles = await storage.getAdvertiserAccounts(req.user!.id);
-
-      for (const profile of profiles) {
-        const endDate = new Date();
-        const startDate = new Date();
-        startDate.setDate(endDate.getDate() - 7); // Last 7 days
-
-        const reportRequest = {
-          name: `SP campaigns report ${startDate.toLocaleDateString()}-${endDate.toLocaleDateString()}`,
-          startDate: startDate.toISOString().split('T')[0],
-          endDate: endDate.toISOString().split('T')[0],
-          configuration: {
-            adProduct: "SPONSORED_PRODUCTS",
-            groupBy: ["campaign", "adGroup"],
-            columns: ["impressions", "clicks", "cost", "campaignId", "adGroupId", "date"],
-            reportTypeId: "spCampaigns",
-            timeUnit: "DAILY",
-            format: "GZIP_JSON"
-          }
-        };
-
-        const reportResponse = await fetch("https://advertising-api.amazon.com/reporting/reports", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/vnd.createasyncreportrequest.v3+json",
-            "Amazon-Advertising-API-ClientId": clientId!,
-            "Amazon-Advertising-API-Scope": profile.profileId,
-            "Authorization": `Bearer ${token.accessToken}`
-          },
-          body: JSON.stringify(reportRequest)
-        });
-
-        if (!reportResponse.ok) {
-          console.error(`Failed to fetch report for profile ${profile.profileId}:`, await reportResponse.text());
-          continue;
-        }
-
-        const reportData = await reportResponse.json();
-
-        // Store the metrics in our database
-        for (const record of reportData.data) {
-          await storage.saveCampaignMetrics({
-            userId: req.user!.id,
-            profileId: profile.profileId,
-            campaignId: record.campaignId,
-            adGroupId: record.adGroupId,
-            date: new Date(record.date),
-            impressions: record.impressions,
-            clicks: record.clicks,
-            cost: record.cost
-          });
-        }
-      }
-
-      res.json({ message: "Campaign data sync completed" });
-    } catch (error) {
-      console.error("Error syncing campaign data:", error);
-      res.status(500).json({ message: error instanceof Error ? error.message : "Failed to sync campaign data" });
+    const token = await storage.getAmazonToken(req.user!.id);
+    if (!token) {
+      return res.status(400).json({ message: "Amazon account not connected" });
     }
+
+    // Start async processing and return immediately
+    res.status(202).json({ message: "Campaign sync started" });
+
+    // Process in background
+    (async () => {
+      try {
+        const clientId = process.env.VITE_AMAZON_CLIENT_ID || process.env.AMAZON_CLIENT_ID;
+        const profiles = await storage.getAdvertiserAccounts(req.user!.id);
+
+        console.log(`Starting campaign sync for ${profiles.length} profiles`);
+
+        for (const profile of profiles) {
+          const endDate = new Date();
+          const startDate = new Date();
+          startDate.setDate(endDate.getDate() - 7); // Last 7 days
+
+          const reportRequest = {
+            name: `SP campaigns report ${startDate.toLocaleDateString()}-${endDate.toLocaleDateString()}`,
+            startDate: startDate.toISOString().split('T')[0],
+            endDate: endDate.toISOString().split('T')[0],
+            configuration: {
+              adProduct: "SPONSORED_PRODUCTS",
+              groupBy: ["campaign", "adGroup"],
+              columns: ["impressions", "clicks", "cost", "campaignId", "adGroupId", "date"],
+              reportTypeId: "spCampaigns",
+              timeUnit: "DAILY",
+              format: "GZIP_JSON"
+            }
+          };
+
+          console.log(`Requesting report for profile ${profile.profileId}`);
+
+          try {
+            const reportResponse = await fetch("https://advertising-api.amazon.com/reporting/reports", {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/vnd.createasyncreportrequest.v3+json",
+                "Amazon-Advertising-API-ClientId": clientId!,
+                "Amazon-Advertising-API-Scope": profile.profileId,
+                "Authorization": `Bearer ${token.accessToken}`
+              },
+              body: JSON.stringify(reportRequest)
+            });
+
+            if (!reportResponse.ok) {
+              const errorText = await reportResponse.text();
+              console.error(`Failed to fetch report for profile ${profile.profileId}:`, errorText);
+              continue;
+            }
+
+            const reportData = await reportResponse.json();
+            console.log(`Got report data for profile ${profile.profileId}:`, reportData);
+
+            // Store the metrics
+            for (const record of reportData.data || []) {
+              await storage.saveCampaignMetrics({
+                userId: req.user!.id,
+                profileId: profile.profileId,
+                campaignId: record.campaignId,
+                adGroupId: record.adGroupId,
+                date: new Date(record.date),
+                impressions: record.impressions,
+                clicks: record.clicks,
+                cost: record.cost
+              });
+            }
+
+            console.log(`Saved metrics for profile ${profile.profileId}`);
+          } catch (error) {
+            console.error(`Error processing profile ${profile.profileId}:`, error);
+          }
+        }
+
+        console.log('Campaign sync completed');
+      } catch (error) {
+        console.error("Error in background campaign sync:", error);
+      }
+    })().catch(console.error);
   });
 
   const httpServer = createServer(app);
