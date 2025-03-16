@@ -1,16 +1,20 @@
 {
   "name": "adspirer-mcp",
   "version": "1.0.0",
-  "description": "MCP server for Adspirer Amazon Ads management",
-  "main": "dist/index.js",
+  "description": "MCP server for Adspirer's Amazon and Google Ads management platform",
+  "main": "dist/server/mcp/index.js",
   "type": "module",
+  "bin": {
+    "adspirer-mcp": "./dist/server/mcp/start.js"
+  },
   "files": [
     "dist",
-    "README.md"
+    "README.md",
+    "claude-config.json"
   ],
   "scripts": {
-    "build": "tsc",
-    "start": "node dist/start.js",
+    "build": "tsc && tsx build.ts",
+    "start": "node dist/server/mcp/start.js",
     "dev": "tsx start.ts",
     "prepublishOnly": "npm run build"
   },
@@ -18,6 +22,7 @@
     "mcp",
     "claude",
     "amazon-ads",
+    "google-ads",
     "adspirer"
   ],
   "author": "Adspirer",

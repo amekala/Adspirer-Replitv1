@@ -4,18 +4,39 @@ This MCP (Model Context Protocol) server enables Claude Desktop integration with
 
 ## Installation
 
+### Option 1: Global Installation
 ```bash
-npm install adspirer-mcp
+npm install -g adspirer-mcp
+```
+
+### Option 2: Local Development
+```bash
+# Clone the repository
+git clone <repository-url>
+
+# Install dependencies
+cd adspirer-mcp
+npm install
+
+# Build the package
+npm run build
+
+# Start the server
+npm start
 ```
 
 ## Usage with Claude Desktop
 
 1. Generate an API key from your Adspirer dashboard
-2. Download the Claude Desktop app
+2. Download and install Claude Desktop from https://claude.ai/download
 3. Open Claude Desktop settings
-4. Add a new MCP server using the following configuration:
-   - Copy the contents of `claude-config.json` into a new file
+4. Add a new MCP server:
+   - Click "Add Server"
+   - Select "Import from file"
+   - Choose the `claude-config.json` file from this package
    - Enter your API key when prompted
+5. The server should now appear in your MCP servers list
+6. Test the connection by asking Claude about your ad campaigns
 
 ## Features
 
@@ -74,3 +95,24 @@ npm run build
 
 # Start production server
 npm start
+```
+
+## Testing with Claude Desktop
+
+1. Install the package locally:
+```bash
+npm install -g ./
+```
+
+2. Test the command-line tool:
+```bash
+adspirer-mcp
+```
+
+3. In Claude Desktop:
+   - Open Settings
+   - Navigate to MCP Servers
+   - Click "Add Server"
+   - Import the `claude-config.json` file
+   - Enter your API key
+   - Test the connection by asking about your campaigns

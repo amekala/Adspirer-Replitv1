@@ -1,10 +1,10 @@
 import { McpServer, ResourceTemplate } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
+import type { RequestHandlerExtra, Progress } from "@modelcontextprotocol/sdk/shared/protocol.js";
 import { db } from "../db.js";
 import { eq } from "drizzle-orm";
-import { apiKeys, campaignMetrics, advertiserAccounts, googleAdvertiserAccounts, googleCampaignMetrics } from "@shared/schema.js";
+import { apiKeys, campaignMetrics, advertiserAccounts, googleAdvertiserAccounts, googleCampaignMetrics } from "../../shared/schema.js";
 import { z } from "zod";
-import type { RequestHandlerExtra } from "@modelcontextprotocol/sdk/server/mcp.js";
 
 interface Context {
   headers?: {
@@ -16,6 +16,18 @@ interface Context {
 const server = new McpServer({
   name: "Adspirer MCP",
   version: "1.0.0"
+}, {
+  capabilities: {
+    resources: {
+      schemes: [
+        "campaigns",
+        "amazon-profiles",
+        "amazon-accounts",
+        "google-accounts",
+        "google-campaigns"
+      ]
+    }
+  }
 });
 
 // Error codes
@@ -52,11 +64,18 @@ async function validateApiKey(apiKey: string) {
   }
 }
 
+function reportProgress(progress: Progress | undefined, message: string, percentage: number) {
+  progress?.onProgress({
+    message,
+    percentage
+  });
+}
+
 // Add Amazon Advertising profiles resource
 server.resource(
   "amazon-profiles",
-  "amazon-profiles://",
-  async (uri: URL, _params: {}, context: Context, extra: RequestHandlerExtra) => {
+  new ResourceTemplate("amazon-profiles://", { list: undefined }),
+  async (uri: URL, _params: Record<string, never>, context: Context, extra: RequestHandlerExtra) => {
     try {
       const apiKey = context.headers?.["x-api-key"];
       if (!apiKey) {
@@ -68,10 +87,7 @@ server.resource(
 
       const key = await validateApiKey(apiKey);
 
-      extra.progress?.({
-        message: "Fetching Amazon profiles...",
-        percentage: 50
-      });
+      reportProgress(extra.progress, "Fetching Amazon profiles...", 50);
 
       const profiles = await db
         .select({
@@ -84,10 +100,7 @@ server.resource(
         .from(advertiserAccounts)
         .where(eq(advertiserAccounts.userId, key.userId));
 
-      extra.progress?.({
-        message: "Profiles retrieved successfully",
-        percentage: 100
-      });
+      reportProgress(extra.progress, "Profiles retrieved successfully", 100);
 
       return {
         contents: profiles.map((profile) => ({
@@ -107,8 +120,8 @@ server.resource(
 // Add Google Ads accounts resource
 server.resource(
   "google-accounts",
-  "google-accounts://",
-  async (uri: URL, _params: {}, context: Context, extra: RequestHandlerExtra) => {
+  new ResourceTemplate("google-accounts://", { list: undefined }),
+  async (uri: URL, _params: Record<string, never>, context: Context, extra: RequestHandlerExtra) => {
     try {
       const apiKey = context.headers?.["x-api-key"];
       if (!apiKey) {
@@ -120,10 +133,7 @@ server.resource(
 
       const key = await validateApiKey(apiKey);
 
-      extra.progress?.({
-        message: "Fetching Google Ads accounts...",
-        percentage: 50
-      });
+      reportProgress(extra.progress, "Fetching Google Ads accounts...", 50);
 
       const accounts = await db
         .select({
@@ -134,10 +144,7 @@ server.resource(
         .from(googleAdvertiserAccounts)
         .where(eq(googleAdvertiserAccounts.userId, key.userId));
 
-      extra.progress?.({
-        message: "Accounts retrieved successfully",
-        percentage: 100
-      });
+      reportProgress(extra.progress, "Accounts retrieved successfully", 100);
 
       return {
         contents: accounts.map((account) => ({
@@ -170,11 +177,7 @@ server.resource(
 
       const key = await validateApiKey(apiKey);
 
-      // Report progress
-      extra.progress?.({
-        message: "Fetching campaign data...",
-        percentage: 50
-      });
+      reportProgress(extra.progress, "Fetching campaign data...", 50);
 
       const campaigns = await db
         .select({
@@ -190,11 +193,7 @@ server.resource(
         .where(eq(campaignMetrics.userId, key.userId))
         .where(eq(campaignMetrics.profileId, params.profileId));
 
-      // Report completion
-      extra.progress?.({
-        message: "Data retrieved successfully",
-        percentage: 100
-      });
+      reportProgress(extra.progress, "Data retrieved successfully", 100);
 
       return {
         contents: campaigns.map((campaign) => ({
@@ -211,7 +210,7 @@ server.resource(
   }
 );
 
-// Add a campaign performance analysis tool
+// Add tools and prompts
 server.tool(
   "analyze-performance",
   {
@@ -223,11 +222,11 @@ server.tool(
       end: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Invalid date format. Use YYYY-MM-DD")
     })
   },
-  async (args: { 
+  async (args: {
     platformType: "amazon" | "google",
-    accountId: string, 
-    campaignId: string, 
-    dateRange: { start: string, end: string } 
+    accountId: string,
+    campaignId: string,
+    dateRange: { start: string, end: string }
   }, extra: RequestHandlerExtra) => {
     try {
       const apiKey = extra.context?.headers?.["x-api-key"];
@@ -240,11 +239,7 @@ server.tool(
 
       const key = await validateApiKey(apiKey);
 
-      // Report progress
-      extra.progress?.({
-        message: "Analyzing campaign performance...",
-        percentage: 50
-      });
+      reportProgress(extra.progress, "Analyzing campaign performance...", 50);
 
       let metrics;
       if (args.platformType === "amazon") {
@@ -279,11 +274,7 @@ server.tool(
       const ctr = totalClicks / totalImpressions;
       const cpc = totalCost / totalClicks;
 
-      // Report completion
-      extra.progress?.({
-        message: "Analysis complete",
-        percentage: 100
-      });
+      reportProgress(extra.progress, "Analysis complete", 100);
 
       return {
         content: [{

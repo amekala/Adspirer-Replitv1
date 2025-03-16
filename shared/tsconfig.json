@@ -6,13 +6,9 @@
     "esModuleInterop": true,
     "strict": true,
     "outDir": "./dist",
-    "rootDir": "../..",
     "skipLibCheck": true,
     "declaration": true,
     "composite": true
   },
-  "include": [".", "../../shared/**/*"],
-  "references": [
-    { "path": "../../shared" }
-  ]
+  "include": ["./**/*"]
 }
