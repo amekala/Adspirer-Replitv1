@@ -44,9 +44,11 @@ export function GoogleConnect() {
 
   const handleConnect = () => {
     const clientId = import.meta.env.VITE_GOOGLE_CLIENT_ID;
+    const redirectUri = encodeURIComponent(`${window.location.origin}/auth/callback`);
+    const scope = encodeURIComponent("https://www.googleapis.com/auth/adwords");
 
     if (!clientId) {
-      console.error("VITE_GOOGLE_CLIENT_ID not found in environment");
+      console.error("VITE_GOOGLE_CLIENT_ID not configured");
       showToast(
         "Configuration Error",
         "Google Client ID is not configured. Please contact support.",
@@ -55,9 +57,6 @@ export function GoogleConnect() {
       return;
     }
 
-    // Google OAuth2 configuration
-    const scope = encodeURIComponent("https://www.googleapis.com/auth/adwords");
-    const redirectUri = encodeURIComponent(`${window.location.origin}/auth/callback`);
     const googleOAuthUrl = `https://accounts.google.com/o/oauth2/auth?client_id=${clientId}&redirect_uri=${redirectUri}&scope=${scope}&response_type=code&access_type=offline&prompt=consent`;
 
     // On mobile devices, open in current window
@@ -88,7 +87,6 @@ export function GoogleConnect() {
       return;
     }
 
-    // Handle the OAuth callback
     const handleCallback = async (event: MessageEvent) => {
       try {
         if (event.data.error) {
@@ -112,14 +110,14 @@ export function GoogleConnect() {
         );
       } finally {
         window.removeEventListener("message", handleCallback);
-        clearInterval(pollTimer);
+        if (pollTimer) clearInterval(pollTimer);
       }
     };
 
     window.addEventListener("message", handleCallback);
 
-    // Poll for popup closure
-    const pollTimer = setInterval(() => {
+    let pollTimer: NodeJS.Timer; // Declare pollTimer
+    pollTimer = setInterval(() => {
       if (popup.closed) {
         clearInterval(pollTimer);
         window.removeEventListener("message", handleCallback);
