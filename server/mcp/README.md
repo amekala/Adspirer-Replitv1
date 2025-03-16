@@ -25,6 +25,30 @@ npm run build
 npm start
 ```
 
+## Configuration
+
+The MCP server requires database connection details. You can provide these in two ways:
+
+### Option 1: Database URL
+Set the `DATABASE_URL` environment variable:
+```bash
+export DATABASE_URL="postgres://user:password@host:port/database"
+adspirer-mcp
+```
+
+### Option 2: Individual Parameters
+Set individual database connection parameters:
+```bash
+export PGHOST="your-db-host"
+export PGPORT="5432"
+export PGUSER="your-db-user"
+export PGPASSWORD="your-db-password"
+export PGDATABASE="your-db-name"
+adspirer-mcp
+```
+
+You can also create a `.env` file in your working directory with these variables.
+
 ## Usage with Claude Desktop
 
 1. Generate an API key from your Adspirer dashboard

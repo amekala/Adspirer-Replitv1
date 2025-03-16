@@ -2,21 +2,20 @@
   "name": "adspirer-mcp",
   "version": "1.0.0",
   "description": "MCP server for Adspirer's Amazon and Google Ads management platform",
-  "main": "dist/server/mcp/index.js",
+  "main": "index.js",
   "type": "module",
   "bin": {
-    "adspirer-mcp": "./dist/server/mcp/start.js"
+    "adspirer-mcp": "./start.js"
   },
   "files": [
-    "dist",
+    "index.js",
+    "start.js",
+    "config.js",
     "README.md",
     "claude-config.json"
   ],
   "scripts": {
-    "build": "tsc && tsx build.ts",
-    "start": "node dist/server/mcp/start.js",
-    "dev": "tsx start.ts",
-    "prepublishOnly": "npm run build"
+    "start": "node start.js"
   },
   "keywords": [
     "mcp",
@@ -31,11 +30,6 @@
     "@modelcontextprotocol/sdk": "^1.0.0",
     "drizzle-orm": "^0.29.3",
     "postgres": "^3.4.3",
-    "zod": "^3.22.4"
-  },
-  "devDependencies": {
-    "typescript": "^5.3.3",
-    "tsx": "^4.7.1",
-    "@types/node": "^20.11.19"
+    "dotenv": "^16.4.1"
   }
 }
