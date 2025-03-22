@@ -143,6 +143,14 @@ export default function ChatPage() {
       const messageContent = message;
       setMessage(""); // Clear input immediately for better UX
       
+      // First, create and display the user's message with optimistic update
+      const userMessage = {
+        id: `temp-user-${Date.now()}`,
+        role: 'user' as const,
+        content: messageContent,
+        createdAt: new Date().toISOString()
+      };
+      
       // Add temporary typing indicator
       const typingIndicatorMessage = {
         id: 'typing-indicator',
@@ -151,7 +159,7 @@ export default function ChatPage() {
         createdAt: new Date().toISOString()
       };
       
-      // Create a temporary conversation with the typing indicator if we already have conversation data
+      // Create a temporary conversation with user message and typing indicator
       if (currentConversation) {
         let formatted;
         try {
@@ -159,26 +167,28 @@ export default function ChatPage() {
           const { formatConversationResponse } = await import("@/lib/chatService");
           formatted = formatConversationResponse(currentConversation);
           
-          const updatedMessages = [...formatted.messages, typingIndicatorMessage];
+          // Add both user message and typing indicator
+          const updatedMessages = [...formatted.messages, userMessage, typingIndicatorMessage];
           
-          // Update the conversation in the query cache with typing indicator
+          // Update the conversation in the query cache with user message and typing indicator
           queryClient.setQueryData(
-            ['/api/chat/conversations', currentConversationId],
+            ['/api/chat/conversations', currentConversationId, 'specific'],
             {
               conversation: formatted.conversation,
               messages: updatedMessages
             }
           );
         } catch (err) {
-          console.error("Error formatting conversation for typing indicator:", err);
+          console.error("Error formatting conversation for optimistic update:", err);
         }
       }
       
       // Use direct fetch and handle streaming ourselves for greater control
       try {
-        // Step 1: First make sure we have the user's message in the UI
-        queryClient.invalidateQueries({ 
-          queryKey: ["/api/chat/conversations", currentConversationId, "specific"]
+        // Step 1: Send the user message to the server
+        await apiRequest("POST", `/api/chat/conversations/${currentConversationId}/messages`, {
+          role: "user",
+          content: messageContent,
         });
         
         // Step 2: Call the AI completions endpoint
