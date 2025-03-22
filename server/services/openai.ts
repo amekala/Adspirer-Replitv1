@@ -120,12 +120,22 @@ export async function streamChatCompletion(
       const savedMessage = await storage.createChatMessage(messageData);
       log(`AI response saved successfully with ID: ${savedMessage.id}`, 'openai-service');
       
-      // Generate and store embedding if requested
+      // Generate and store embedding if requested, but only for every Nth message
       if (includeEmbeddings) {
         try {
-          log(`Generating embedding for message ID: ${savedMessage.id}`, 'openai-service');
-          await createChatMessageEmbedding(savedMessage, conversationId);
-          log(`Successfully created embedding for message ID: ${savedMessage.id}`, 'openai-service');
+          // Get message count for this conversation to implement interval-based embedding
+          const messages = await storage.getChatMessages(conversationId);
+          const messageCount = messages.length;
+          
+          // Only create embeddings every N messages (defined in embedding service)
+          // Always create for first few messages to establish context
+          if (messageCount <= 3 || messageCount % MESSAGE_EMBEDDING_INTERVAL === 0) {
+            log(`Generating embedding for message ID: ${savedMessage.id} (message #${messageCount})`, 'openai-service');
+            await createChatMessageEmbedding(savedMessage, conversationId);
+            log(`Successfully created embedding for message ID: ${savedMessage.id}`, 'openai-service');
+          } else {
+            log(`Skipping embedding for message #${messageCount} (creating every ${MESSAGE_EMBEDDING_INTERVAL} messages)`, 'openai-service');
+          }
         } catch (embeddingError) {
           // Log error but don't fail the response
           log(`Error creating embedding: ${embeddingError instanceof Error ? embeddingError.message : String(embeddingError)}`, 'openai-service');

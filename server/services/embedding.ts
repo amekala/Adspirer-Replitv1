@@ -18,17 +18,20 @@ import { storage } from '../storage';
 import { EmbeddingStore, InsertEmbeddingStore, ChatMessage, ChatConversation } from '@shared/schema';
 
 // Configuration and constants
-const EMBEDDING_MODEL = 'text-embedding-3-large';
+const EMBEDDING_MODEL = 'text-embedding-3-small'; // Using smaller, more efficient model
 const MAX_BATCH_SIZE = 20; // Maximum texts to embed in a single API call for efficiency
 const VECTOR_DIMENSIONS = 1536; // Dimensions for OpenAI embeddings
 const MAX_RETRY_ATTEMPTS = 2; // Number of retry attempts for failed API calls
+const MESSAGE_EMBEDDING_INTERVAL = 7; // Only create embeddings every N messages
 
 /**
- * OpenAI client with error handling and automatic retries
+ * OpenAI client with error handling, automatic retries, and rate limiting
  */
 class EmbeddingClient {
   private client: OpenAI;
   private retryDelayMs = 1000;
+  private lastRequestTime = 0;
+  private minRequestInterval = 2000; // ms - minimum time between API calls
 
   constructor() {
     this.validateApiKey();
@@ -48,15 +51,33 @@ class EmbeddingClient {
   }
 
   /**
-   * Generate embeddings with retry logic
+   * Generate embeddings with retry logic and rate limiting
    * @param texts - Array of texts to embed
    * @returns Array of embedding vectors
    */
   async generateEmbeddings(texts: string[]): Promise<number[][]> {
     let attempts = 0;
     
+    // Apply rate limiting
+    const now = Date.now();
+    const timeSinceLastRequest = now - this.lastRequestTime;
+    
+    if (timeSinceLastRequest < this.minRequestInterval) {
+      const waitTime = this.minRequestInterval - timeSinceLastRequest;
+      log(`Rate limiting applied. Waiting ${waitTime}ms before next embedding request.`, 'embedding-service');
+      await new Promise(resolve => setTimeout(resolve, waitTime));
+    }
+    
+    // Set last request time
+    this.lastRequestTime = Date.now();
+    
     while (attempts <= MAX_RETRY_ATTEMPTS) {
       try {
+        // Reduce verbosity in logs
+        if (attempts === 0) {
+          log(`Generating embeddings for ${texts.length} text items`, 'embedding-service');
+        }
+        
         const response = await this.client.embeddings.create({
           model: EMBEDDING_MODEL,
           input: texts,
