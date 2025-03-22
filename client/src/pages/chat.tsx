@@ -127,23 +127,73 @@ function ChatPageContent() {
     setMessage(""); // Clear input immediately for better UX
     
     try {
-      const response = await sendMessageMutation.mutateAsync({
+      // Step 1: Save the user's message
+      await sendMessageMutation.mutateAsync({
         conversationId: currentConversationId,
         message: messageToSend
       });
 
+      // Step 2: Get AI response via the completions endpoint
+      const completionResponse = await fetch('/api/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          conversationId: currentConversationId,
+          message: messageToSend
+        })
+      });
+
+      if (!completionResponse.ok) {
+        throw new Error(`HTTP error! status: ${completionResponse.status}`);
+      }
+
       // Process streaming response
-      const reader = response.body?.getReader();
+      const reader = completionResponse.body?.getReader();
       const decoder = new TextDecoder();
       
       if (reader) {
-        // Start asynchronous reading
-        queryClient.invalidateQueries({ 
-          queryKey: ["/api/chat/conversations", currentConversationId] 
-        });
+        // Start asynchronous reading to handle streaming
+        const readStream = async () => {
+          let done = false;
+          
+          // Keep invalidating to refresh the messages as they come in
+          const intervalId = setInterval(() => {
+            queryClient.invalidateQueries({ 
+              queryKey: ["/api/chat/conversations", currentConversationId] 
+            });
+          }, 1000);
+          
+          try {
+            while (!done) {
+              const { value, done: doneReading } = await reader.read();
+              done = doneReading;
+              
+              if (done) {
+                clearInterval(intervalId);
+                // Final invalidation to ensure we have the complete message
+                queryClient.invalidateQueries({ 
+                  queryKey: ["/api/chat/conversations", currentConversationId] 
+                });
+                break;
+              }
+            }
+          } catch (error) {
+            console.error("Error reading stream:", error);
+            clearInterval(intervalId);
+          }
+        };
+        
+        readStream();
       }
     } catch (error) {
       console.error("Error sending message:", error);
+      toast({
+        title: "Error",
+        description: `Failed to get AI response: ${error instanceof Error ? error.message : String(error)}`,
+        variant: "destructive",
+      });
     }
   };
 

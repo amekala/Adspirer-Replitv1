@@ -927,9 +927,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
           // Save the complete message to database
           assistantMessage = completion;
           try {
-            // Use the correct message schema format
+            // Use the correct message schema format with explicit typing
             const messageData = {
-              role: "assistant",
+              role: "assistant" as "assistant", // Type assertion for proper role type
               content: assistantMessage,
               conversationId
             };
