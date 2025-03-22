@@ -3,8 +3,10 @@ import {
   CampaignMetrics, amazonAdReports, type AmazonAdReport,
   DemoRequest, InsertDemoRequest, demoRequests,
   GoogleToken, GoogleAdvertiserAccount, GoogleCampaignMetrics,
+  ChatConversation, ChatMessage, InsertChatConversation, InsertChatMessage,
   users, amazonTokens, apiKeys, advertiserAccounts, tokenRefreshLog, 
-  campaignMetrics, googleTokens, googleAdvertiserAccounts, googleCampaignMetrics
+  campaignMetrics, googleTokens, googleAdvertiserAccounts, googleCampaignMetrics, 
+  chatConversations, chatMessages
 } from "@shared/schema";
 import session from "express-session";
 import { drizzle } from "drizzle-orm/postgres-js";
@@ -68,6 +70,18 @@ export interface IStorage {
   // Google campaign metrics
   saveGoogleCampaignMetrics(metrics: Omit<GoogleCampaignMetrics, "id" | "createdAt">): Promise<GoogleCampaignMetrics>;
   getGoogleCampaignMetrics(userId: string, startDate: Date, endDate: Date): Promise<GoogleCampaignMetrics[]>;
+  
+  // Chat management
+  createChatConversation(userId: string, title: string): Promise<ChatConversation>;
+  getChatConversation(id: string): Promise<ChatConversation | undefined>;
+  getChatConversations(userId: string): Promise<ChatConversation[]>;
+  updateChatConversationTitle(id: string, title: string): Promise<ChatConversation>;
+  deleteChatConversation(id: string): Promise<void>;
+  
+  // Chat messages
+  createChatMessage(message: InsertChatMessage & { conversationId: string }): Promise<ChatMessage>;
+  getChatMessages(conversationId: string): Promise<ChatMessage[]>;
+  
   sessionStore: session.Store;
 }
 
@@ -397,6 +411,77 @@ export class DatabaseStorage implements IStorage {
   }
   async deleteGoogleAdvertiserAccounts(userId: string): Promise<void> {
     await db.delete(googleAdvertiserAccounts).where(eq(googleAdvertiserAccounts.userId, userId));
+  }
+  
+  // Chat methods
+  async createChatConversation(userId: string, title: string): Promise<ChatConversation> {
+    const [conversation] = await db.insert(chatConversations)
+      .values({
+        userId,
+        title,
+        createdAt: new Date(),
+        updatedAt: new Date()
+      })
+      .returning();
+    return conversation;
+  }
+  
+  async getChatConversation(id: string): Promise<ChatConversation | undefined> {
+    const [conversation] = await db.select()
+      .from(chatConversations)
+      .where(eq(chatConversations.id, id));
+    return conversation;
+  }
+  
+  async getChatConversations(userId: string): Promise<ChatConversation[]> {
+    return await db.select()
+      .from(chatConversations)
+      .where(eq(chatConversations.userId, userId))
+      .orderBy(desc(chatConversations.updatedAt));
+  }
+  
+  async updateChatConversationTitle(id: string, title: string): Promise<ChatConversation> {
+    const [updatedConversation] = await db.update(chatConversations)
+      .set({ 
+        title,
+        updatedAt: new Date()
+      })
+      .where(eq(chatConversations.id, id))
+      .returning();
+    return updatedConversation;
+  }
+  
+  async deleteChatConversation(id: string): Promise<void> {
+    // Delete all messages first (cascade delete not automatic)
+    await db.delete(chatMessages)
+      .where(eq(chatMessages.conversationId, id));
+      
+    // Then delete the conversation
+    await db.delete(chatConversations)
+      .where(eq(chatConversations.id, id));
+  }
+  
+  async createChatMessage(message: InsertChatMessage & { conversationId: string }): Promise<ChatMessage> {
+    // Update conversation timestamp
+    await db.update(chatConversations)
+      .set({ updatedAt: new Date() })
+      .where(eq(chatConversations.id, message.conversationId));
+    
+    // Create message
+    const [newMessage] = await db.insert(chatMessages)
+      .values({
+        ...message,
+        createdAt: new Date()
+      })
+      .returning();
+    return newMessage;
+  }
+  
+  async getChatMessages(conversationId: string): Promise<ChatMessage[]> {
+    return await db.select()
+      .from(chatMessages)
+      .where(eq(chatMessages.conversationId, conversationId))
+      .orderBy(chatMessages.createdAt);
   }
 }
 

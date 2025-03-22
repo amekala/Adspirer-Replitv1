@@ -200,7 +200,41 @@ export const insertGoogleCampaignMetricsSchema = createInsertSchema(googleCampai
   conversions: z.number().int().min(0),
 }).omit({ id: true, createdAt: true });
 
+// Chat conversations
+export const chatConversations = pgTable("chat_conversations", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  userId: uuid("user_id").notNull().references(() => users.id),
+  title: text("title").notNull(),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
+// Chat messages
+export const chatMessages = pgTable("chat_messages", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  conversationId: uuid("conversation_id").notNull().references(() => chatConversations.id),
+  role: text("role").notNull(), // 'user' or 'assistant'
+  content: text("content").notNull(),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+// Chat schemas
+export const insertChatConversationSchema = createInsertSchema(chatConversations, {
+  title: z.string().min(1, "Conversation title is required"),
+}).omit({ id: true, createdAt: true, updatedAt: true });
+
+export const insertChatMessageSchema = createInsertSchema(chatMessages, {
+  role: z.enum(["user", "assistant"]),
+  content: z.string().min(1, "Message content is required"),
+}).omit({ id: true, createdAt: true });
+
 // Export additional types for google tables
 export type GoogleToken = typeof googleTokens.$inferSelect;
 export type GoogleAdvertiserAccount = typeof googleAdvertiserAccounts.$inferSelect;
 export type GoogleCampaignMetrics = typeof googleCampaignMetrics.$inferSelect;
+
+// Export types for chat
+export type ChatConversation = typeof chatConversations.$inferSelect;
+export type ChatMessage = typeof chatMessages.$inferSelect;
+export type InsertChatConversation = z.infer<typeof insertChatConversationSchema>;
+export type InsertChatMessage = z.infer<typeof insertChatMessageSchema>;
