@@ -6,16 +6,11 @@ import { Separator } from "@/components/ui/separator";
 import { Chat } from "../components/chat";
 import { ChatSidebar } from "../components/chat-sidebar";
 import { useAuth } from "@/hooks/use-auth";
-import { ProtectedRoute } from "@/lib/protected-route";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { Send, PlusCircle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 export default function ChatPage() {
-  return <ChatPageContent />;
-}
-
-function ChatPageContent() {
   const { user } = useAuth() || {};
   const { toast } = useToast();
   const [message, setMessage] = useState("");
@@ -49,7 +44,7 @@ function ChatPageContent() {
       
       toast({
         title: "Conversation created",
-        description: "Started a new chat conversation",
+        description: "New conversation has been created"
       });
     },
     onError: (error: Error) => {
@@ -61,31 +56,27 @@ function ChatPageContent() {
     },
   });
 
-  // Send message
+  // Send a message mutation
   const sendMessageMutation = useMutation({
-    mutationFn: async ({ conversationId, message }: { conversationId: string; message: string }) => {
-      // First save the user message
-      await apiRequest("POST", `/api/chat/conversations/${conversationId}/messages`, { 
-        role: "user", 
-        content: message 
-      });
+    mutationFn: async (messageContent: string) => {
+      // Don't allow empty messages
+      if (!messageContent.trim()) return;
       
-      // Then start the streaming completion
-      const response = await fetch(`/api/chat/completions`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ 
-          conversationId, 
-          message 
-        }),
-      });
-      
-      return response;
+      // Create the message object
+      const messageToSend = {
+        role: "user" as const,
+        content: messageContent,
+      };
+
+      // Send the message to the API
+      const res = await apiRequest("POST", `/api/chat/conversations/${currentConversationId}/messages`, messageToSend);
+      return res.json();
     },
     onSuccess: () => {
-      // Refetch conversation to update messages
+      // Clear the text area after sending
+      setMessage("");
+      
+      // Update the conversation with the new message
       queryClient.invalidateQueries({ 
         queryKey: ["/api/chat/conversations", currentConversationId] 
       });
@@ -99,63 +90,49 @@ function ChatPageContent() {
     },
   });
 
-  // Create a new conversation if none exists
-  useEffect(() => {
-    if (user && Array.isArray(conversations) && conversations.length === 0 && !isLoadingConversations) {
-      createConversationMutation.mutate();
-    } else if (user && Array.isArray(conversations) && conversations.length > 0 && !currentConversationId) {
-      // Set the current conversation to the most recent one
-      setCurrentConversationId(conversations[0].id);
-    }
-  }, [user, conversations, isLoadingConversations]);
-
-  // Handle new conversation button click
+  // Handle a new conversation
   const handleNewConversation = () => {
     createConversationMutation.mutate();
   };
 
-  // Handle conversation selection
-  const handleConversationSelect = (conversationId: string) => {
-    setCurrentConversationId(conversationId);
+  // Select a conversation
+  const handleConversationSelect = (id: string) => {
+    setCurrentConversationId(id);
   };
 
-  // Handle message submission
+  // Handle sending a message
   const handleSendMessage = async () => {
-    if (!message.trim() || !currentConversationId) return;
-    
-    const messageToSend = message;
-    setMessage(""); // Clear input immediately for better UX
-    
     try {
-      // Step 1: Save the user's message and show it immediately
-      await sendMessageMutation.mutateAsync({
-        conversationId: currentConversationId,
-        message: messageToSend
-      });
+      // Check if there's a message and conversation ID
+      if (!message.trim() || !currentConversationId) return;
       
-      // Refresh messages to show the user's message
-      queryClient.invalidateQueries({ 
-        queryKey: ["/api/chat/conversations", currentConversationId] 
-      });
-
-      // Set typing indicator
-      const typingIndicatorMessage = {
-        id: 'typing-indicator',
-        role: 'assistant',
-        content: '...',
-        createdAt: new Date().toISOString()
-      };
+      // Save the message content before clearing input
+      const messageContent = message;
       
-      if (currentConversation && currentConversation.messages) {
-        // If we have a current conversation with messages, manually add the typing indicator
-        // This is just for UI purposes and won't be saved to the database
-        const tempMessages = [...currentConversation.messages, typingIndicatorMessage];
+      // Step 1: Send the user message - will be automatically added to the conversation
+      console.log('Sending user message...');
+      await sendMessageMutation.mutateAsync(messageContent);
+      
+      // Add an AI typing indicator to the UI
+      if (currentConversation) {
+        const typingIndicatorMessage = {
+          id: 'typing-indicator',
+          role: 'assistant' as const,
+          content: '...',
+          createdAt: new Date().toISOString()
+        };
+        
+        // Create a temporary conversation with the typing indicator
+        const tempMessages = currentConversation.messages ? 
+          [...currentConversation.messages, typingIndicatorMessage] : 
+          [typingIndicatorMessage];
+        
         const tempConversation = {
           ...currentConversation,
           messages: tempMessages
         };
         
-        // Use queryClient.setQueryData to update the UI without fetching from the server
+        // Update the UI
         queryClient.setQueryData(
           ['/api/chat/conversations', currentConversationId],
           tempConversation
@@ -171,130 +148,120 @@ function ChatPageContent() {
         },
         body: JSON.stringify({
           conversationId: currentConversationId,
-          message: messageToSend
+          message: messageContent
         }),
-        credentials: 'include' // Important: include credentials for session authentication
+        credentials: 'include' // Include credentials for session authentication
       });
 
       if (!completionResponse.ok) {
-        console.error('AI completion error:', await completionResponse.text());
+        const errorText = await completionResponse.text();
+        console.error('AI completion error:', errorText);
         throw new Error(`HTTP error! status: ${completionResponse.status}`);
       }
 
-      console.log('Processing AI streaming response...');
-      // Process the streaming response directly from the completionResponse
+      // Process the streaming response
       console.log('Processing streaming response...');
-      
-      // Get a reader from the response body
       const reader = completionResponse.body?.getReader();
-      const decoder = new TextDecoder();
-      
       if (!reader) {
-        console.error('No reader available from response');
         throw new Error('No reader available from response');
       }
       
-      let streamedMessage = '';
+      const decoder = new TextDecoder();
+      let streamedContent = '';
       
-      // Track if we've received any data
-      let hasReceivedData = false;
-      let streamedMessage = '';
-      
-      // Listen for message events
-      eventSource.onmessage = (event) => {
-        try {
-          console.log('SSE message received:', event.data);
+      // Start reading the stream
+      try {
+        let done = false;
+        
+        while (!done) {
+          const { value, done: doneReading } = await reader.read();
+          done = doneReading;
           
-          if (event.data === '[DONE]') {
-            console.log('Stream completed.');
-            eventSource.close();
-            return;
-          }
-          
-          if (event.data === '[ERROR]') {
-            console.error('Server reported an error in the stream.');
-            eventSource.close();
-            return;
-          }
-          
-          // Parse the JSON data
-          const data = JSON.parse(event.data);
-          
-          if (data.content) {
-            streamedMessage += data.content;
-            hasReceivedData = true;
+          if (value) {
+            // Decode the chunk and parse it
+            const chunk = decoder.decode(value, { stream: true });
+            console.log('Received chunk:', chunk);
             
-            // Update the UI with the streaming content
-            if (currentConversation && currentConversation.messages) {
-              // If we have the typing indicator, replace it with the current streamed content
-              const updatedMessages = [...currentConversation.messages];
-              
-              // Find or create the assistant message
-              const lastIndex = updatedMessages.length - 1;
-              if (lastIndex >= 0 && updatedMessages[lastIndex].role === 'assistant') {
-                // Update the existing assistant message
-                updatedMessages[lastIndex] = {
-                  ...updatedMessages[lastIndex],
-                  content: streamedMessage
-                };
-              } else {
-                // Add a new assistant message
-                updatedMessages.push({
-                  id: 'temp-assistant-' + Date.now(),
-                  role: 'assistant',
-                  content: streamedMessage,
-                  createdAt: new Date().toISOString()
-                });
+            // Process each line (could be multiple SSE events in one chunk)
+            const lines = chunk.split('\n\n');
+            for (const line of lines) {
+              if (line.startsWith('data: ')) {
+                const data = line.substring(6); // Remove 'data: ' prefix
+                
+                if (data === '[DONE]') {
+                  console.log('Stream completed');
+                  done = true;
+                  break;
+                }
+                
+                if (data === '[ERROR]') {
+                  console.error('Server reported an error');
+                  done = true;
+                  break;
+                }
+                
+                try {
+                  // Parse the JSON data
+                  const parsedData = JSON.parse(data);
+                  if (parsedData.content) {
+                    streamedContent += parsedData.content;
+                    
+                    // Update the UI with the streamed content
+                    if (currentConversation) {
+                      // Create updated messages array
+                      const messages = currentConversation.messages || [];
+                      const lastIndex = messages.length - 1;
+                      
+                      let updatedMessages;
+                      if (lastIndex >= 0 && messages[lastIndex].role === 'assistant') {
+                        // Replace typing indicator or update existing assistant message
+                        updatedMessages = [...messages];
+                        updatedMessages[lastIndex] = {
+                          ...updatedMessages[lastIndex],
+                          id: updatedMessages[lastIndex].id === 'typing-indicator' 
+                            ? 'streaming-' + Date.now()
+                            : updatedMessages[lastIndex].id,
+                          content: streamedContent
+                        };
+                      } else {
+                        // Add a new assistant message
+                        updatedMessages = [
+                          ...messages,
+                          {
+                            id: 'streaming-' + Date.now(),
+                            role: 'assistant',
+                            content: streamedContent,
+                            createdAt: new Date().toISOString()
+                          }
+                        ];
+                      }
+                      
+                      // Update the conversation in the query cache
+                      queryClient.setQueryData(
+                        ['/api/chat/conversations', currentConversationId],
+                        {
+                          ...currentConversation,
+                          messages: updatedMessages
+                        }
+                      );
+                    }
+                  }
+                } catch (parseError) {
+                  console.error('Error parsing streaming data:', parseError);
+                }
               }
-              
-              // Update the state with the new message content
-              const tempConversation = {
-                ...currentConversation,
-                messages: updatedMessages
-              };
-              
-              queryClient.setQueryData(
-                ['/api/chat/conversations', currentConversationId],
-                tempConversation
-              );
             }
           }
-        } catch (error) {
-          console.error('Error processing SSE message:', error);
         }
-      };
-      
-      // Handle errors
-      eventSource.onerror = (error) => {
-        console.error('EventSource error:', error);
-        eventSource.close();
-        
-        // Refresh messages to get the final state
-        queryClient.invalidateQueries({ 
-          queryKey: ["/api/chat/conversations", currentConversationId] 
-        });
-      };
-      
-      // Give the stream time to complete, then close it if it hasn't already
-      setTimeout(() => {
-        if (eventSource.readyState !== 2) { // 2 = CLOSED
-          console.log('Stream timeout reached, closing EventSource');
-          eventSource.close();
-          
-          // Final refresh after timeout
-          if (hasReceivedData) {
-            queryClient.invalidateQueries({ 
-              queryKey: ["/api/chat/conversations", currentConversationId] 
-            });
-          }
-        }
-      }, 10000); // 10 second timeout
-      
-      // Wait for the stream to complete (this won't actually work as written, but we'll leave in place)
-      await new Promise(resolve => {
-        eventSource.onclose = resolve;
-      });
+      } finally {
+        reader.releaseLock();
       }
+      
+      // Make sure we get the final state from the server
+      queryClient.invalidateQueries({ 
+        queryKey: ["/api/chat/conversations", currentConversationId] 
+      });
+      
     } catch (error) {
       console.error("Error in chat process:", error);
       toast({

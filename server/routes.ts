@@ -908,114 +908,44 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(403).json({ message: "Unauthorized access to conversation" });
       }
 
-      // Get previous messages for context including the last user message
-      const messages = await storage.getChatMessages(conversationId);
-      
-      console.log(`Retrieved ${messages.length} messages for conversation context`);
-      
-      // Add system message at the beginning for context
-      const systemMessage = {
-        role: 'system' as const,
-        content: 'You are an AI assistant for Adspirer, a platform that helps manage retail media advertising campaigns. You have knowledge about Amazon Advertising and Google Ads APIs, campaign metrics, and advertising strategies. Provide helpful, concise responses about advertising, analytics, and campaign management.'
-      };
-      
-      // Format messages for OpenAI (including the system message)
-      const formattedMessages = [
-        systemMessage,
-        ...messages.map(msg => ({
-          role: msg.role as 'user' | 'assistant',
-          content: msg.content
-        }))
-      ];
-      
-      console.log('Sending request to OpenAI with formattedMessages');
-      
-      // Collect assistant's message
-      let assistantMessage = '';
-      
-      console.log('OpenAI API key available:', !!process.env.OPENAI_API_KEY);
-      
       try {
-        console.log('Making request to OpenAI with API key available:', !!process.env.OPENAI_API_KEY);
-        console.log('Messages being sent to OpenAI:', JSON.stringify(formattedMessages, null, 2));
+        // Import OpenAI service dynamically to avoid circular dependencies
+        const { getConversationHistory, streamChatCompletion } = await import('./services/openai');
         
-        // Create a more direct implementation using the OpenAI API
-        const { OpenAI } = await import('openai');
+        // Get conversation history from the database
+        // This already includes the user message we just saved
+        const messages = await getConversationHistory(conversationId);
+        console.log(`Retrieved ${messages.length} messages for chat completion context`);
         
-        // Initialize the OpenAI client
-        const openaiClient = new OpenAI({
-          apiKey: process.env.OPENAI_API_KEY, // This uses the OPENAI_API_KEY from environment variables
-        });
+        // Stream the chat completion using our dedicated service
+        await streamChatCompletion(conversationId, req.user.id, res, messages);
         
-        // Set appropriate headers for streaming
-        res.setHeader('Content-Type', 'text/event-stream');
-        res.setHeader('Cache-Control', 'no-cache');
-        res.setHeader('Connection', 'keep-alive');
+        // No need to end the response here - the service handles that
+      } catch (openaiError) {
+        console.error('Error in OpenAI service:', openaiError instanceof Error ? openaiError.message : 'Unknown OpenAI setup error');
         
-        console.log('Creating chat completion stream with OpenAI...');
-        
-        // Create a streaming chat completion using gpt-4o
-        const stream = await openaiClient.chat.completions.create({
-          model: 'gpt-4o',
-          messages: formattedMessages,
-          temperature: 0.7,
-          max_tokens: 1000,
-          stream: true,
-        });
-        
-        // Stream the response to the client
-        let fullAssistantMessage = '';
-        
-        console.log('Stream created, sending chunks to client...');
-        
-        for await (const chunk of stream) {
-          const content = chunk.choices[0]?.delta?.content || '';
-          if (content) {
-            fullAssistantMessage += content;
-            console.log('Chunk received:', content);
-            
-            // Send the chunk to the client
-            res.write(`data: ${JSON.stringify({ content })}\n\n`);
-          }
+        // If we haven't sent any response yet, send error
+        if (!res.headersSent) {
+          return res.status(500).json({ 
+            message: "Failed to generate chat completion", 
+            error: openaiError instanceof Error ? openaiError.message : 'Unknown OpenAI error' 
+          });
         }
         
-        console.log('Stream completed, saving final message to database');
-        
-        // Save the complete response to the database
+        // Otherwise ensure the stream is properly ended
         try {
-          // Create the assistant message with metadata
-          const messageData = {
-            role: "assistant" as const,
-            content: fullAssistantMessage,
-            conversationId,
-            metadata: {
-              model: 'gpt-4o',
-              timestamp: new Date().toISOString(),
-              processed: true
-            }
-          };
-          
-          const savedMessage = await storage.createChatMessage(messageData);
-          console.log('AI response saved successfully with ID:', savedMessage.id);
-          
-          // End the stream
-          res.write('data: [DONE]\n\n');
-          res.end();
-          
-          return;
-        } catch (err) {
-          console.error('Error saving assistant message:', err);
           res.write('data: [ERROR]\n\n');
           res.end();
-          return;
+        } catch (streamError) {
+          console.error('Error ending stream after OpenAI error:', streamError);
         }
-      } catch (openaiError) {
-        console.error('Error in streamText setup:', openaiError instanceof Error ? openaiError.message : 'Unknown OpenAI setup error');
-        throw openaiError;
       }
     } catch (error) {
       console.error('Error generating chat completion:', error instanceof Error ? error.message : 'Unknown error');
-      return res.status(500).json({ message: "Failed to generate chat completion", error: error instanceof Error ? error.message : 'Unknown error' });
+      return res.status(500).json({ 
+        message: "Failed to generate chat completion", 
+        error: error instanceof Error ? error.message : 'Unknown error' 
+      });
     }
   });
 
