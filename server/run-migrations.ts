@@ -95,8 +95,8 @@ export async function runMigrations() {
           message: error instanceof Error ? error.message : String(error) 
         });
         
-        // Exit early on first migration failure
-        break;
+        // Don't break on error, continue with the next migration
+        log(`Continuing with next migration...`, 'migration');
       }
     }
     
