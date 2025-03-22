@@ -14,6 +14,7 @@ import postgres from "postgres";
 import { and, eq, gte, lte, desc, or, sql } from "drizzle-orm";
 import connectPg from "connect-pg-simple";
 import { nanoid } from "nanoid";
+import crypto from "crypto";
 
 const PostgresSessionStore = connectPg(session);
 
@@ -415,8 +416,12 @@ export class DatabaseStorage implements IStorage {
   
   // Chat methods
   async createChatConversation(userId: string, title: string): Promise<ChatConversation> {
+    // Generate a UUID for the conversation
+    const conversationId = crypto.randomUUID();
+    
     const [conversation] = await db.insert(chatConversations)
       .values({
+        id: conversationId,
         userId,
         title,
         createdAt: new Date(),
@@ -467,9 +472,13 @@ export class DatabaseStorage implements IStorage {
       .set({ updatedAt: new Date() })
       .where(eq(chatConversations.id, message.conversationId));
     
+    // Generate a UUID for the message
+    const messageId = crypto.randomUUID();
+    
     // Create message
     const [newMessage] = await db.insert(chatMessages)
       .values({
+        id: messageId,
         ...message,
         createdAt: new Date()
       })
