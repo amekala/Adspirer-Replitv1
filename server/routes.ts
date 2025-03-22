@@ -868,19 +868,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(403).json({ message: "Unauthorized access to conversation" });
       }
       
-      // Save the user message with proper metadata
-      const messageData = {
-        ...result.data,
-        metadata: {
-          timestamp: new Date().toISOString(),
-          clientInfo: {
-            userAgent: req.headers['user-agent'] || 'unknown',
-          }
-        }
-      };
-      
-      console.log('Creating user message with data:', JSON.stringify(messageData, null, 2));
-      const message = await storage.createChatMessage(messageData);
+      // Save the user message
+      console.log('Creating user message with data:', JSON.stringify(result.data, null, 2));
+      const message = await storage.createChatMessage(result.data);
       console.log('User message saved with ID:', message.id);
       
       return res.status(201).json(message);
@@ -950,16 +940,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
           try {
             console.log('Received complete AI response, saving to database');
             
-            // Create the message with metadata using JSONB
+            // Create the assistant message
             const messageData = {
               role: "assistant" as const,
               content: assistantMessage,
-              conversationId,
-              metadata: {
-                model: 'gpt-3.5-turbo',
-                timestamp: new Date().toISOString(),
-                processed: true
-              }
+              conversationId
             };
             
             await storage.createChatMessage(messageData);

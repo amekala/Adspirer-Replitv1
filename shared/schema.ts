@@ -209,13 +209,12 @@ export const chatConversations = pgTable("chat_conversations", {
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });
 
-// Chat messages with JSONB data
+// Chat messages
 export const chatMessages = pgTable("chat_messages", {
   id: uuid("id").defaultRandom().primaryKey(),
   conversationId: uuid("conversation_id").notNull().references(() => chatConversations.id),
   role: text("role").notNull(), // 'user' or 'assistant'
   content: text("content").notNull(),
-  metadata: json("metadata").default({}).notNull(), // Store additional message data (tokens, embeddings, etc.)
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 
@@ -228,7 +227,6 @@ export const insertChatMessageSchema = createInsertSchema(chatMessages, {
   role: z.enum(["user", "assistant"]),
   content: z.string().min(1, "Message content is required"),
   conversationId: z.string().uuid(),
-  metadata: z.any().optional(),
 }).omit({ id: true, createdAt: true });
 
 // Export additional types for google tables
