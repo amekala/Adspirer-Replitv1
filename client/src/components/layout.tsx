@@ -8,7 +8,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
-import { Loader2, Menu, UserCircle } from "lucide-react";
+import { Loader2, Menu, UserCircle, MessageSquare } from "lucide-react";
 import { useState } from "react";
 
 export function Layout({ children }: { children: React.ReactNode }) {
@@ -42,6 +42,17 @@ export function Layout({ children }: { children: React.ReactNode }) {
               <Link href="/privacy" className="text-muted-foreground hover:text-foreground transition-colors">
                 Privacy
               </Link>
+              
+              {/* Direct Chat Link for Desktop */}
+              {user && (
+                <Link 
+                  href="/chat" 
+                  className="flex items-center gap-1.5 text-muted-foreground hover:text-foreground transition-colors"
+                >
+                  <MessageSquare className="h-4 w-4" />
+                  AI Chat
+                </Link>
+              )}
 
               {/* User Menu for Desktop */}
               {user && (
@@ -55,9 +66,6 @@ export function Layout({ children }: { children: React.ReactNode }) {
                   <DropdownMenuContent align="end" className="w-48">
                     <DropdownMenuItem asChild>
                       <Link href="/dashboard">Dashboard</Link>
-                    </DropdownMenuItem>
-                    <DropdownMenuItem asChild>
-                      <Link href="/chat">AI Chat</Link>
                     </DropdownMenuItem>
                     <DropdownMenuItem
                       onClick={handleLogout}

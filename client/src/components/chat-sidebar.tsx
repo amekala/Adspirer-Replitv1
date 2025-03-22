@@ -1,5 +1,4 @@
 import { useState } from "react";
-import { Sidebar } from "@/components/ui/sidebar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { 
@@ -10,16 +9,23 @@ import {
   Trash2, 
   Check, 
   X,
-  Search
+  Search,
+  ChevronLeft,
+  PanelLeft,
+  PanelLeftClose,
+  Home
 } from "lucide-react";
 import { 
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuTrigger 
+  DropdownMenuTrigger,
+  DropdownMenuSeparator
 } from "@/components/ui/dropdown-menu";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Link } from "wouter";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 interface Conversation {
   id: string;
@@ -50,6 +56,8 @@ export function ChatSidebar({
   const [searchTerm, setSearchTerm] = useState("");
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editTitle, setEditTitle] = useState("");
+  const [isPinned, setIsPinned] = useState(true);
+  const [isCollapsed, setIsCollapsed] = useState(false);
   
   // Filter conversations based on search term
   const filteredConversations = conversations.filter(
@@ -75,54 +83,166 @@ export function ChatSidebar({
     setEditingId(null);
   };
 
+  // Toggle sidebar pinned state
+  const togglePinned = () => {
+    setIsPinned(!isPinned);
+    if (isCollapsed) {
+      setIsCollapsed(false);
+    }
+  };
+
+  // Toggle sidebar collapsed state
+  const toggleCollapsed = () => {
+    setIsCollapsed(!isCollapsed);
+  };
+
   return (
-    <div className="min-w-[300px] border-r border-border">
+    <div className={`border-r border-border transition-all duration-300 ${
+      isCollapsed ? 
+        'w-16 min-w-16' : 
+        isPinned ? 'min-w-[300px] w-[300px]' : 'min-w-[300px] w-[300px] lg:min-w-[300px] lg:w-[300px] absolute lg:relative z-20 bg-background h-full shadow-lg lg:shadow-none'
+    }`}>
       <div className="flex flex-col h-full">
-        <div className="p-3 border-b">
-          <Button
-            onClick={onNewConversation}
-            className="w-full justify-start"
-            variant="outline"
-          >
-            <PlusCircle className="mr-2 h-4 w-4" />
-            New Chat
-          </Button>
+        <div className="p-3 border-b flex justify-between items-center">
+          {!isCollapsed ? (
+            <>
+              <Button
+                onClick={onNewConversation}
+                className="flex-1 justify-start"
+                variant="outline"
+              >
+                <PlusCircle className="mr-2 h-4 w-4" />
+                New Chat
+              </Button>
+              <div className="flex gap-1 ml-2">
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button 
+                        variant="ghost" 
+                        size="icon" 
+                        className="h-9 w-9" 
+                        onClick={togglePinned}
+                      >
+                        {isPinned ? <PanelLeftClose className="h-4 w-4" /> : <PanelLeft className="h-4 w-4" />}
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p>{isPinned ? 'Unpin Sidebar' : 'Pin Sidebar'}</p>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button 
+                        variant="ghost" 
+                        size="icon" 
+                        className="h-9 w-9" 
+                        onClick={toggleCollapsed}
+                      >
+                        <ChevronLeft className="h-4 w-4" />
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p>Collapse Sidebar</p>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              </div>
+            </>
+          ) : (
+            <div className="w-full flex justify-center">
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button 
+                      variant="ghost" 
+                      size="icon" 
+                      className="h-9 w-9" 
+                      onClick={toggleCollapsed}
+                    >
+                      <ChevronRight className="h-4 w-4" />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent side="right">
+                    <p>Expand Sidebar</p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            </div>
+          )}
         </div>
 
-        <div className="p-3 border-b">
-          <div className="relative">
-            <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
-            <Input
-              placeholder="Search conversations..."
-              className="pl-8"
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-            />
+        {!isCollapsed && (
+          <div className="p-3 border-b">
+            <div className="relative">
+              <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Search conversations..."
+                className="pl-8"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+              />
+            </div>
           </div>
-        </div>
+        )}
 
         <ScrollArea className="flex-1">
-          <div className="p-3 space-y-1">
+          <div className={`p-3 space-y-1 ${isCollapsed ? 'px-2' : ''}`}>
             {isLoading ? (
               // Loading skeletons
               Array(5)
                 .fill(0)
                 .map((_, i) => (
                   <div key={i} className="flex items-center p-2 rounded-md">
-                    <Skeleton className="h-4 w-4 mr-3" />
-                    <Skeleton className="h-5 w-full" />
+                    {!isCollapsed && (
+                      <>
+                        <Skeleton className="h-4 w-4 mr-3" />
+                        <Skeleton className="h-5 w-full" />
+                      </>
+                    )}
+                    {isCollapsed && (
+                      <Skeleton className="h-9 w-9" />
+                    )}
                   </div>
                 ))
             ) : filteredConversations.length === 0 ? (
-              <div className="p-3 text-center text-muted-foreground">
-                {searchTerm ? "No conversations found" : "No conversations yet"}
-              </div>
+              !isCollapsed && (
+                <div className="p-3 text-center text-muted-foreground">
+                  {searchTerm ? "No conversations found" : "No conversations yet"}
+                </div>
+              )
             ) : (
               // Conversation list
               filteredConversations.map((conversation) => {
                 const isEditing = editingId === conversation.id;
                 const isActive = currentConversationId === conversation.id;
 
+                // Collapsed view for conversation
+                if (isCollapsed) {
+                  return (
+                    <TooltipProvider key={conversation.id}>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Button
+                            variant={isActive ? "secondary" : "ghost"}
+                            size="icon"
+                            className="w-12 h-12 flex items-center justify-center mb-1"
+                            onClick={() => onConversationSelect(conversation.id)}
+                          >
+                            <MessageSquare className="h-5 w-5" />
+                          </Button>
+                        </TooltipTrigger>
+                        <TooltipContent side="right">
+                          <p>{conversation.title}</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                  );
+                }
+
+                // Expanded view for conversation
                 return (
                   <div
                     key={conversation.id}
@@ -214,6 +334,33 @@ export function ChatSidebar({
             )}
           </div>
         </ScrollArea>
+        
+        {/* Footer with navigation */}
+        <div className={`p-3 border-t ${isCollapsed ? 'flex justify-center' : ''}`}>
+          {isCollapsed ? (
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button variant="ghost" size="icon" asChild>
+                    <Link href="/dashboard">
+                      <Home className="h-5 w-5" />
+                    </Link>
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent side="right">
+                  <p>Back to Dashboard</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          ) : (
+            <Button variant="outline" className="w-full" asChild>
+              <Link href="/dashboard">
+                <Home className="mr-2 h-4 w-4" />
+                Back to Dashboard
+              </Link>
+            </Button>
+          )}
+        </div>
       </div>
     </div>
   );
