@@ -882,7 +882,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Chat completion endpoint with streaming
   app.post("/api/chat/completions", async (req: Request, res: Response) => {
-    if (!req.isAuthenticated()) return res.sendStatus(401);
+    if (!req.isAuthenticated() || !req.user) {
+      console.log('Unauthorized request to chat completions endpoint - user not authenticated');
+      return res.status(401).send("Unauthorized");
+    }
+    
+    console.log('User authenticated:', req.user.id);
 
     const { conversationId, message } = req.body;
     
@@ -936,40 +941,39 @@ export async function registerRoutes(app: Express): Promise<Server> {
           model: openai('gpt-3.5-turbo'), // Using 3.5-turbo instead of gpt-4o for faster responses
           messages: formattedMessages,
           temperature: 0.7,
-          maxTokens: 1000,
-          onToken: (token) => {
-            // Log tokens as they come in (this is optional, but helpful for debugging)
-            assistantMessage += token;
-            console.log('Token received:', token);
-          },
-          onFinish: async (completion) => {
-            // Save the complete message to database
-            console.log('onFinish called with completion:', completion);
-            assistantMessage = completion;
-            try {
-              console.log('Received complete AI response, saving to database');
-              
-              // Create the assistant message with metadata
-              const messageData = {
-                role: "assistant" as const,
-                content: assistantMessage,
-                conversationId,
-                metadata: {
-                  model: 'gpt-3.5-turbo',
-                  timestamp: new Date().toISOString(),
-                  processed: true
-                }
-              };
-              
-              const savedMessage = await storage.createChatMessage(messageData);
-              console.log('AI response saved successfully with ID:', savedMessage.id);
-            } catch (err) {
-              console.error('Error saving assistant message:', err);
-            }
-          }
+          maxTokens: 1000
         });
         
         console.log('Stream response setup complete, returning streaming response');
+        
+        // Set up event listeners on the stream
+        result.addEventListener('content', (chunk) => {
+          assistantMessage += chunk;
+          console.log('Token received:', chunk);
+        });
+        
+        result.addEventListener('end', async () => {
+          try {
+            console.log('Stream completed, saving final message to database');
+            
+            // Create the assistant message with metadata
+            const messageData = {
+              role: "assistant" as const,
+              content: assistantMessage,
+              conversationId,
+              metadata: {
+                model: 'gpt-3.5-turbo',
+                timestamp: new Date().toISOString(),
+                processed: true
+              }
+            };
+            
+            const savedMessage = await storage.createChatMessage(messageData);
+            console.log('AI response saved successfully with ID:', savedMessage.id);
+          } catch (err) {
+            console.error('Error saving assistant message:', err);
+          }
+        });
         
         // Return the streaming response
         return result.toDataStreamResponse();

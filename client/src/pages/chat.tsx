@@ -172,7 +172,8 @@ function ChatPageContent() {
         body: JSON.stringify({
           conversationId: currentConversationId,
           message: messageToSend
-        })
+        }),
+        credentials: 'include' // Important: include credentials for session authentication
       });
 
       if (!completionResponse.ok) {
