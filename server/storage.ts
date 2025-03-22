@@ -4,10 +4,10 @@ import {
   DemoRequest, InsertDemoRequest, demoRequests,
   GoogleToken, GoogleAdvertiserAccount, GoogleCampaignMetrics,
   ChatConversation, ChatMessage, InsertChatConversation, InsertChatMessage,
-  TextEmbedding, InsertTextEmbedding, 
+  EmbeddingStore, InsertEmbeddingStore, ChatEmbedding, InsertChatEmbedding,
   users, amazonTokens, apiKeys, advertiserAccounts, tokenRefreshLog, 
   campaignMetrics, googleTokens, googleAdvertiserAccounts, googleCampaignMetrics, 
-  chatConversations, chatMessages, textEmbeddings
+  chatConversations, chatMessages, embeddingsStore, chatEmbeddings
 } from "@shared/schema";
 import session from "express-session";
 import { drizzle } from "drizzle-orm/postgres-js";
@@ -84,12 +84,20 @@ export interface IStorage {
   createChatMessage(message: InsertChatMessage & { conversationId: string }): Promise<ChatMessage>;
   getChatMessages(conversationId: string): Promise<ChatMessage[]>;
   
-  // Text embeddings
-  createTextEmbedding(embedding: InsertTextEmbedding): Promise<TextEmbedding>;
-  getTextEmbedding(id: string): Promise<TextEmbedding | undefined>;
-  getTextEmbeddingsBySourceId(sourceId: string): Promise<TextEmbedding[]>;
-  getTextEmbeddingsByUserId(userId: string, contentType?: string): Promise<TextEmbedding[]>;
-  searchSimilarEmbeddings(embedding: number[], contentType?: string, limit?: number): Promise<TextEmbedding[]>;
+  // Embedding management
+  createEmbedding(embedding: InsertEmbeddingStore): Promise<EmbeddingStore>;
+  getEmbedding(id: string): Promise<EmbeddingStore | undefined>;
+  getEmbeddingsByType(type: string, limit?: number): Promise<EmbeddingStore[]>;
+  getEmbeddingsBySourceId(sourceId: string): Promise<EmbeddingStore[]>;
+  searchSimilarEmbeddings(
+    queryVector: number[], 
+    type?: string, 
+    limit?: number
+  ): Promise<Array<{embedding: EmbeddingStore, similarity: number}>>;
+  
+  // Chat embedding relationships
+  createChatEmbedding(chatEmbedding: InsertChatEmbedding): Promise<ChatEmbedding>;
+  getChatEmbeddings(conversationId: string): Promise<ChatEmbedding[]>;
   
   sessionStore: session.Store;
 }
@@ -501,13 +509,13 @@ export class DatabaseStorage implements IStorage {
       .orderBy(chatMessages.createdAt);
   }
 
-  // Text embeddings methods
-  async createTextEmbedding(embedding: InsertTextEmbedding): Promise<TextEmbedding> {
-    // Generate a UUID for the embedding if not provided
+  // Embedding management methods
+  async createEmbedding(embedding: InsertEmbeddingStore): Promise<EmbeddingStore> {
+    // Generate a UUID for the embedding
     const embeddingId = crypto.randomUUID();
     
     try {
-      const [newEmbedding] = await db.insert(textEmbeddings)
+      const [newEmbedding] = await db.insert(embeddingsStore)
         .values({
           id: embeddingId,
           ...embedding,
@@ -517,86 +525,82 @@ export class DatabaseStorage implements IStorage {
       
       return newEmbedding;
     } catch (error) {
-      console.error('Error creating text embedding:', error);
+      console.error('Error creating embedding:', error);
       throw error;
     }
   }
   
-  async getTextEmbedding(id: string): Promise<TextEmbedding | undefined> {
+  async getEmbedding(id: string): Promise<EmbeddingStore | undefined> {
     try {
       const [embedding] = await db.select()
-        .from(textEmbeddings)
-        .where(eq(textEmbeddings.id, id));
+        .from(embeddingsStore)
+        .where(eq(embeddingsStore.id, id));
         
       return embedding;
     } catch (error) {
-      console.error('Error fetching text embedding:', error);
+      console.error('Error fetching embedding:', error);
       throw error;
     }
   }
   
-  async getTextEmbeddingsBySourceId(sourceId: string): Promise<TextEmbedding[]> {
+  async getEmbeddingsByType(type: string, limit: number = 100): Promise<EmbeddingStore[]> {
     try {
       return await db.select()
-        .from(textEmbeddings)
-        .where(eq(textEmbeddings.sourceId, sourceId))
-        .orderBy(textEmbeddings.createdAt);
+        .from(embeddingsStore)
+        .where(eq(embeddingsStore.type, type))
+        .limit(limit)
+        .orderBy(desc(embeddingsStore.createdAt));
     } catch (error) {
-      console.error('Error fetching text embeddings by source ID:', error);
+      console.error(`Error fetching embeddings by type ${type}:`, error);
       throw error;
     }
   }
   
-  async getTextEmbeddingsByUserId(userId: string, contentType?: string): Promise<TextEmbedding[]> {
+  async getEmbeddingsBySourceId(sourceId: string): Promise<EmbeddingStore[]> {
     try {
-      let query = db.select()
-        .from(textEmbeddings)
-        .where(eq(textEmbeddings.userId, userId));
-        
-      if (contentType) {
-        query = query.where(eq(textEmbeddings.contentType, contentType));
-      }
-      
-      return await query.orderBy(textEmbeddings.createdAt);
+      return await db.select()
+        .from(embeddingsStore)
+        .where(eq(embeddingsStore.sourceId, sourceId))
+        .orderBy(embeddingsStore.createdAt);
     } catch (error) {
-      console.error('Error fetching text embeddings by user ID:', error);
+      console.error(`Error fetching embeddings by sourceId ${sourceId}:`, error);
       throw error;
     }
   }
   
   async searchSimilarEmbeddings(
-    queryEmbedding: number[], 
-    contentType?: string, 
+    queryVector: number[], 
+    type?: string, 
     limit: number = 5
-  ): Promise<TextEmbedding[]> {
+  ): Promise<Array<{embedding: EmbeddingStore, similarity: number}>> {
     try {
-      // First, get all embeddings with optional content type filter
-      let query = db.select().from(textEmbeddings);
+      // First, get all embeddings with optional type filter
+      let query = db.select().from(embeddingsStore);
       
-      if (contentType) {
-        query = query.where(eq(textEmbeddings.contentType, contentType));
+      if (type) {
+        query = query.where(eq(embeddingsStore.type, type));
       }
       
       const embeddings = await query;
       
       // Manual similarity calculation (cosine similarity) since we're using JSON storage
       const results = embeddings.map(embedding => {
-        // Parse embedding from JSON storage if necessary
-        const embeddingVector = 
-          Array.isArray(embedding.embedding) 
-            ? embedding.embedding 
-            : JSON.parse(embedding.embedding as unknown as string);
+        // Parse vector from JSON storage if necessary
+        const vectorData = 
+          Array.isArray(embedding.vector) 
+            ? embedding.vector 
+            : JSON.parse(embedding.vector as unknown as string);
             
         // Calculate dot product
         let dotProduct = 0;
         let normA = 0;
         let normB = 0;
         
-        for (let i = 0; i < queryEmbedding.length; i++) {
-          if (i < embeddingVector.length) {
-            dotProduct += queryEmbedding[i] * embeddingVector[i];
-            normA += queryEmbedding[i] * queryEmbedding[i];
-            normB += embeddingVector[i] * embeddingVector[i];
+        for (let i = 0; i < queryVector.length; i++) {
+          if (i < vectorData.length) {
+            dotProduct += queryVector[i] * vectorData[i];
+            normA += queryVector[i] * queryVector[i];
+            normB += vectorData[i] * vectorData[i];
           }
         }
         
@@ -615,10 +619,43 @@ export class DatabaseStorage implements IStorage {
       // Sort by similarity (highest first) and take top K
       return results
         .sort((a, b) => b.similarity - a.similarity)
-        .slice(0, limit)
-        .map(result => result.embedding);
+        .slice(0, limit);
     } catch (error) {
       console.error('Error searching similar embeddings:', error);
+      throw error;
+    }
+  }
+  
+  // Chat embedding relationship methods
+  async createChatEmbedding(chatEmbedding: InsertChatEmbedding): Promise<ChatEmbedding> {
+    // Generate a UUID for the chat embedding
+    const chatEmbeddingId = crypto.randomUUID();
+    
+    try {
+      const [newChatEmbedding] = await db.insert(chatEmbeddings)
+        .values({
+          id: chatEmbeddingId,
+          ...chatEmbedding,
+          createdAt: new Date(),
+          updatedAt: new Date()
+        })
+        .returning();
+      
+      return newChatEmbedding;
+    } catch (error) {
+      console.error('Error creating chat embedding:', error);
+      throw error;
+    }
+  }
+  
+  async getChatEmbeddings(conversationId: string): Promise<ChatEmbedding[]> {
+    try {
+      return await db.select()
+        .from(chatEmbeddings)
+        .where(eq(chatEmbeddings.chatConversationId, conversationId))
+        .orderBy(chatEmbeddings.createdAt);
+    } catch (error) {
+      console.error(`Error fetching chat embeddings for conversation ${conversationId}:`, error);
       throw error;
     }
   }

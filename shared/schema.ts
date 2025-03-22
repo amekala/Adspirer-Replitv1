@@ -236,33 +236,49 @@ export type GoogleToken = typeof googleTokens.$inferSelect;
 export type GoogleAdvertiserAccount = typeof googleAdvertiserAccounts.$inferSelect;
 export type GoogleCampaignMetrics = typeof googleCampaignMetrics.$inferSelect;
 
-// Content type enum for text embeddings
-export const contentTypeEnum = pgEnum('content_type', ['message', 'document', 'product', 'campaign']);
+// Content type enum for embeddings store
+export const embeddingTypeEnum = pgEnum('embedding_type', ['campaign', 'ad_group', 'keyword', 'chat_message']);
 
-// Text embeddings table for semantic search
-export const textEmbeddings = pgTable("text_embeddings", {
+// Embeddings store table for central storage of all vector embeddings
+export const embeddingsStore = pgTable("embeddings_store", {
   id: uuid("id").defaultRandom().primaryKey(),
-  content: text("content").notNull(),  // The original text content
-  contentType: contentTypeEnum("content_type").notNull(), // Type of content being embedded
-  embedding: json("embedding").notNull(), // Vector representation as JSON array
-  metadata: json("metadata").default({}).notNull(), // Additional data about the content
-  sourceId: text("source_id"), // ID of the source (message ID, document ID, etc.)
-  userId: uuid("user_id").references(() => users.id), // Owner of this embedding
+  vector: json("vector").notNull(), // Vector representation as JSON array (1536 dimensions for OpenAI)
+  text: text("text").notNull(), // The original text content that was embedded
+  type: embeddingTypeEnum("type").notNull(), // Type of content being embedded
+  sourceId: text("source_id"), // ID of the source (campaign ID, message ID, etc.)
+  metadata: json("metadata").default({}).notNull(), // Additional context/data in JSON format
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 
-// Text embedding schema
-export const insertTextEmbeddingSchema = createInsertSchema(textEmbeddings, {
-  content: z.string().min(1, "Content is required"),
-  contentType: z.enum(['message', 'document', 'product', 'campaign']),
-  embedding: z.array(z.number()),
+// Chat embeddings relationship table
+export const chatEmbeddings = pgTable("chat_embeddings", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  chatConversationId: uuid("chat_conversation_id").notNull().references(() => chatConversations.id),
+  embeddingId: uuid("embedding_id").notNull().references(() => embeddingsStore.id),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
+// Embedding store schema
+export const insertEmbeddingStoreSchema = createInsertSchema(embeddingsStore, {
+  text: z.string().min(1, "Text content is required"),
+  type: z.enum(['campaign', 'ad_group', 'keyword', 'chat_message']),
+  vector: z.array(z.number()),
   metadata: z.record(z.any()).optional(),
   sourceId: z.string().optional(),
 }).omit({ id: true, createdAt: true });
 
-// Export types for text embeddings
-export type TextEmbedding = typeof textEmbeddings.$inferSelect;
-export type InsertTextEmbedding = z.infer<typeof insertTextEmbeddingSchema>;
+// Chat embedding schema
+export const insertChatEmbeddingSchema = createInsertSchema(chatEmbeddings, {
+  chatConversationId: z.string().uuid(),
+  embeddingId: z.string().uuid(),
+}).omit({ id: true, createdAt: true, updatedAt: true });
+
+// Export types for embeddings
+export type EmbeddingStore = typeof embeddingsStore.$inferSelect;
+export type InsertEmbeddingStore = z.infer<typeof insertEmbeddingStoreSchema>;
+export type ChatEmbedding = typeof chatEmbeddings.$inferSelect;
+export type InsertChatEmbedding = z.infer<typeof insertChatEmbeddingSchema>;
 
 // Export types for chat
 export type ChatConversation = typeof chatConversations.$inferSelect;

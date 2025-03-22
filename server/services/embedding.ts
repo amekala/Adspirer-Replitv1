@@ -1,68 +1,117 @@
 /**
- * OpenAI Embedding Service
+ * OpenAI Embedding Service for AI Ad Analysis
  * 
- * This service provides functionality for generating and managing text embeddings
- * using OpenAI's embedding models. It handles authentication, batch processing,
- * and efficient generation of embeddings for various text inputs.
+ * This service provides functionality for generating and managing vector embeddings
+ * using OpenAI's embedding models. It handles:
+ * - Authentication with OpenAI API
+ * - Batch processing for efficient API usage
+ * - Generation of embeddings for campaign data, ad groups, and chat messages
+ * - Embedding format standardization for database storage
+ * - Error handling and logging
  */
 
 import OpenAI from 'openai';
 import { log } from '../vite';
+import { storage } from '../storage';
+import { EmbeddingStore, InsertEmbeddingStore, ChatMessage } from '@shared/schema';
 
 // Configuration and constants
 const EMBEDDING_MODEL = 'text-embedding-3-large';
-const MAX_BATCH_SIZE = 10; // Maximum number of texts to embed in a single API call
-const VECTOR_DIMENSIONS = 3072; // Dimension count for the text-embedding-3-large model
+const MAX_BATCH_SIZE = 20; // Maximum texts to embed in a single API call for efficiency
+const VECTOR_DIMENSIONS = 1536; // Dimensions for OpenAI embeddings
+const MAX_RETRY_ATTEMPTS = 2; // Number of retry attempts for failed API calls
 
 /**
- * Initialize the OpenAI client with the API key
+ * OpenAI client with error handling and automatic retries
  */
-function getOpenAIClient(): OpenAI {
-  const apiKey = process.env.OPENAI_API_KEY;
-  
-  if (!apiKey) {
-    throw new Error('OpenAI API key is required. Set the OPENAI_API_KEY environment variable.');
+class EmbeddingClient {
+  private client: OpenAI;
+  private retryDelayMs = 1000;
+
+  constructor() {
+    this.validateApiKey();
+    this.client = new OpenAI({
+      apiKey: process.env.OPENAI_API_KEY,
+    });
   }
-  
-  return new OpenAI({
-    apiKey: apiKey,
-  });
+
+  /**
+   * Validate API key existence
+   */
+  private validateApiKey(): void {
+    if (!process.env.OPENAI_API_KEY) {
+      log('OpenAI API key is required. Set the OPENAI_API_KEY environment variable.', 'embedding-service');
+      throw new Error('Missing OpenAI API key');
+    }
+  }
+
+  /**
+   * Generate embeddings with retry logic
+   * @param texts - Array of texts to embed
+   * @returns Array of embedding vectors
+   */
+  async generateEmbeddings(texts: string[]): Promise<number[][]> {
+    let attempts = 0;
+    
+    while (attempts <= MAX_RETRY_ATTEMPTS) {
+      try {
+        const response = await this.client.embeddings.create({
+          model: EMBEDDING_MODEL,
+          input: texts,
+          encoding_format: 'float',
+        });
+        
+        // Sort embeddings by index to maintain original order
+        return response.data
+          .sort((a, b) => a.index - b.index)
+          .map(item => item.embedding);
+      } catch (error) {
+        attempts++;
+        
+        if (attempts > MAX_RETRY_ATTEMPTS) {
+          log(`Failed to generate embeddings after ${MAX_RETRY_ATTEMPTS} attempts: ${error instanceof Error ? error.message : String(error)}`, 'embedding-service');
+          throw error;
+        }
+        
+        const delay = this.retryDelayMs * attempts;
+        log(`Embedding generation attempt ${attempts} failed, retrying in ${delay}ms...`, 'embedding-service');
+        await new Promise(resolve => setTimeout(resolve, delay));
+      }
+    }
+    
+    throw new Error('Failed to generate embeddings after maximum retry attempts');
+  }
 }
 
+// Create a singleton instance of the embedding client
+const embeddingClient = new EmbeddingClient();
+
 /**
- * Generate embeddings for a single text input
+ * Generates embeddings for a single text input
  * @param text - The text to generate an embedding for
  * @returns A numerical vector representing the text embedding
  */
 export async function generateEmbedding(text: string): Promise<number[]> {
   try {
-    const openai = getOpenAIClient();
-    
-    const response = await openai.embeddings.create({
-      model: EMBEDDING_MODEL,
-      input: text,
-      encoding_format: 'float',
-    });
-    
-    return response.data[0].embedding;
+    const embeddings = await embeddingClient.generateEmbeddings([text]);
+    return embeddings[0];
   } catch (error) {
-    log(`Error generating embedding: ${error instanceof Error ? error.message : String(error)}`, 'embedding-service');
+    log(`Error generating single embedding: ${error instanceof Error ? error.message : String(error)}`, 'embedding-service');
     throw error;
   }
 }
 
 /**
- * Generate embeddings for multiple text inputs efficiently
+ * Processes and generates embeddings for multiple text inputs in efficient batches
  * @param texts - Array of texts to generate embeddings for
  * @returns Array of embedding vectors corresponding to the input texts
  */
-export async function generateEmbeddings(texts: string[]): Promise<number[][]> {
+export async function generateEmbeddingsInBatches(texts: string[]): Promise<number[][]> {
   if (texts.length === 0) {
     return [];
   }
   
   try {
-    const openai = getOpenAIClient();
     const batches: string[][] = [];
     
     // Split texts into batches of MAX_BATCH_SIZE
@@ -74,20 +123,9 @@ export async function generateEmbeddings(texts: string[]): Promise<number[][]> {
     const results: number[][] = [];
     
     for (const batch of batches) {
-      log(`Processing batch of ${batch.length} texts`, 'embedding-service');
-      
-      const response = await openai.embeddings.create({
-        model: EMBEDDING_MODEL,
-        input: batch,
-        encoding_format: 'float',
-      });
-      
-      // Sort the embeddings by index to maintain the original order
-      const sortedEmbeddings = response.data
-        .sort((a, b) => a.index - b.index)
-        .map(item => item.embedding);
-      
-      results.push(...sortedEmbeddings);
+      log(`Processing embedding batch of ${batch.length} texts`, 'embedding-service');
+      const batchResults = await embeddingClient.generateEmbeddings(batch);
+      results.push(...batchResults);
     }
     
     return results;
@@ -98,9 +136,128 @@ export async function generateEmbeddings(texts: string[]): Promise<number[][]> {
 }
 
 /**
+ * Creates embedding for chat message and stores in database
+ * @param message - Chat message to embed
+ * @param conversationId - ID of the conversation
+ * @returns The created embedding
+ */
+export async function createChatMessageEmbedding(
+  message: ChatMessage, 
+  conversationId: string
+): Promise<EmbeddingStore> {
+  try {
+    // Generate text for embedding (preserve role context)
+    const embeddingText = `${message.role}: ${message.content}`;
+    
+    // Generate embedding vector
+    const vector = await generateEmbedding(embeddingText);
+    
+    // Store embedding in database
+    const embedding = await storage.createEmbedding({
+      text: embeddingText,
+      vector: vector,
+      type: 'chat_message',
+      sourceId: message.id,
+      metadata: {
+        role: message.role,
+        conversationId: conversationId,
+        timestamp: message.createdAt
+      }
+    });
+    
+    // Create relationship in chat_embeddings table
+    await storage.createChatEmbedding({
+      chatConversationId: conversationId,
+      embeddingId: embedding.id,
+    });
+    
+    return embedding;
+  } catch (error) {
+    log(`Error creating chat message embedding: ${error instanceof Error ? error.message : String(error)}`, 'embedding-service');
+    throw error;
+  }
+}
+
+/**
+ * Creates embedding for campaign data and stores in database
+ * @param campaignData - Campaign data to embed
+ * @param campaignId - ID of the campaign
+ * @param userId - ID of the user who owns the campaign
+ * @returns The created embedding
+ */
+export async function createCampaignEmbedding(
+  campaignData: {
+    name: string;
+    platform: string;
+    description?: string;
+    budget?: number;
+    metrics?: Record<string, any>;
+  },
+  campaignId: string,
+  userId: string
+): Promise<EmbeddingStore> {
+  try {
+    // Format campaign data for embedding
+    const embeddingText = formatCampaignForEmbedding(campaignData);
+    
+    // Generate embedding vector
+    const vector = await generateEmbedding(embeddingText);
+    
+    // Store embedding in database
+    return await storage.createEmbedding({
+      text: embeddingText,
+      vector: vector,
+      type: 'campaign',
+      sourceId: campaignId,
+      metadata: {
+        userId: userId,
+        platform: campaignData.platform,
+        metrics: campaignData.metrics || {}
+      }
+    });
+  } catch (error) {
+    log(`Error creating campaign embedding: ${error instanceof Error ? error.message : String(error)}`, 'embedding-service');
+    throw error;
+  }
+}
+
+/**
+ * Format campaign data into a standardized text format for embedding
+ */
+function formatCampaignForEmbedding(campaignData: any): string {
+  const parts = [
+    `Campaign: ${campaignData.name || 'Unnamed Campaign'}`,
+    `Platform: ${campaignData.platform || 'Unknown'}`
+  ];
+  
+  if (campaignData.description) {
+    parts.push(`Description: ${campaignData.description}`);
+  }
+  
+  if (campaignData.budget) {
+    parts.push(`Budget: ${campaignData.budget}`);
+  }
+  
+  // Add metrics if available
+  if (campaignData.metrics) {
+    const metrics = [];
+    if (campaignData.metrics.roas) metrics.push(`RoAS ${campaignData.metrics.roas}`);
+    if (campaignData.metrics.cpa) metrics.push(`CPA ${campaignData.metrics.cpa}`);
+    if (campaignData.metrics.ctr) metrics.push(`CTR ${campaignData.metrics.ctr}`);
+    if (campaignData.metrics.impressions) metrics.push(`Impressions ${campaignData.metrics.impressions}`);
+    if (campaignData.metrics.clicks) metrics.push(`Clicks ${campaignData.metrics.clicks}`);
+    if (campaignData.metrics.conversions) metrics.push(`Conversions ${campaignData.metrics.conversions}`);
+    
+    if (metrics.length > 0) {
+      parts.push(`Key Metrics: ${metrics.join(', ')}`);
+    }
+  }
+  
+  return parts.join('\n');
+}
+
+/**
  * Calculate cosine similarity between two embedding vectors
- * @param embeddingA - First embedding vector
- * @param embeddingB - Second embedding vector
  * @returns Similarity score between 0 and 1, where 1 is most similar
  */
 export function calculateSimilarity(embeddingA: number[], embeddingB: number[]): number {
@@ -126,30 +283,6 @@ export function calculateSimilarity(embeddingA: number[], embeddingB: number[]):
   
   // Calculate cosine similarity
   return dotProduct / (Math.sqrt(normA) * Math.sqrt(normB));
-}
-
-/**
- * Search for the most similar texts given a query embedding and a collection of embeddings
- * @param queryEmbedding - The embedding of the query text
- * @param embeddingsWithIds - Array of objects containing embeddings and their associated IDs
- * @param topK - Number of top results to return
- * @returns The topK most similar embeddings with their similarity scores
- */
-export function findSimilarEmbeddings(
-  queryEmbedding: number[],
-  embeddingsWithIds: Array<{ id: string; embedding: number[] }>,
-  topK: number = 5
-): Array<{ id: string; similarity: number }> {
-  // Calculate similarity for each embedding
-  const similarities = embeddingsWithIds.map(item => ({
-    id: item.id,
-    similarity: calculateSimilarity(queryEmbedding, item.embedding)
-  }));
-  
-  // Sort by similarity (highest first) and take top K
-  return similarities
-    .sort((a, b) => b.similarity - a.similarity)
-    .slice(0, topK);
 }
 
 /**
