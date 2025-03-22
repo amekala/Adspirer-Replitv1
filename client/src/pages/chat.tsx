@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -24,32 +24,44 @@ export default function ChatPage() {
     enabled: !!user,
   });
 
-  // Fetch current conversation and messages
-  const { 
-    data: currentConversation, 
-    isLoading: isLoadingConversation 
+  // Fetch messages for the selected conversation
+  const {
+    data: conversationMessages,
+    isLoading: isLoadingMessages
   } = useQuery({
-    queryKey: ["/api/chat/conversations", currentConversationId],
+    queryKey: ["/api/chat/conversations", currentConversationId, "specific"],
+    queryFn: async () => {
+      if (!currentConversationId) return null;
+      const response = await apiRequest("GET", `/api/chat/conversations/${currentConversationId}`);
+      return response.json();
+    },
     enabled: !!currentConversationId && !!user,
-    select: (data) => {
-      console.log("Processing conversation data:", data);
-      
-      // Format the data properly for the Chat component
-      if (data && typeof data === 'object') {
-        // If data includes conversation and messages separately (GET api/chat/conversations/:id)
-        if (data.conversation && data.messages) {
-          console.log("Found conversation structure with messages", data.messages.length);
-          return {
-            ...data.conversation,
-            messages: data.messages
-          };
-        }
-      }
-      
-      // Return unmodified data if structure doesn't match expected format
-      return data;
-    }
   });
+  
+  // Combine conversation info with messages
+  const currentConversation = useMemo(() => {
+    if (conversationMessages) {
+      console.log("Got specific conversation with messages:", conversationMessages);
+      return conversationMessages;
+    }
+    
+    // If we don't have messages yet but have conversation info from the list
+    if (currentConversationId && Array.isArray(conversations)) {
+      const conversationInfo = conversations.find(c => c.id === currentConversationId);
+      if (conversationInfo) {
+        console.log("Using conversation info from list:", conversationInfo);
+        return {
+          conversation: conversationInfo,
+          messages: [] // No messages yet
+        };
+      }
+    }
+    
+    return null;
+  }, [currentConversationId, conversations, conversationMessages]);
+  
+  // Determine if we're still loading
+  const isLoadingConversation = isLoadingMessages || isLoadingConversations;
 
   // Create new conversation
   const createConversationMutation = useMutation({
@@ -129,156 +141,176 @@ export default function ChatPage() {
       
       // Save the message content before clearing input
       const messageContent = message;
+      setMessage(""); // Clear input immediately for better UX
       
-      // Step 1: Send the user message - will be automatically added to the conversation
-      console.log('Sending user message...');
-      await sendMessageMutation.mutateAsync(messageContent);
+      // Add temporary typing indicator
+      const typingIndicatorMessage = {
+        id: 'typing-indicator',
+        role: 'assistant' as const,
+        content: '...',
+        createdAt: new Date().toISOString()
+      };
       
-      // Add an AI typing indicator to the UI
+      // Create a temporary conversation with the typing indicator if we already have conversation data
       if (currentConversation) {
-        const typingIndicatorMessage = {
-          id: 'typing-indicator',
-          role: 'assistant' as const,
-          content: '...',
-          createdAt: new Date().toISOString()
-        };
-        
-        // Create a temporary conversation with the typing indicator
-        const tempMessages = currentConversation.messages ? 
-          [...currentConversation.messages, typingIndicatorMessage] : 
-          [typingIndicatorMessage];
-        
-        const tempConversation = {
-          ...currentConversation,
-          messages: tempMessages
-        };
-        
-        // Update the UI
-        queryClient.setQueryData(
-          ['/api/chat/conversations', currentConversationId],
-          tempConversation
-        );
-      }
-
-      // Step 2: Call the AI completions endpoint
-      console.log('Calling AI completions endpoint...');
-      const completionResponse = await fetch('/api/chat/completions', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          conversationId: currentConversationId,
-          message: messageContent
-        }),
-        credentials: 'include' // Include credentials for session authentication
-      });
-
-      if (!completionResponse.ok) {
-        const errorText = await completionResponse.text();
-        console.error('AI completion error:', errorText);
-        throw new Error(`HTTP error! status: ${completionResponse.status}`);
-      }
-
-      // Process the streaming response
-      console.log('Processing streaming response...');
-      const reader = completionResponse.body?.getReader();
-      if (!reader) {
-        throw new Error('No reader available from response');
-      }
-      
-      const decoder = new TextDecoder();
-      let streamedContent = '';
-      
-      // Start reading the stream
-      try {
-        let done = false;
-        
-        while (!done) {
-          const { value, done: doneReading } = await reader.read();
-          done = doneReading;
+        let formatted;
+        try {
+          // Import chatService to use the formatting function
+          const { formatConversationResponse } = await import("@/lib/chatService");
+          formatted = formatConversationResponse(currentConversation);
           
-          if (value) {
-            // Decode the chunk and parse it
-            const chunk = decoder.decode(value, { stream: true });
-            console.log('Received chunk:', chunk);
+          const updatedMessages = [...formatted.messages, typingIndicatorMessage];
+          
+          // Update the conversation in the query cache with typing indicator
+          queryClient.setQueryData(
+            ['/api/chat/conversations', currentConversationId],
+            {
+              conversation: formatted.conversation,
+              messages: updatedMessages
+            }
+          );
+        } catch (err) {
+          console.error("Error formatting conversation for typing indicator:", err);
+        }
+      }
+      
+      // Use direct fetch and handle streaming ourselves for greater control
+      try {
+        // Step 1: First make sure we have the user's message in the UI
+        queryClient.invalidateQueries({ 
+          queryKey: ["/api/chat/conversations", currentConversationId, "specific"]
+        });
+        
+        // Step 2: Call the AI completions endpoint
+        console.log('Calling AI completions endpoint...');
+        const completionResponse = await fetch('/api/chat/completions', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            conversationId: currentConversationId,
+            message: messageContent
+          }),
+          credentials: 'include' // Include credentials for session authentication
+        });
+
+        if (!completionResponse.ok) {
+          const errorText = await completionResponse.text();
+          console.error('AI completion error:', errorText);
+          throw new Error(`HTTP error! status: ${completionResponse.status}`);
+        }
+
+        // Process the streaming response
+        console.log('Processing streaming response...');
+        const reader = completionResponse.body?.getReader();
+        if (!reader) {
+          throw new Error('No reader available from response');
+        }
+        
+        const decoder = new TextDecoder();
+        let streamedContent = '';
+        
+        // Start reading the stream
+        try {
+          let done = false;
+          
+          while (!done) {
+            const { value, done: doneReading } = await reader.read();
+            done = doneReading;
             
-            // Process each line (could be multiple SSE events in one chunk)
-            const lines = chunk.split('\n\n');
-            for (const line of lines) {
-              if (line.startsWith('data: ')) {
-                const data = line.substring(6); // Remove 'data: ' prefix
-                
-                if (data === '[DONE]') {
-                  console.log('Stream completed');
-                  done = true;
-                  break;
-                }
-                
-                if (data === '[ERROR]') {
-                  console.error('Server reported an error');
-                  done = true;
-                  break;
-                }
-                
-                try {
-                  // Parse the JSON data
-                  const parsedData = JSON.parse(data);
-                  if (parsedData.content) {
-                    streamedContent += parsedData.content;
-                    
-                    // Update the UI with the streamed content
-                    if (currentConversation) {
-                      // Create updated messages array
-                      const messages = currentConversation.messages || [];
-                      const lastIndex = messages.length - 1;
+            if (value) {
+              // Decode the chunk and parse it
+              const chunk = decoder.decode(value, { stream: true });
+              console.log('Received chunk:', chunk);
+              
+              // Process each line (could be multiple SSE events in one chunk)
+              const lines = chunk.split('\n\n');
+              for (const line of lines) {
+                if (line.startsWith('data: ')) {
+                  const data = line.substring(6); // Remove 'data: ' prefix
+                  
+                  if (data === '[DONE]') {
+                    console.log('Stream completed');
+                    done = true;
+                    break;
+                  }
+                  
+                  if (data === '[ERROR]') {
+                    console.error('Server reported an error');
+                    done = true;
+                    break;
+                  }
+                  
+                  try {
+                    // Parse the JSON data
+                    const parsedData = JSON.parse(data);
+                    if (parsedData.content) {
+                      streamedContent += parsedData.content;
                       
-                      let updatedMessages;
-                      if (lastIndex >= 0 && messages[lastIndex].role === 'assistant') {
-                        // Replace typing indicator or update existing assistant message
-                        updatedMessages = [...messages];
-                        updatedMessages[lastIndex] = {
-                          ...updatedMessages[lastIndex],
-                          id: updatedMessages[lastIndex].id === 'typing-indicator' 
-                            ? 'streaming-' + Date.now()
-                            : updatedMessages[lastIndex].id,
-                          content: streamedContent
+                      // Create an updated conversation object with streamed content
+                      if (currentConversation) {
+                        // Get latest conversation data
+                        const latestConversation = queryClient.getQueryData([
+                          "/api/chat/conversations", 
+                          currentConversationId, 
+                          "specific"
+                        ]) || {
+                          conversation: currentConversation.conversation,
+                          messages: currentConversation.messages || []
                         };
-                      } else {
-                        // Add a new assistant message
-                        updatedMessages = [
-                          ...messages,
-                          {
+                        
+                        // Create a copy of the messages array
+                        let messages = Array.isArray(latestConversation.messages) 
+                          ? [...latestConversation.messages] 
+                          : [];
+                          
+                        // Find if we have a typing indicator already
+                        const typingIndex = messages.findIndex(m => 
+                          m.id === 'typing-indicator' || m.id.startsWith('streaming-'));
+                        
+                        if (typingIndex >= 0) {
+                          // Update the existing typing indicator with content
+                          messages[typingIndex] = {
+                            ...messages[typingIndex],
+                            id: 'streaming-' + Date.now(),
+                            content: streamedContent
+                          };
+                        } else {
+                          // Add new assistant message
+                          messages.push({
                             id: 'streaming-' + Date.now(),
                             role: 'assistant',
                             content: streamedContent,
                             createdAt: new Date().toISOString()
-                          }
-                        ];
-                      }
-                      
-                      // Update the conversation in the query cache
-                      queryClient.setQueryData(
-                        ['/api/chat/conversations', currentConversationId],
-                        {
-                          ...currentConversation,
-                          messages: updatedMessages
+                          });
                         }
-                      );
+                        
+                        // Update the query cache
+                        queryClient.setQueryData(
+                          ['/api/chat/conversations', currentConversationId, 'specific'],
+                          {
+                            conversation: latestConversation.conversation,
+                            messages
+                          }
+                        );
+                      }
                     }
+                  } catch (parseError) {
+                    console.error('Error parsing streaming data:', parseError);
                   }
-                } catch (parseError) {
-                  console.error('Error parsing streaming data:', parseError);
                 }
               }
             }
           }
+        } finally {
+          reader.releaseLock();
         }
-      } finally {
-        reader.releaseLock();
+      } catch (error) {
+        console.error("Error handling streaming response:", error);
       }
       
-      // Make sure we get the final state from the server
+      // Final refresh to ensure we have the server's latest state
       queryClient.invalidateQueries({ 
         queryKey: ["/api/chat/conversations", currentConversationId] 
       });

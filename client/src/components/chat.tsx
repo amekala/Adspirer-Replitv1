@@ -3,29 +3,36 @@ import { Avatar } from "@/components/ui/avatar";
 import { Card } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Bot, User } from "lucide-react";
-
-interface Message {
-  id: string;
-  role: "user" | "assistant" | "system";
-  content: string;
-  createdAt: string;
-}
-
-interface Conversation {
-  id: string;
-  title: string;
-  userId: string;
-  createdAt: string;
-  messages: Message[];
-}
+import { Message, Conversation, formatConversationResponse } from "@/lib/chatService";
 
 interface ChatProps {
-  conversation: any; // Will contain both conversation and messages
+  conversation: any; // This will be processed into the correct format
   isLoading: boolean;
 }
 
 export function Chat({ conversation, isLoading }: ChatProps) {
   const [isTyping, setIsTyping] = useState(false);
+  const [processed, setProcessed] = useState<{
+    conversation: Conversation | null;
+    messages: Message[];
+  }>({
+    conversation: null,
+    messages: []
+  });
+
+  // Process and format the conversation data
+  useEffect(() => {
+    if (conversation) {
+      console.log("Processing conversation for display:", conversation);
+      try {
+        const formatted = formatConversationResponse(conversation);
+        console.log("Formatted conversation data:", formatted);
+        setProcessed(formatted);
+      } catch (error) {
+        console.error("Error formatting conversation:", error);
+      }
+    }
+  }, [conversation]);
 
   // Simulate typing effect
   useEffect(() => {
@@ -49,7 +56,7 @@ export function Chat({ conversation, isLoading }: ChatProps) {
     );
   }
 
-  if (isLoading && !conversation) {
+  if (isLoading && !processed.conversation) {
     return (
       <div className="space-y-4">
         <MessageSkeleton role="user" />
@@ -58,42 +65,7 @@ export function Chat({ conversation, isLoading }: ChatProps) {
     );
   }
 
-  // Extract messages from the response format
-  let messages: Message[] = [];
-  
-  if (conversation) {
-    // Check if the API response is in the expected format
-    if (conversation.messages && Array.isArray(conversation.messages)) {
-      // Direct messages array from streaming or cache
-      messages = conversation.messages;
-    } else if (conversation.conversation && Array.isArray(conversation.messages)) {
-      // Format from GET /api/chat/conversations/:id endpoint
-      messages = conversation.messages;
-    } else {
-      // Response might be from the server with nested structure
-      console.log('Trying to process conversation format:', conversation);
-      try {
-        if (typeof conversation === 'object') {
-          // Try to extract messages from various possible structures
-          if (Array.isArray(conversation)) {
-            messages = conversation;
-          } else if (conversation?.messages && Array.isArray(conversation.messages)) {
-            messages = conversation.messages;
-          } else if (conversation?.conversation?.messages && Array.isArray(conversation.conversation.messages)) {
-            messages = conversation.conversation.messages;
-          }
-        }
-      } catch (error) {
-        console.error('Error processing conversation data:', error);
-      }
-      
-      if (messages.length === 0) {
-        console.error('Unable to extract messages from conversation format:', conversation);
-      }
-    }
-  }
-
-  console.log('Rendering messages:', messages);
+  const { messages } = processed;
 
   return (
     <div className="space-y-6">
