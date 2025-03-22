@@ -90,8 +90,14 @@
       }
     }, 5000);
 
-    // Migrations will be run through API endpoint
-    log('Application starting - use /api/admin/run-migrations endpoint to apply database migrations');
+    // Run migrations automatically during startup
+    try {
+      log('Application starting - running database migrations automatically');
+      await runMigrations();
+      log('Database migrations completed');
+    } catch (error) {
+      log(`Error running migrations: ${error instanceof Error ? error.message : String(error)}`);
+    }
 
     server.listen(port, "0.0.0.0", () => {
       log(`Server is running on port ${port}`);
