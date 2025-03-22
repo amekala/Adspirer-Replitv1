@@ -574,6 +574,76 @@ export class DatabaseStorage implements IStorage {
     limit: number = 5
   ): Promise<Array<{embedding: EmbeddingStore, similarity: number}>> {
     try {
+      // Use PostgreSQL's native vector operations for efficient similarity search
+      // This optimized approach uses a raw SQL query to leverage PostgreSQL's vector capabilities
+      
+      // Prepare the query vector as a string
+      const vectorString = JSON.stringify(queryVector);
+      
+      // Build the SQL query with optional type filter
+      const typeFilter = type ? `AND type = '${type}'` : '';
+      
+      // Use the dot product / (magnitude of A * magnitude of B) for cosine similarity
+      const query = `
+        SELECT 
+          id, 
+          type, 
+          source_id as "sourceId", 
+          metadata, 
+          vector,
+          created_at as "createdAt",
+          updated_at as "updatedAt",
+          (vector <=> $1::jsonb) as similarity
+        FROM embeddings_store
+        WHERE 1=1 ${typeFilter}
+        ORDER BY similarity ASC
+        LIMIT $2
+      `;
+      
+      // Execute the raw query with parameters
+      const result = await pool.query(query, [vectorString, limit]);
+      
+      // Format the results
+      return result.rows.map(row => {
+        // Convert the database row to the expected EmbeddingStore format
+        const embedding: EmbeddingStore = {
+          id: row.id,
+          type: row.type,
+          sourceId: row.sourceId,
+          metadata: row.metadata,
+          vector: row.vector,
+          createdAt: new Date(row.createdAt),
+          updatedAt: new Date(row.updatedAt)
+        };
+        
+        // PostgreSQL's <=> operator returns distance (smaller is more similar)
+        // Convert to similarity (higher is more similar) by using 1 - distance
+        // Clamp to [0,1] range in case of floating point errors
+        const distance = parseFloat(row.similarity);
+        const similarity = Math.max(0, Math.min(1, 1 - distance));
+        
+        return {
+          embedding,
+          similarity
+        };
+      });
+    } catch (error) {
+      console.error('Error searching similar embeddings:', error);
+      // Fall back to in-memory calculation if the PostgreSQL vector extension fails
+      return this.searchSimilarEmbeddingsInMemory(queryVector, type, limit);
+    }
+  }
+  
+  /**
+   * Fallback method for similarity search that works in-memory
+   * This is used if the PostgreSQL vector operations are not available
+   */
+  private async searchSimilarEmbeddingsInMemory(
+    queryVector: number[], 
+    type?: string, 
+    limit: number = 5
+  ): Promise<Array<{embedding: EmbeddingStore, similarity: number}>> {
+    try {
       // First, get all embeddings with optional type filter
       let query = db.select().from(embeddingsStore);
       
@@ -621,7 +691,7 @@ export class DatabaseStorage implements IStorage {
         .sort((a, b) => b.similarity - a.similarity)
         .slice(0, limit);
     } catch (error) {
-      console.error('Error searching similar embeddings:', error);
+      console.error('Error in fallback similarity search:', error);
       throw error;
     }
   }
