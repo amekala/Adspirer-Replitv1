@@ -127,13 +127,43 @@ function ChatPageContent() {
     setMessage(""); // Clear input immediately for better UX
     
     try {
-      // Step 1: Save the user's message
+      // Step 1: Save the user's message and show it immediately
       await sendMessageMutation.mutateAsync({
         conversationId: currentConversationId,
         message: messageToSend
       });
+      
+      // Refresh messages to show the user's message
+      queryClient.invalidateQueries({ 
+        queryKey: ["/api/chat/conversations", currentConversationId] 
+      });
 
-      // Step 2: Get AI response via the completions endpoint
+      // Set typing indicator
+      const typingIndicatorMessage = {
+        id: 'typing-indicator',
+        role: 'assistant',
+        content: '...',
+        createdAt: new Date().toISOString()
+      };
+      
+      if (currentConversation && currentConversation.messages) {
+        // If we have a current conversation with messages, manually add the typing indicator
+        // This is just for UI purposes and won't be saved to the database
+        const tempMessages = [...currentConversation.messages, typingIndicatorMessage];
+        const tempConversation = {
+          ...currentConversation,
+          messages: tempMessages
+        };
+        
+        // Use queryClient.setQueryData to update the UI without fetching from the server
+        queryClient.setQueryData(
+          ['/api/chat/conversations', currentConversationId],
+          tempConversation
+        );
+      }
+
+      // Step 2: Call the AI completions endpoint
+      console.log('Calling AI completions endpoint...');
       const completionResponse = await fetch('/api/chat/completions', {
         method: 'POST',
         headers: {
@@ -146,33 +176,44 @@ function ChatPageContent() {
       });
 
       if (!completionResponse.ok) {
+        console.error('AI completion error:', await completionResponse.text());
         throw new Error(`HTTP error! status: ${completionResponse.status}`);
       }
 
+      console.log('Processing AI streaming response...');
       // Process streaming response
       const reader = completionResponse.body?.getReader();
-      const decoder = new TextDecoder();
       
       if (reader) {
+        let streamedText = '';
+        const decoder = new TextDecoder();
+        
         // Start asynchronous reading to handle streaming
         const readStream = async () => {
-          let done = false;
-          
-          // Keep invalidating to refresh the messages as they come in
-          const intervalId = setInterval(() => {
-            queryClient.invalidateQueries({ 
-              queryKey: ["/api/chat/conversations", currentConversationId] 
-            });
-          }, 1000);
-          
           try {
-            while (!done) {
-              const { value, done: doneReading } = await reader.read();
-              done = doneReading;
+            // Poll the server every 2 seconds to refresh messages
+            const intervalId = setInterval(() => {
+              queryClient.invalidateQueries({ 
+                queryKey: ["/api/chat/conversations", currentConversationId] 
+              });
+            }, 2000);
+            
+            let streamDone = false;
+            while (!streamDone) {
+              const { value, done } = await reader.read();
+              streamDone = done;
               
-              if (done) {
+              if (value) {
+                const chunk = decoder.decode(value);
+                console.log('Received chunk:', chunk);
+                streamedText += chunk;
+              }
+              
+              if (streamDone) {
+                console.log('Stream finished, final message:', streamedText);
                 clearInterval(intervalId);
-                // Final invalidation to ensure we have the complete message
+                
+                // Final refresh after stream is complete
                 queryClient.invalidateQueries({ 
                   queryKey: ["/api/chat/conversations", currentConversationId] 
                 });
@@ -181,18 +222,28 @@ function ChatPageContent() {
             }
           } catch (error) {
             console.error("Error reading stream:", error);
-            clearInterval(intervalId);
+            
+            // Refresh messages to show any saved responses
+            queryClient.invalidateQueries({ 
+              queryKey: ["/api/chat/conversations", currentConversationId] 
+            });
           }
         };
         
-        readStream();
+        // Start reading the stream
+        await readStream();
       }
     } catch (error) {
-      console.error("Error sending message:", error);
+      console.error("Error in chat process:", error);
       toast({
         title: "Error",
         description: `Failed to get AI response: ${error instanceof Error ? error.message : String(error)}`,
         variant: "destructive",
+      });
+      
+      // Refresh messages to show at least the user's message
+      queryClient.invalidateQueries({ 
+        queryKey: ["/api/chat/conversations", currentConversationId] 
       });
     }
   };

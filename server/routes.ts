@@ -868,8 +868,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(403).json({ message: "Unauthorized access to conversation" });
       }
       
-      // Save the user message
-      const message = await storage.createChatMessage(result.data);
+      // Save the user message with proper metadata
+      const messageData = {
+        ...result.data,
+        metadata: {
+          timestamp: new Date().toISOString(),
+          clientInfo: {
+            userAgent: req.headers['user-agent'] || 'unknown',
+          }
+        }
+      };
+      
+      console.log('Creating user message with data:', JSON.stringify(messageData, null, 2));
+      const message = await storage.createChatMessage(messageData);
+      console.log('User message saved with ID:', message.id);
       
       return res.status(201).json(message);
     } catch (error) {
@@ -889,6 +901,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
 
     try {
+      console.log('Generating chat completion for conversation:', conversationId);
+      
       // Check if the conversation exists and belongs to the user
       const conversation = await storage.getChatConversation(conversationId);
       if (!conversation) {
@@ -899,42 +913,57 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(403).json({ message: "Unauthorized access to conversation" });
       }
 
-      // The createChatMessage was moved to the /messages endpoint
-      // No need to save the user message here as it should already be saved
-
-      // Get previous messages for context
+      // Get previous messages for context including the last user message
       const messages = await storage.getChatMessages(conversationId);
       
-      // Format messages for OpenAI
-      const formattedMessages = messages.map(msg => ({
-        role: msg.role,
-        content: msg.content
-      }));
-
+      console.log(`Retrieved ${messages.length} messages for conversation context`);
+      
+      // Add system message at the beginning for context
+      const systemMessage = {
+        role: 'system' as const,
+        content: 'You are an AI assistant for Adspirer, a platform that helps manage retail media advertising campaigns. You have knowledge about Amazon Advertising and Google Ads APIs, campaign metrics, and advertising strategies. Provide helpful, concise responses about advertising, analytics, and campaign management.'
+      };
+      
+      // Format messages for OpenAI (including the system message)
+      const formattedMessages = [
+        systemMessage,
+        ...messages.map(msg => ({
+          role: msg.role as 'user' | 'assistant',
+          content: msg.content
+        }))
+      ];
+      
+      console.log('Sending request to OpenAI with formattedMessages');
+      
       // Collect assistant's message
       let assistantMessage = '';
       
       // Setup AI SDK with message tracking
       const result = streamText({
-        model: openai('gpt-4o'),
-        messages: formattedMessages.map(msg => ({
-          role: msg.role as 'user' | 'assistant' | 'system',
-          content: msg.content
-        })),
+        model: openai('gpt-3.5-turbo'), // Using 3.5-turbo instead of gpt-4o for faster responses
+        messages: formattedMessages,
         temperature: 0.7,
-        maxTokens: 2000,
+        maxTokens: 1000,
         onFinish: async (completion) => {
           // Save the complete message to database
           assistantMessage = completion;
           try {
-            // Use the correct message schema format with explicit typing
+            console.log('Received complete AI response, saving to database');
+            
+            // Create the message with metadata using JSONB
             const messageData = {
-              role: "assistant" as "assistant", // Type assertion for proper role type
+              role: "assistant" as const,
               content: assistantMessage,
-              conversationId
+              conversationId,
+              metadata: {
+                model: 'gpt-3.5-turbo',
+                timestamp: new Date().toISOString(),
+                processed: true
+              }
             };
             
             await storage.createChatMessage(messageData);
+            console.log('AI response saved successfully');
           } catch (err) {
             console.error('Error saving assistant message:', err);
           }
@@ -944,8 +973,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Return the streaming response
       return result.toDataStreamResponse();
     } catch (error) {
-      console.error('Error generating chat completion:', error);
-      return res.status(500).json({ message: "Failed to generate chat completion", error: error.message });
+      console.error('Error generating chat completion:', error instanceof Error ? error.message : 'Unknown error');
+      return res.status(500).json({ message: "Failed to generate chat completion", error: error instanceof Error ? error.message : 'Unknown error' });
     }
   });
 
