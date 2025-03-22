@@ -2,6 +2,7 @@
   import { registerRoutes } from "./routes";
   import { setupVite, serveStatic, log } from "./vite";
   import { request, IncomingMessage } from "http";
+  import { runMigrations } from "./run-migrations";
 
   const app = express();
   app.use(express.json());
@@ -88,6 +89,9 @@
         log(`Error sending health check: ${error}`);
       }
     }, 5000);
+
+    // Migrations will be run through API endpoint
+    log('Application starting - use /api/admin/run-migrations endpoint to apply database migrations');
 
     server.listen(port, "0.0.0.0", () => {
       log(`Server is running on port ${port}`);
