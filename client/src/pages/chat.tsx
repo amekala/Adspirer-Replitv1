@@ -34,9 +34,8 @@ export default function ChatPage() {
   // Create new conversation
   const createConversationMutation = useMutation({
     mutationFn: async () => {
-      const res = await apiRequest("/api/chat/conversations", {
-        method: "POST",
-        body: JSON.stringify({ title: "New conversation" }),
+      const res = await apiRequest("/api/chat/conversations", "POST", {
+        title: "New conversation" 
       });
       return res.json();
     },
@@ -62,12 +61,9 @@ export default function ChatPage() {
   const sendMessageMutation = useMutation({
     mutationFn: async ({ conversationId, message }: { conversationId: string; message: string }) => {
       // First save the user message
-      await apiRequest(`/api/chat/conversations/${conversationId}/messages`, {
-        method: "POST",
-        body: JSON.stringify({ 
-          role: "user", 
-          content: message 
-        }),
+      await apiRequest(`/api/chat/conversations/${conversationId}/messages`, "POST", { 
+        role: "user", 
+        content: message 
       });
       
       // Then start the streaming completion
@@ -173,9 +169,8 @@ export default function ChatPage() {
   // Handle chat title editing
   const updateConversationMutation = useMutation({
     mutationFn: async ({ id, title }: { id: string; title: string }) => {
-      const res = await apiRequest(`/api/chat/conversations/${id}`, {
-        method: "PUT",
-        body: JSON.stringify({ title }),
+      const res = await apiRequest(`/api/chat/conversations/${id}`, "PUT", { 
+        title 
       });
       return res.json();
     },
@@ -194,9 +189,7 @@ export default function ChatPage() {
   // Handle chat deletion
   const deleteConversationMutation = useMutation({
     mutationFn: async (id: string) => {
-      await apiRequest(`/api/chat/conversations/${id}`, {
-        method: "DELETE",
-      });
+      await apiRequest(`/api/chat/conversations/${id}`, "DELETE");
     },
     onSuccess: (_, id) => {
       queryClient.invalidateQueries({ queryKey: ["/api/chat/conversations"] });
@@ -226,8 +219,7 @@ export default function ChatPage() {
   });
 
   return (
-    <ProtectedRoute>
-      <div className="flex h-screen overflow-hidden">
+    <div className="flex h-screen overflow-hidden">
         <ChatSidebar 
           conversations={conversations} 
           currentConversationId={currentConversationId}
@@ -300,7 +292,6 @@ export default function ChatPage() {
             </>
           )}
         </div>
-      </div>
-    </ProtectedRoute>
+    </div>
   );
 }
