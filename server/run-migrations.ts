@@ -53,8 +53,26 @@ export async function runMigrations() {
         await pool.query('BEGIN');
         
         try {
-          // Execute the migration script
-          await pool.query(sql);
+          // For larger migration files, we need to split them and run sequentially
+          // This approach helps prevent errors with complex migrations
+          const sqlStatements = splitSqlIntoStatements(sql);
+          
+          for (const sqlStatement of sqlStatements) {
+            if (sqlStatement.trim()) {
+              try {
+                await pool.query(sqlStatement);
+              } catch (error) {
+                // Log the specific statement error but continue if it's just a "relation already exists" error
+                const errorMsg = error instanceof Error ? error.message : String(error);
+                if (errorMsg.includes('already exists')) {
+                  log(`- Statement skipped (already exists): ${sqlStatement.substring(0, 50)}...`, 'migration');
+                } else {
+                  // For other errors, throw to trigger transaction rollback
+                  throw error;
+                }
+              }
+            }
+          }
           
           // Record successful migration
           await recordMigration(file);
@@ -141,4 +159,63 @@ async function recordMigration(filename: string) {
     log(`Error recording migration: ${error instanceof Error ? error.message : String(error)}`, 'migration');
     throw error;
   }
+}
+
+/**
+ * Split a SQL file into individual statements
+ * This helps execute complex migrations in smaller chunks
+ */
+function splitSqlIntoStatements(sql: string): string[] {
+  // Replace all comment styles with empty strings
+  const noComments = sql
+    .replace(/--.*$/gm, '') // Remove single line comments
+    .replace(/\/\*[\s\S]*?\*\//gm, ''); // Remove multi-line comments
+  
+  // Handle DO $$ BEGIN ... END $$ blocks (PL/pgSQL blocks)
+  const statements: string[] = [];
+  let currentStatement = '';
+  let inPlPgSqlBlock = false;
+  let blockDelimiter = '';
+  
+  for (const line of noComments.split('\n')) {
+    const trimmedLine = line.trim();
+    
+    // Skip empty lines
+    if (!trimmedLine) {
+      continue;
+    }
+    
+    // Check if we're entering a PL/pgSQL block
+    if (!inPlPgSqlBlock && trimmedLine.startsWith('DO')) {
+      inPlPgSqlBlock = true;
+      blockDelimiter = '$$';
+      currentStatement += line + '\n';
+      continue;
+    }
+    
+    // Check if we're closing a PL/pgSQL block
+    if (inPlPgSqlBlock && trimmedLine.includes(blockDelimiter + ';')) {
+      inPlPgSqlBlock = false;
+      currentStatement += line + '\n';
+      statements.push(currentStatement);
+      currentStatement = '';
+      continue;
+    }
+    
+    // Add line to current statement
+    currentStatement += line + '\n';
+    
+    // If not in PL/pgSQL block and line ends with semicolon, end the statement
+    if (!inPlPgSqlBlock && trimmedLine.endsWith(';')) {
+      statements.push(currentStatement);
+      currentStatement = '';
+    }
+  }
+  
+  // Add any remaining statement
+  if (currentStatement.trim()) {
+    statements.push(currentStatement);
+  }
+  
+  return statements;
 }
