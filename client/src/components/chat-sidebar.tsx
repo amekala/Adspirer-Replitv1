@@ -67,7 +67,6 @@ export function ChatSidebar({
   const [searchTerm, setSearchTerm] = useState("");
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editTitle, setEditTitle] = useState("");
-  const [isPinned, setIsPinned] = useState(true);
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [conversationToDelete, setConversationToDelete] = useState<string | null>(null);
@@ -96,13 +95,7 @@ export function ChatSidebar({
     setEditingId(null);
   };
 
-  // Toggle sidebar pinned state
-  const togglePinned = () => {
-    setIsPinned(!isPinned);
-    if (isCollapsed) {
-      setIsCollapsed(false);
-    }
-  };
+  // No longer needed since we've simplified to a single collapse button
 
   // Toggle sidebar collapsed state
   const toggleCollapsed = () => {
@@ -129,7 +122,7 @@ export function ChatSidebar({
     <div className={`border-r border-border transition-all duration-300 ${
       isCollapsed ? 
         'w-16 min-w-16' : 
-        isPinned ? 'min-w-[300px] w-[300px]' : 'min-w-[300px] w-[300px] lg:min-w-[300px] lg:w-[300px] absolute lg:relative z-20 bg-background h-full shadow-lg lg:shadow-none'
+        'min-w-[300px] w-[300px]'
     }`}>
       <div className="flex flex-col h-full">
         <div className="p-3 border-b flex justify-between items-center">
@@ -144,23 +137,6 @@ export function ChatSidebar({
                 New Chat
               </Button>
               <div className="flex gap-1 ml-2">
-                <TooltipProvider>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Button 
-                        variant="ghost" 
-                        size="icon" 
-                        className="h-9 w-9" 
-                        onClick={togglePinned}
-                      >
-                        {isPinned ? <PanelLeftClose className="h-4 w-4" /> : <PanelLeft className="h-4 w-4" />}
-                      </Button>
-                    </TooltipTrigger>
-                    <TooltipContent>
-                      <p>{isPinned ? 'Unpin Sidebar' : 'Pin Sidebar'}</p>
-                    </TooltipContent>
-                  </Tooltip>
-                </TooltipProvider>
                 <TooltipProvider>
                   <Tooltip>
                     <TooltipTrigger asChild>
@@ -322,36 +298,46 @@ export function ChatSidebar({
 
                     {!isEditing && (
                       <div className="hidden group-hover:flex items-center">
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button
-                              size="icon"
-                              variant="ghost"
-                              className="h-7 w-7"
-                              onClick={(e) => e.stopPropagation()}
-                            >
-                              <ChevronRight className="h-4 w-4" />
-                            </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end">
-                            <DropdownMenuItem
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleEdit(conversation.id, conversation.title);
-                              }}
-                            >
-                              <Edit2 className="h-4 w-4 mr-2" />
-                              Rename
-                            </DropdownMenuItem>
-                            <DropdownMenuItem
-                              className="text-destructive focus:text-destructive"
-                              onClick={(e) => handleDeleteClick(conversation.id, e)}
-                            >
-                              <Trash2 className="h-4 w-4 mr-2" />
-                              Delete
-                            </DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
+                        <div className="flex space-x-1">
+                          <TooltipProvider>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <Button
+                                  size="icon"
+                                  variant="ghost"
+                                  className="h-7 w-7"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleEdit(conversation.id, conversation.title);
+                                  }}
+                                >
+                                  <Edit2 className="h-4 w-4" />
+                                </Button>
+                              </TooltipTrigger>
+                              <TooltipContent side="top">
+                                <p>Rename</p>
+                              </TooltipContent>
+                            </Tooltip>
+                          </TooltipProvider>
+                          
+                          <TooltipProvider>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <Button
+                                  size="icon"
+                                  variant="ghost"
+                                  className="h-7 w-7 text-destructive hover:text-destructive"
+                                  onClick={(e) => handleDeleteClick(conversation.id, e)}
+                                >
+                                  <Trash2 className="h-4 w-4" />
+                                </Button>
+                              </TooltipTrigger>
+                              <TooltipContent side="top">
+                                <p>Delete</p>
+                              </TooltipContent>
+                            </Tooltip>
+                          </TooltipProvider>
+                        </div>
                       </div>
                     )}
                   </div>

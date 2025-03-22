@@ -1,0 +1,669 @@
+# Implementing RAG with Pinecone and SQL for Ad Campaign Analysis
+
+I'll outline a detailed implementation plan to connect Pinecone and SQL so your LLM can answer questions based on your ad campaign data rather than its general knowledge.
+
+## Step 1: Design the RAG Flow Architecture
+
+Create a service architecture that handles:
+1. User query processing
+2. Semantic search via Pinecone
+3. SQL data retrieval for detailed metrics
+4. Context assembly for the LLM
+
+```javascript
+// High-level flow:
+// 1. User asks question → 2. Convert to embedding → 3. Search Pinecone 
+// 4. Retrieve relevant campaign IDs → 5. Query SQL for detailed data 
+// 6. Assemble context → 7. Send to LLM → 8. Return response
+```
+
+## Step 2: Set Up Pinecone Connection Service
+
+Create a dedicated service to handle Pinecone operations:
+
+```javascript
+// src/services/pineconeService.js
+
+import { Pinecone } from '@pinecone-database/pinecone';
+import { generateEmbedding } from './embeddingService';
+import { log } from '../utils/logger';
+
+// Initialize Pinecone client
+const pinecone = new Pinecone({
+  apiKey: process.env.PINECONE_API_KEY,
+  environment: process.env.PINECONE_ENVIRONMENT
+});
+
+// Get reference to index
+const index = pinecone.index(process.env.PINECONE_INDEX_NAME);
+
+/**
+ * Query Pinecone for campaigns similar to the query
+ * @param {string} query - User's question
+ * @param {Object} options - Query options
+ * @returns {Array} - Matching campaign IDs and metadata
+ */
+export async function querySimilarCampaigns(query, options = {}) {
+  try {
+    // Generate embedding for the query
+    const queryEmbedding = await generateEmbedding(query);
+    
+    // Query Pinecone
+    const results = await index.query({
+      vector: queryEmbedding,
+      topK: options.limit || 5,
+      includeMetadata: true,
+      filter: { type: 'campaign' } // Only retrieve campaign embeddings
+    });
+    
+    // Extract campaign IDs and metadata
+    return results.matches.map(match => ({
+      campaignId: match.metadata.sourceId,
+      score: match.score,
+      platform: match.metadata.platform,
+      metadata: match.metadata
+    }));
+  } catch (error) {
+    log(`Error querying Pinecone: ${error.message}`, 'pinecone-service');
+    return [];
+  }
+}
+```
+
+## Step 3: Create SQL Data Retrieval Service
+
+Set up a service to fetch detailed campaign data from your SQL database:
+
+```javascript
+// src/services/sqlDataService.js
+
+import { pool } from '../config/database';
+import { log } from '../utils/logger';
+
+/**
+ * Fetch detailed campaign data from SQL
+ * @param {Array} campaignIds - List of campaign IDs to fetch
+ * @returns {Array} - Campaign data with metrics
+ */
+export async function fetchCampaignData(campaignIds) {
+  if (!campaignIds.length) return [];
+  
+  try {
+    // Create parameterized query for safety
+    const placeholders = campaignIds.map((_, idx) => `$${idx + 1}`).join(',');
+    
+    // Query basic campaign info
+    const campaignQuery = `
+      SELECT id, name, platform, description
+      FROM advertiser_accounts
+      WHERE id IN (${placeholders})
+    `;
+    
+    const campaignResult = await pool.query(campaignQuery, campaignIds);
+    const campaigns = campaignResult.rows;
+    
+    // For each campaign, fetch metrics
+    for (const campaign of campaigns) {
+      // Fetch metrics based on platform
+      if (campaign.platform === 'amazon') {
+        const metricsQuery = `
+          SELECT 
+            AVG(advertising_cost) as cost,
+            AVG(attributed_sales_14d) as revenue,
+            SUM(impressions) as impressions,
+            SUM(clicks) as clicks,
+            SUM(attributed_conversions_14d) as conversions,
+            AVG(attributed_sales_14d / NULLIF(advertising_cost, 0)) as roas,
+            AVG(advertising_cost / NULLIF(attributed_conversions_14d, 0)) as cpa
+          FROM amazon_ad_reports
+          WHERE campaign_id = $1
+          GROUP BY campaign_id
+        `;
+        
+        const metricsResult = await pool.query(metricsQuery, [campaign.id]);
+        campaign.metrics = metricsResult.rows[0] || {};
+      } else if (campaign.platform === 'google') {
+        // Similar query for google_campaign_metrics
+        const metricsQuery = `
+          SELECT 
+            AVG(cost) as cost,
+            AVG(value) as revenue,
+            SUM(impressions) as impressions,
+            SUM(clicks) as clicks,
+            SUM(conversions) as conversions,
+            AVG(value / NULLIF(cost, 0)) as roas,
+            AVG(cost / NULLIF(conversions, 0)) as cpa
+          FROM google_campaign_metrics
+          WHERE campaign_id = $1
+          GROUP BY campaign_id
+        `;
+        
+        const metricsResult = await pool.query(metricsQuery, [campaign.id]);
+        campaign.metrics = metricsResult.rows[0] || {};
+      }
+    }
+    
+    return campaigns;
+  } catch (error) {
+    log(`Error fetching campaign data: ${error.message}`, 'sql-service');
+    return [];
+  }
+}
+
+/**
+ * Extract insights from campaign metrics
+ * @param {Array} campaigns - Campaign data with metrics
+ * @returns {Object} - Key insights and comparisons
+ */
+export function extractCampaignInsights(campaigns) {
+  if (!campaigns.length) return {};
+  
+  // Calculate averages across campaigns
+  const metrics = campaigns.reduce((acc, campaign) => {
+    if (!campaign.metrics) return acc;
+    
+    Object.entries(campaign.metrics).forEach(([key, value]) => {
+      if (typeof value === 'number') {
+        if (!acc[key]) acc[key] = [];
+        acc[key].push(value);
+      }
+    });
+    
+    return acc;
+  }, {});
+  
+  // Calculate averages
+  const insights = {};
+  Object.entries(metrics).forEach(([key, values]) => {
+    if (values.length > 0) {
+      insights[key] = {
+        average: values.reduce((sum, val) => sum + val, 0) / values.length,
+        best: Math.max(...values),
+        worst: Math.min(...values)
+      };
+    }
+  });
+  
+  return insights;
+}
+```
+
+## Step 4: Implement Query Understanding Service
+
+Create a service to analyze user questions and extract key parameters:
+
+```javascript
+// src/services/queryUnderstandingService.js
+
+/**
+ * Extract parameters from user query to help SQL retrieval
+ * @param {string} query - User's question
+ * @returns {Object} - Extracted parameters
+ */
+export function extractQueryParameters(query) {
+  const params = {
+    metrics: [],
+    timeframe: null,
+    campaigns: [],
+    comparison: false,
+    platforms: []
+  };
+  
+  // Extract metrics of interest
+  const metricTerms = [
+    'roas', 'roi', 'cpa', 'cpc', 'ctr', 'impressions', 
+    'clicks', 'conversions', 'revenue', 'cost', 'spend'
+  ];
+  
+  metricTerms.forEach(metric => {
+    if (query.toLowerCase().includes(metric.toLowerCase())) {
+      params.metrics.push(metric);
+    }
+  });
+  
+  // Extract time frames
+  const timeRegex = /last\s+(\d+)\s+(day|week|month|year)s?/i;
+  const timeMatch = query.match(timeRegex);
+  if (timeMatch) {
+    params.timeframe = {
+      value: parseInt(timeMatch[1]),
+      unit: timeMatch[2].toLowerCase()
+    };
+  }
+  
+  // Extract platforms
+  ['amazon', 'google'].forEach(platform => {
+    if (query.toLowerCase().includes(platform.toLowerCase())) {
+      params.platforms.push(platform);
+    }
+  });
+  
+  // Detect comparison intent
+  if (/compar(e|ison)|vs\.?|versus|better than/i.test(query)) {
+    params.comparison = true;
+  }
+  
+  return params;
+}
+```
+
+## Step 5: Create Context Assembly Service
+
+Build a service to assemble all retrieved information into an LLM prompt:
+
+```javascript
+// src/services/contextAssemblyService.js
+
+/**
+ * Assemble context for the LLM from retrieved data
+ * @param {string} query - Original user query
+ * @param {Array} campaigns - Campaign data from SQL
+ * @param {Object} queryParams - Extracted query parameters
+ * @param {Object} insights - Calculated insights
+ * @returns {string} - Assembled context
+ */
+export function assembleContext(query, campaigns, queryParams, insights) {
+  // Start with base context
+  let context = `User Query: "${query}"\n\n`;
+  
+  // Add campaign data
+  context += `Relevant Campaign Data:\n`;
+  
+  campaigns.forEach((campaign, index) => {
+    context += `Campaign ${index+1}: ${campaign.name} (${campaign.platform})\n`;
+    
+    if (campaign.metrics) {
+      const metrics = Object.entries(campaign.metrics)
+        .filter(([key, value]) => value !== null && value !== undefined)
+        .map(([key, value]) => {
+          // Format numbers for readability
+          if (typeof value === 'number') {
+            if (key.toLowerCase().includes('roas')) {
+              return `${key}: ${value.toFixed(2)}`;
+            } else if (key.toLowerCase().includes('cost') || key.toLowerCase().includes('revenue')) {
+              return `${key}: $${value.toFixed(2)}`;
+            } else if (key.toLowerCase().includes('ctr') || key.toLowerCase().includes('rate')) {
+              return `${key}: ${(value * 100).toFixed(2)}%`;
+            } else {
+              return `${key}: ${value.toLocaleString()}`;
+            }
+          }
+          return `${key}: ${value}`;
+        })
+        .join(', ');
+      
+      context += `  Metrics: ${metrics}\n`;
+    }
+  });
+  
+  // Add insights if available
+  if (Object.keys(insights).length > 0) {
+    context += '\nInsights:\n';
+    
+    Object.entries(insights).forEach(([metric, values]) => {
+      context += `  ${metric}: avg=${values.average.toFixed(2)}, best=${values.best.toFixed(2)}, worst=${values.worst.toFixed(2)}\n`;
+    });
+  }
+  
+  // Add guidance to the LLM
+  context += `\nInstructions: Answer the user's question based ONLY on the campaign data provided above. If the data doesn't contain relevant information to answer the question, acknowledge this limitation and suggest what data might help. Don't use your general knowledge about advertising.`;
+  
+  return context;
+}
+```
+
+## Step 6: Implement Main RAG Service
+
+Create the main service that orchestrates the entire process:
+
+```javascript
+// src/services/ragService.js
+
+import { querySimilarCampaigns } from './pineconeService';
+import { fetchCampaignData, extractCampaignInsights } from './sqlDataService';
+import { extractQueryParameters } from './queryUnderstandingService';
+import { assembleContext } from './contextAssemblyService';
+import { getAICompletion } from './openaiService';
+import { log } from '../utils/logger';
+
+/**
+ * Process user query with RAG approach
+ * @param {string} query - User's question
+ * @param {string} userId - User ID for data filtering
+ * @returns {Object} - AI response with supporting data
+ */
+export async function processQuery(query, userId) {
+  try {
+    // Step 1: Extract parameters from query
+    const queryParams = extractQueryParameters(query);
+    log(`Extracted parameters: ${JSON.stringify(queryParams)}`, 'rag-service');
+    
+    // Step 2: Find relevant campaigns via Pinecone
+    const similarCampaigns = await querySimilarCampaigns(query, { 
+      limit: 5,
+      userId: userId
+    });
+    log(`Found ${similarCampaigns.length} similar campaigns`, 'rag-service');
+    
+    if (similarCampaigns.length === 0) {
+      return {
+        answer: "I couldn't find campaign data relevant to your question. Could you provide more details about which campaigns you're interested in?",
+        campaigns: [],
+        retrievalSuccess: false
+      };
+    }
+    
+    // Step 3: Get campaign IDs for SQL query
+    const campaignIds = similarCampaigns.map(camp => camp.campaignId);
+    
+    // Step 4: Fetch detailed data from SQL
+    const campaignData = await fetchCampaignData(campaignIds);
+    log(`Fetched data for ${campaignData.length} campaigns`, 'rag-service');
+    
+    // Step 5: Extract insights from campaign data
+    const insights = extractCampaignInsights(campaignData);
+    
+    // Step 6: Assemble context for LLM
+    const context = assembleContext(query, campaignData, queryParams, insights);
+    
+    // Step 7: Get AI completion
+    const systemPrompt = `You are an advertising analytics assistant. Your task is to analyze campaign data and provide insights based ONLY on the data provided. Do not use your general knowledge about advertising.`;
+    
+    const completion = await getAICompletion(systemPrompt, context);
+    
+    // Step 8: Return formatted response
+    return {
+      answer: completion,
+      campaigns: campaignData.map(c => ({
+        id: c.id,
+        name: c.name,
+        platform: c.platform,
+        metrics: c.metrics
+      })),
+      insights: insights,
+      retrievalSuccess: true
+    };
+  } catch (error) {
+    log(`Error processing query: ${error.message}`, 'rag-service');
+    
+    return {
+      answer: "I encountered an error while retrieving campaign data. Please try again or rephrase your question.",
+      error: error.message,
+      retrievalSuccess: false
+    };
+  }
+}
+```
+
+## Step 7: Set Up API Endpoint
+
+Create an API endpoint to handle user queries:
+
+```javascript
+// src/routes/chatRoutes.js
+
+import express from 'express';
+import { processQuery } from '../services/ragService';
+import { createChatMessage } from '../services/chatService';
+import { log } from '../utils/logger';
+
+const router = express.Router();
+
+// Endpoint for campaign questions
+router.post('/ask', async (req, res) => {
+  try {
+    const { query, conversationId, userId } = req.body;
+    
+    if (!query || !conversationId || !userId) {
+      return res.status(400).json({
+        success: false,
+        message: 'Missing required parameters'
+      });
+    }
+    
+    // Save user message
+    await createChatMessage({
+      content: query,
+      role: 'user',
+      chatConversationId: conversationId
+    });
+    
+    // Process with RAG
+    const response = await processQuery(query, userId);
+    
+    // Save assistant response
+    await createChatMessage({
+      content: response.answer,
+      role: 'assistant',
+      chatConversationId: conversationId,
+      metadata: {
+        campaigns: response.campaigns.map(c => c.id),
+        retrievalSuccess: response.retrievalSuccess
+      }
+    });
+    
+    return res.json({
+      success: true,
+      answer: response.answer,
+      supportingData: {
+        campaigns: response.campaigns,
+        insights: response.insights
+      }
+    });
+  } catch (error) {
+    log(`Error in /ask endpoint: ${error.message}`, 'api');
+    
+    return res.status(500).json({
+      success: false,
+      message: 'Error processing your question',
+      error: error.message
+    });
+  }
+});
+
+export default router;
+```
+
+## Step 8: Build OpenAI Service
+
+Create a service to handle OpenAI API interactions:
+
+```javascript
+// src/services/openaiService.js
+
+import OpenAI from 'openai';
+import { log } from '../utils/logger';
+
+const openai = new OpenAI({
+  apiKey: process.env.OPENAI_API_KEY
+});
+
+/**
+ * Get AI completion based on context
+ * @param {string} systemPrompt - System instructions
+ * @param {string} userContext - Assembled context
+ * @returns {string} - AI completion
+ */
+export async function getAICompletion(systemPrompt, userContext) {
+  try {
+    const response = await openai.chat.completions.create({
+      model: 'gpt-4-turbo',
+      messages: [
+        {
+          role: 'system',
+          content: systemPrompt
+        },
+        {
+          role: 'user',
+          content: userContext
+        }
+      ],
+      temperature: 0.3, // Lower temperature for more factual responses
+      max_tokens: 1000
+    });
+    
+    return response.choices[0].message.content;
+  } catch (error) {
+    log(`Error getting AI completion: ${error.message}`, 'openai-service');
+    throw error;
+  }
+}
+```
+
+## Step 9: Implement Database Connection
+
+Set up the PostgreSQL connection:
+
+```javascript
+// src/config/database.js
+
+import { Pool } from 'pg';
+
+// Initialize connection pool
+export const pool = new Pool({
+  user: process.env.DB_USER,
+  host: process.env.DB_HOST,
+  database: process.env.DB_NAME,
+  password: process.env.DB_PASSWORD,
+  port: process.env.DB_PORT,
+  ssl: process.env.DB_SSL === 'true'
+});
+
+// Test connection
+pool.query('SELECT NOW()', (err, res) => {
+  if (err) {
+    console.error('Database connection error:', err.stack);
+  } else {
+    console.log('Database connected successfully');
+  }
+});
+```
+
+## Step 10: Testing and Integration
+
+Create a test file to verify the implementation:
+
+```javascript
+// src/tests/rag.test.js
+
+import { processQuery } from '../services/ragService';
+
+async function testRAG() {
+  // Test various query types
+  const testQueries = [
+    "What's the ROAS of my Amazon campaigns?",
+    "Compare the performance of Google vs Amazon ads",
+    "Which campaign had the highest CTR last month?",
+    "Why is my CPA so high in the summer campaign?"
+  ];
+  
+  const userId = 'test-user-id'; // Replace with actual test user ID
+  
+  for (const query of testQueries) {
+    console.log(`\nQuery: ${query}`);
+    console.log('-'.repeat(50));
+    
+    try {
+      const result = await processQuery(query, userId);
+      console.log(`Answer: ${result.answer}`);
+      console.log(`Retrieved ${result.campaigns.length} campaigns`);
+    } catch (error) {
+      console.error(`Error: ${error.message}`);
+    }
+    
+    console.log('-'.repeat(50));
+  }
+}
+
+testRAG().catch(console.error);
+```
+
+## Step 11: Add to Express App
+
+Update your main Express app to include the new routes:
+
+```javascript
+// src/app.js
+
+import express from 'express';
+import cors from 'cors';
+import chatRoutes from './routes/chatRoutes';
+
+const app = express();
+
+// Middleware
+app.use(cors());
+app.use(express.json());
+
+// Routes
+app.use('/api/chat', chatRoutes);
+
+// Error handler
+app.use((err, req, res, next) => {
+  console.error(err.stack);
+  res.status(500).json({
+    success: false,
+    message: 'Internal server error',
+    error: process.env.NODE_ENV === 'development' ? err.message : undefined
+  });
+});
+
+export default app;
+```
+
+## Step 12: Configure Environment Variables
+
+Create a `.env` file with all required configuration:
+
+```
+# OpenAI
+OPENAI_API_KEY=your-openai-api-key
+
+# Pinecone
+PINECONE_API_KEY=your-pinecone-api-key
+PINECONE_ENVIRONMENT=your-pinecone-environment
+PINECONE_INDEX_NAME=ad-campaigns
+
+# Database
+DB_USER=postgres-user
+DB_HOST=your-db-host
+DB_NAME=ad-analytics
+DB_PASSWORD=your-db-password
+DB_PORT=5432
+DB_SSL=true
+
+# Server
+PORT=3000
+NODE_ENV=development
+```
+
+## Step 13: Create Start Script
+
+Add the start script to your `package.json`:
+
+```json
+{
+  "scripts": {
+    "start": "node -r dotenv/config src/server.js",
+    "dev": "nodemon -r dotenv/config src/server.js",
+    "test": "node -r dotenv/config src/tests/rag.test.js"
+  }
+}
+```
+
+## Implementation Timeline
+
+1. **Day 1**: Set up database connection and Pinecone integration
+2. **Day 2**: Implement SQL data service and query understanding
+3. **Day 3**: Build context assembly and OpenAI completion service
+4. **Day 4**: Integrate all components and create API endpoint
+5. **Day 5**: Testing and optimization
+
+This implementation provides a complete RAG system that:
+1. Processes user questions about ad campaigns
+2. Finds relevant campaigns using semantic search
+3. Retrieves detailed performance data from SQL
+4. Formats context for the LLM
+5. Returns answers based on actual campaign data
+
+This approach ensures the LLM will answer questions based on your database information rather than its general knowledge about advertising.
