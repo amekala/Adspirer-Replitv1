@@ -97,9 +97,9 @@ export default function ChatPage() {
 
   // Create a new conversation if none exists
   useEffect(() => {
-    if (user && conversations.length === 0 && !isLoadingConversations) {
+    if (user && Array.isArray(conversations) && conversations.length === 0 && !isLoadingConversations) {
       createConversationMutation.mutate();
-    } else if (user && conversations.length > 0 && !currentConversationId) {
+    } else if (user && Array.isArray(conversations) && conversations.length > 0 && !currentConversationId) {
       // Set the current conversation to the most recent one
       setCurrentConversationId(conversations[0].id);
     }
@@ -195,8 +195,8 @@ export default function ChatPage() {
       queryClient.invalidateQueries({ queryKey: ["/api/chat/conversations"] });
       
       // If we deleted the current conversation, select another one
-      if (id === currentConversationId) {
-        const remainingConversations = conversations.filter(c => c.id !== id);
+      if (id === currentConversationId && Array.isArray(conversations)) {
+        const remainingConversations = conversations.filter((c: any) => c.id !== id);
         if (remainingConversations.length > 0) {
           setCurrentConversationId(remainingConversations[0].id);
         } else {
