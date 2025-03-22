@@ -20,7 +20,7 @@ interface Conversation {
 }
 
 interface ChatProps {
-  conversation: { conversation: Conversation; messages: Message[] } | undefined;
+  conversation: any; // Will contain both conversation and messages
   isLoading: boolean;
 }
 
