@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Avatar } from "@/components/ui/avatar";
 import { Card } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -11,6 +11,7 @@ interface ChatProps {
 }
 
 export function Chat({ conversation, isLoading }: ChatProps) {
+  const messagesEndRef = useRef<HTMLDivElement>(null);
   const [isTyping, setIsTyping] = useState(false);
   const [processed, setProcessed] = useState<{
     conversation: Conversation | null;
@@ -27,18 +28,32 @@ export function Chat({ conversation, isLoading }: ChatProps) {
       try {
         const formatted = formatConversationResponse(conversation);
         console.log("Formatted conversation data:", formatted);
+        
+        // Check if there's a typing indicator or streaming message
+        const hasTypingMessage = formatted.messages.some(
+          msg => msg.id === 'typing-indicator' || (typeof msg.id === 'string' && msg.id.startsWith('streaming-'))
+        );
+        
         setProcessed(formatted);
+        setIsTyping(hasTypingMessage);
       } catch (error) {
         console.error("Error formatting conversation:", error);
       }
     }
   }, [conversation]);
 
-  // Simulate typing effect
+  // Auto-scroll to bottom when messages change
   useEffect(() => {
-    if (isLoading) {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [processed.messages]);
+
+  // Simulate typing effect if loading but no typing message is present
+  useEffect(() => {
+    if (isLoading && !isTyping) {
       setIsTyping(true);
-    } else {
+    } else if (!isLoading && !processed.messages.some(
+      msg => msg.id === 'typing-indicator' || (typeof msg.id === 'string' && msg.id.startsWith('streaming-'))
+    )) {
       // Add a small delay before turning off typing indicator for better UX
       const typingTimeout = setTimeout(() => {
         setIsTyping(false);
@@ -46,7 +61,7 @@ export function Chat({ conversation, isLoading }: ChatProps) {
       
       return () => clearTimeout(typingTimeout);
     }
-  }, [isLoading]);
+  }, [isLoading, processed.messages, isTyping]);
 
   if (!conversation && !isLoading) {
     return (
@@ -56,7 +71,7 @@ export function Chat({ conversation, isLoading }: ChatProps) {
     );
   }
 
-  if (isLoading && !processed.conversation) {
+  if (isLoading && !processed.conversation && processed.messages.length === 0) {
     return (
       <div className="space-y-4">
         <MessageSkeleton role="user" />
@@ -66,31 +81,43 @@ export function Chat({ conversation, isLoading }: ChatProps) {
   }
 
   const { messages } = processed;
+  const hasTypingIndicator = messages.some(msg => 
+    msg.id === 'typing-indicator' || (typeof msg.id === 'string' && msg.id.startsWith('streaming-'))
+  );
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 pb-4">
       {messages.length === 0 ? (
         <div className="text-center py-12">
           <p className="text-muted-foreground">Start the conversation by typing a message below.</p>
         </div>
       ) : (
-        messages.map((message) => (
-          <MessageBubble key={message.id} message={message} />
+        messages.map((message, index) => (
+          <MessageBubble 
+            key={message.id || index} 
+            message={message} 
+            isStreaming={
+              typeof message.id === 'string' && 
+              (message.id === 'typing-indicator' || message.id.startsWith('streaming-'))
+            }
+          />
         ))
       )}
       
-      {isTyping && <TypingIndicator />}
+      {/* Only show separate typing indicator if we don't already have one in the messages */}
+      {isTyping && !hasTypingIndicator && <TypingIndicator />}
+      <div ref={messagesEndRef} />
     </div>
   );
 }
 
-function MessageBubble({ message }: { message: Message }) {
+function MessageBubble({ message, isStreaming = false }: { message: Message; isStreaming?: boolean }) {
   const isUser = message.role === "user";
   
   return (
-    <div className={`flex ${isUser ? "justify-end" : "justify-start"}`}>
-      <div className={`flex ${isUser ? "flex-row-reverse" : "flex-row"} gap-3 max-w-[80%]`}>
-        <Avatar className={`h-8 w-8 ${isUser ? "bg-primary" : "bg-muted"}`}>
+    <div className={`flex ${isUser ? "justify-end" : "justify-start"} group`}>
+      <div className={`flex ${isUser ? "flex-row-reverse" : "flex-row"} gap-3 max-w-[80%] md:max-w-[70%]`}>
+        <Avatar className={`h-8 w-8 ${isUser ? "bg-primary" : "bg-muted"} self-start mt-1`}>
           {isUser ? (
             <User className="h-4 w-4 text-primary-foreground" />
           ) : (
@@ -98,12 +125,15 @@ function MessageBubble({ message }: { message: Message }) {
           )}
         </Avatar>
         
-        <Card className={`p-3 ${
+        <Card className={`p-4 ${
           isUser 
             ? "bg-primary text-primary-foreground" 
             : "bg-muted text-foreground"
-        } shadow-sm`}>
-          <div className="whitespace-pre-wrap">{message.content}</div>
+        } shadow-sm rounded-2xl ${isUser ? 'rounded-tr-sm' : 'rounded-tl-sm'}`}>
+          <div className="whitespace-pre-wrap">
+            {message.content}
+            {isStreaming && <span className="animate-pulse">▌</span>}
+          </div>
         </Card>
       </div>
     </div>
