@@ -2,17 +2,26 @@
  * OpenAI API integration service
  * Provides functionality for interacting with OpenAI APIs, 
  * handling credentials, and streaming responses.
+ * 
+ * This service is responsible for:
+ * - Chat message generation and streaming
+ * - Conversation context management
+ * - Integration with embedding service for semantic search
+ * - Error handling and response formatting
  */
 
 import { OpenAI } from 'openai';
 import { Response } from 'express';
 import { storage } from '../storage';
+import { createChatMessageEmbedding } from './embedding';
+import { log } from '../vite';
 
 // Define interfaces for strongly typed parameters
 export interface ChatCompletionOptions {
   conversationId: string;
   userId: string;
   systemPrompt?: string;
+  includeEmbeddings?: boolean;
 }
 
 /**
@@ -31,15 +40,19 @@ function getOpenAIClient(): OpenAI {
 /**
  * Process streaming response from OpenAI and save to database
  * @param conversationId - The ID of the conversation
+ * @param userId - The ID of the user
  * @param res - The Express response object for streaming
  * @param messages - The messages to send to OpenAI
+ * @param systemPrompt - Optional custom system prompt
+ * @param includeEmbeddings - Whether to generate embeddings for the response (default: true)
  */
 export async function streamChatCompletion(
   conversationId: string,
   userId: string,
   res: Response,
   messages: any[],
-  systemPrompt = 'You are an AI assistant for Adspirer, a platform that helps manage retail media advertising campaigns. You have knowledge about Amazon Advertising and Google Ads APIs, campaign metrics, and advertising strategies. Provide helpful, concise responses about advertising, analytics, and campaign management.'
+  systemPrompt = 'You are an AI assistant for Adspirer, a platform that helps manage retail media advertising campaigns. You have knowledge about Amazon Advertising and Google Ads APIs, campaign metrics, and advertising strategies. Provide helpful, concise responses about advertising, analytics, and campaign management.',
+  includeEmbeddings = true
 ): Promise<void> {
   try {
     // Create a proper system message if not already included
@@ -58,8 +71,8 @@ export async function streamChatCompletion(
     res.setHeader('Cache-Control', 'no-cache');
     res.setHeader('Connection', 'keep-alive');
     
-    console.log('Creating chat completion stream with OpenAI GPT-4o...');
-    console.log('Messages being sent to OpenAI:', JSON.stringify(messages, null, 2));
+    log('Creating chat completion stream with OpenAI GPT-4o...', 'openai-service');
+    log(`Using ${messages.length} messages in conversation context`, 'openai-service');
     
     // Create streaming completion
     const stream = await openaiClient.chat.completions.create({
@@ -73,7 +86,7 @@ export async function streamChatCompletion(
     // Track the complete assistant message for saving to the database
     let fullAssistantMessage = '';
     
-    console.log('Stream created, sending chunks to client...');
+    log('Stream created, sending chunks to client...', 'openai-service');
     
     // Process stream chunks
     for await (const chunk of stream) {
@@ -87,7 +100,7 @@ export async function streamChatCompletion(
       }
     }
     
-    console.log('Stream completed, saving response to database...');
+    log('Stream completed, saving response to database...', 'openai-service');
     
     // Save the complete response to the database
     try {
@@ -105,19 +118,31 @@ export async function streamChatCompletion(
       
       // Save to database
       const savedMessage = await storage.createChatMessage(messageData);
-      console.log('AI response saved successfully with ID:', savedMessage.id);
+      log(`AI response saved successfully with ID: ${savedMessage.id}`, 'openai-service');
+      
+      // Generate and store embedding if requested
+      if (includeEmbeddings) {
+        try {
+          log(`Generating embedding for message ID: ${savedMessage.id}`, 'openai-service');
+          await createChatMessageEmbedding(savedMessage, conversationId);
+          log(`Successfully created embedding for message ID: ${savedMessage.id}`, 'openai-service');
+        } catch (embeddingError) {
+          // Log error but don't fail the response
+          log(`Error creating embedding: ${embeddingError instanceof Error ? embeddingError.message : String(embeddingError)}`, 'openai-service');
+        }
+      }
       
       // End the stream
       res.write('data: [DONE]\n\n');
       res.end();
       
     } catch (err) {
-      console.error('Error saving assistant message:', err);
+      log(`Error saving assistant message: ${err instanceof Error ? err.message : String(err)}`, 'openai-service');
       res.write('data: [ERROR]\n\n');
       res.end();
     }
   } catch (error) {
-    console.error('Error in OpenAI service:', error);
+    log(`Error in OpenAI service: ${error instanceof Error ? error.message : String(error)}`, 'openai-service');
     
     // Send error to client and end response
     res.write(`data: ${JSON.stringify({ error: 'An error occurred with the OpenAI service.' })}\n\n`);
