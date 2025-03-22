@@ -27,7 +27,14 @@ export function Chat({ conversation, isLoading }: ChatProps) {
       console.log("Processing conversation for display:", conversation);
       try {
         const formatted = formatConversationResponse(conversation);
-        console.log("Formatted conversation data:", formatted);
+        
+        // Sort messages by createdAt to maintain proper flow
+        if (formatted.messages && formatted.messages.length > 0) {
+          formatted.messages.sort((a, b) => {
+            return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
+          });
+          console.log(`Found ${formatted.messages.length} messages for conversation ${formatted.conversation.id}`);
+        }
         
         // Check if there's a typing indicator or streaming message
         const hasTypingMessage = formatted.messages.some(
@@ -115,24 +122,30 @@ function MessageBubble({ message, isStreaming = false }: { message: Message; isS
   const isUser = message.role === "user";
   
   return (
-    <div className={`flex ${isUser ? "justify-end" : "justify-start"} group`}>
+    <div className={`flex ${isUser ? "justify-end" : "justify-start"} group py-2`}>
       <div className={`flex ${isUser ? "flex-row-reverse" : "flex-row"} gap-3 max-w-[80%] md:max-w-[70%]`}>
-        <Avatar className={`h-8 w-8 ${isUser ? "bg-primary" : "bg-muted"} self-start mt-1`}>
-          {isUser ? (
-            <User className="h-4 w-4 text-primary-foreground" />
-          ) : (
-            <Bot className="h-4 w-4" />
-          )}
-        </Avatar>
+        <div className={`flex-shrink-0 ${isUser ? "ml-2" : "mr-2"}`}>
+          <Avatar className={`h-9 w-9 ${isUser ? "bg-blue-600" : "bg-zinc-800"} self-start mt-0.5 overflow-hidden ring-2 ring-background`}>
+            {isUser ? (
+              <div className="flex items-center justify-center h-full w-full">
+                <User className="h-5 w-5 text-white" />
+              </div>
+            ) : (
+              <div className="flex items-center justify-center h-full w-full">
+                <Bot className="h-5 w-5 text-white" />
+              </div>
+            )}
+          </Avatar>
+        </div>
         
-        <Card className={`p-4 ${
+        <Card className={`p-3 ${
           isUser 
-            ? "bg-primary text-primary-foreground" 
-            : "bg-muted text-foreground"
-        } shadow-sm rounded-2xl ${isUser ? 'rounded-tr-sm' : 'rounded-tl-sm'}`}>
-          <div className="whitespace-pre-wrap">
+            ? "bg-blue-600 text-white border-0" 
+            : "bg-gray-100 dark:bg-zinc-800 text-foreground border-0"
+        } shadow-md rounded-2xl ${isUser ? 'rounded-tr-sm' : 'rounded-tl-sm'}`}>
+          <div className="whitespace-pre-wrap text-sm md:text-base">
             {message.content}
-            {isStreaming && <span className="animate-pulse">▌</span>}
+            {isStreaming && <span className="inline-block animate-pulse ml-0.5">▌</span>}
           </div>
         </Card>
       </div>
@@ -142,16 +155,20 @@ function MessageBubble({ message, isStreaming = false }: { message: Message; isS
 
 function TypingIndicator() {
   return (
-    <div className="flex justify-start">
+    <div className="flex justify-start py-2">
       <div className="flex flex-row gap-3 max-w-[80%]">
-        <Avatar className="h-8 w-8 bg-muted">
-          <Bot className="h-4 w-4" />
-        </Avatar>
-        <Card className="p-3 bg-muted text-foreground shadow-sm">
-          <div className="flex space-x-1">
-            <div className="w-2 h-2 rounded-full bg-current animate-bounce" />
-            <div className="w-2 h-2 rounded-full bg-current animate-bounce" style={{ animationDelay: "0.2s" }} />
-            <div className="w-2 h-2 rounded-full bg-current animate-bounce" style={{ animationDelay: "0.4s" }} />
+        <div className="flex-shrink-0 mr-2">
+          <Avatar className="h-9 w-9 bg-zinc-800 overflow-hidden ring-2 ring-background">
+            <div className="flex items-center justify-center h-full w-full">
+              <Bot className="h-5 w-5 text-white" />
+            </div>
+          </Avatar>
+        </div>
+        <Card className="p-3 bg-gray-100 dark:bg-zinc-800 text-foreground border-0 shadow-md rounded-2xl rounded-tl-sm">
+          <div className="flex space-x-1.5 px-1 py-1">
+            <div className="w-2 h-2 rounded-full bg-current opacity-60 animate-bounce" />
+            <div className="w-2 h-2 rounded-full bg-current opacity-60 animate-bounce" style={{ animationDelay: "0.2s" }} />
+            <div className="w-2 h-2 rounded-full bg-current opacity-60 animate-bounce" style={{ animationDelay: "0.4s" }} />
           </div>
         </Card>
       </div>
@@ -163,10 +180,12 @@ function MessageSkeleton({ role }: { role: "user" | "assistant" }) {
   const isUser = role === "user";
   
   return (
-    <div className={`flex ${isUser ? "justify-end" : "justify-start"}`}>
+    <div className={`flex ${isUser ? "justify-end" : "justify-start"} py-2`}>
       <div className={`flex ${isUser ? "flex-row-reverse" : "flex-row"} gap-3 max-w-[80%]`}>
-        <Skeleton className="h-8 w-8 rounded-full" />
-        <Skeleton className={`h-16 w-[300px] rounded-md`} />
+        <div className={`flex-shrink-0 ${isUser ? "ml-2" : "mr-2"}`}>
+          <Skeleton className="h-9 w-9 rounded-full" />
+        </div>
+        <Skeleton className={`h-14 w-[280px] rounded-2xl`} />
       </div>
     </div>
   );
