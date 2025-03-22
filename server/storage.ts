@@ -500,6 +500,128 @@ export class DatabaseStorage implements IStorage {
       .where(eq(chatMessages.conversationId, conversationId))
       .orderBy(chatMessages.createdAt);
   }
+
+  // Text embeddings methods
+  async createTextEmbedding(embedding: InsertTextEmbedding): Promise<TextEmbedding> {
+    // Generate a UUID for the embedding if not provided
+    const embeddingId = crypto.randomUUID();
+    
+    try {
+      const [newEmbedding] = await db.insert(textEmbeddings)
+        .values({
+          id: embeddingId,
+          ...embedding,
+          createdAt: new Date()
+        })
+        .returning();
+      
+      return newEmbedding;
+    } catch (error) {
+      console.error('Error creating text embedding:', error);
+      throw error;
+    }
+  }
+  
+  async getTextEmbedding(id: string): Promise<TextEmbedding | undefined> {
+    try {
+      const [embedding] = await db.select()
+        .from(textEmbeddings)
+        .where(eq(textEmbeddings.id, id));
+        
+      return embedding;
+    } catch (error) {
+      console.error('Error fetching text embedding:', error);
+      throw error;
+    }
+  }
+  
+  async getTextEmbeddingsBySourceId(sourceId: string): Promise<TextEmbedding[]> {
+    try {
+      return await db.select()
+        .from(textEmbeddings)
+        .where(eq(textEmbeddings.sourceId, sourceId))
+        .orderBy(textEmbeddings.createdAt);
+    } catch (error) {
+      console.error('Error fetching text embeddings by source ID:', error);
+      throw error;
+    }
+  }
+  
+  async getTextEmbeddingsByUserId(userId: string, contentType?: string): Promise<TextEmbedding[]> {
+    try {
+      let query = db.select()
+        .from(textEmbeddings)
+        .where(eq(textEmbeddings.userId, userId));
+        
+      if (contentType) {
+        query = query.where(eq(textEmbeddings.contentType, contentType));
+      }
+      
+      return await query.orderBy(textEmbeddings.createdAt);
+    } catch (error) {
+      console.error('Error fetching text embeddings by user ID:', error);
+      throw error;
+    }
+  }
+  
+  async searchSimilarEmbeddings(
+    queryEmbedding: number[], 
+    contentType?: string, 
+    limit: number = 5
+  ): Promise<TextEmbedding[]> {
+    try {
+      // First, get all embeddings with optional content type filter
+      let query = db.select().from(textEmbeddings);
+      
+      if (contentType) {
+        query = query.where(eq(textEmbeddings.contentType, contentType));
+      }
+      
+      const embeddings = await query;
+      
+      // Manual similarity calculation (cosine similarity) since we're using JSON storage
+      const results = embeddings.map(embedding => {
+        // Parse embedding from JSON storage if necessary
+        const embeddingVector = 
+          Array.isArray(embedding.embedding) 
+            ? embedding.embedding 
+            : JSON.parse(embedding.embedding as unknown as string);
+            
+        // Calculate dot product
+        let dotProduct = 0;
+        let normA = 0;
+        let normB = 0;
+        
+        for (let i = 0; i < queryEmbedding.length; i++) {
+          if (i < embeddingVector.length) {
+            dotProduct += queryEmbedding[i] * embeddingVector[i];
+            normA += queryEmbedding[i] * queryEmbedding[i];
+            normB += embeddingVector[i] * embeddingVector[i];
+          }
+        }
+        
+        // Calculate cosine similarity
+        const similarity = 
+          normA === 0 || normB === 0 
+            ? 0 
+            : dotProduct / (Math.sqrt(normA) * Math.sqrt(normB));
+            
+        return {
+          embedding,
+          similarity
+        };
+      });
+      
+      // Sort by similarity (highest first) and take top K
+      return results
+        .sort((a, b) => b.similarity - a.similarity)
+        .slice(0, limit)
+        .map(result => result.embedding);
+    } catch (error) {
+      console.error('Error searching similar embeddings:', error);
+      throw error;
+    }
+  }
 }
 
 export const storage = new DatabaseStorage();

@@ -1,0 +1,66 @@
+Embeddings Management for AI Ad Analysis System
+Based on your database schema, I'll provide detailed instructions on how to handle embeddings for your AI advertising assistant.
+Database Structure for Embeddings
+You should create two new tables:
+
+embeddings_store
+
+id: UUID primary key
+vector: Vector type (1536 dimensions for OpenAI embeddings)
+text: Text that was embedded (for reference/debugging)
+type: Type of content ('campaign', 'ad_group', 'keyword', 'chat_message')
+source_id: Reference to the originating ID (campaign ID, message ID, etc.)
+metadata: JSONB field for storing additional context
+created_at: Timestamp
+
+
+chat_embeddings
+
+id: UUID primary key
+chat_conversation_id: References chat_conversations table
+embedding_id: References embeddings_store table
+created_at: Timestamp
+updated_at: Timestamp
+
+
+
+This structure allows you to:
+
+Store all embeddings in a central table
+Create specific relationships for chat-based embeddings
+Maintain metadata for contextual information
+
+Embeddings Generation Process
+1. Campaign & Ad Data Embeddings
+Generate embeddings for advertising data during:
+
+Initial data import
+Campaign or ad group updates
+Regular refresh intervals (weekly)
+
+The process should:
+
+Extract relevant data from campaign tables (advertiser_accounts, amazon_ad_reports, google_campaign_metrics)
+Normalize and structure text by combining relevant fields:
+CopyCampaign: {name}
+Platform: {platform}
+Description: {description}
+Budget: {budget}
+Key Metrics: RoAS {roas}, CPA {cpa}, CTR {ctr}
+
+Generate embeddings through OpenAI API
+Store in embeddings_store with type='campaign' and source_id linked to the campaign ID
+
+2. Chat Message Embeddings
+Generate embeddings for:
+
+User queries in the chat_messages table
+Conversations for semantic retrieval
+
+The process should:
+
+Extract the most recent messages (last 3-5) from a conversation
+Combine messages with roles for context
+Generate embedding using the same OpenAI model
+Store in embeddings_store with type='chat_message'
+Create relationship in chat_embeddings table
