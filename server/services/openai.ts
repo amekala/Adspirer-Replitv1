@@ -14,6 +14,7 @@ import { OpenAI } from 'openai';
 import { Response } from 'express';
 import { storage } from '../storage';
 import { createChatMessageEmbedding } from './embedding';
+import { MESSAGE_EMBEDDING_INTERVAL } from './embedding-constants';
 import { log } from '../vite';
 
 // Define interfaces for strongly typed parameters

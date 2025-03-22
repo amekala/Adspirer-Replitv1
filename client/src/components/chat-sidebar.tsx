@@ -13,7 +13,8 @@ import {
   ChevronLeft,
   PanelLeft,
   PanelLeftClose,
-  Home
+  Home,
+  AlertTriangle
 } from "lucide-react";
 import { 
   DropdownMenu,
@@ -26,6 +27,16 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Link } from "wouter";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 interface Conversation {
   id: string;
@@ -58,6 +69,8 @@ export function ChatSidebar({
   const [editTitle, setEditTitle] = useState("");
   const [isPinned, setIsPinned] = useState(true);
   const [isCollapsed, setIsCollapsed] = useState(false);
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [conversationToDelete, setConversationToDelete] = useState<string | null>(null);
   
   // Filter conversations based on search term
   const filteredConversations = conversations.filter(

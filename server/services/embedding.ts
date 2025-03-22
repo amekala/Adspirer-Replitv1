@@ -17,12 +17,15 @@ import { log } from '../vite';
 import { storage } from '../storage';
 import { EmbeddingStore, InsertEmbeddingStore, ChatMessage, ChatConversation } from '@shared/schema';
 
-// Configuration and constants
-const EMBEDDING_MODEL = 'text-embedding-3-small'; // Using smaller, more efficient model
-const MAX_BATCH_SIZE = 20; // Maximum texts to embed in a single API call for efficiency
-const VECTOR_DIMENSIONS = 1536; // Dimensions for OpenAI embeddings
-const MAX_RETRY_ATTEMPTS = 2; // Number of retry attempts for failed API calls
-const MESSAGE_EMBEDDING_INTERVAL = 7; // Only create embeddings every N messages
+// Import shared configuration constants
+import { 
+  EMBEDDING_MODEL,
+  MAX_BATCH_SIZE,
+  VECTOR_DIMENSIONS,
+  MAX_RETRY_ATTEMPTS,
+  MESSAGE_EMBEDDING_INTERVAL,
+  MIN_REQUEST_INTERVAL
+} from './embedding-constants';
 
 /**
  * OpenAI client with error handling, automatic retries, and rate limiting
@@ -31,7 +34,7 @@ class EmbeddingClient {
   private client: OpenAI;
   private retryDelayMs = 1000;
   private lastRequestTime = 0;
-  private minRequestInterval = 2000; // ms - minimum time between API calls
+  private minRequestInterval = MIN_REQUEST_INTERVAL; // From shared constants
 
   constructor() {
     this.validateApiKey();
