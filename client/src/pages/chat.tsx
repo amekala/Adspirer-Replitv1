@@ -38,7 +38,7 @@ function ChatPageContent() {
   // Create new conversation
   const createConversationMutation = useMutation({
     mutationFn: async () => {
-      const res = await apiRequest("/api/chat/conversations", "POST", {
+      const res = await apiRequest("POST", "/api/chat/conversations", {
         title: "New conversation" 
       });
       return res.json();
@@ -65,7 +65,7 @@ function ChatPageContent() {
   const sendMessageMutation = useMutation({
     mutationFn: async ({ conversationId, message }: { conversationId: string; message: string }) => {
       // First save the user message
-      await apiRequest(`/api/chat/conversations/${conversationId}/messages`, "POST", { 
+      await apiRequest("POST", `/api/chat/conversations/${conversationId}/messages`, { 
         role: "user", 
         content: message 
       });
@@ -173,7 +173,7 @@ function ChatPageContent() {
   // Handle chat title editing
   const updateConversationMutation = useMutation({
     mutationFn: async ({ id, title }: { id: string; title: string }) => {
-      const res = await apiRequest(`/api/chat/conversations/${id}`, "PUT", { 
+      const res = await apiRequest("PUT", `/api/chat/conversations/${id}`, { 
         title 
       });
       return res.json();
@@ -193,7 +193,7 @@ function ChatPageContent() {
   // Handle chat deletion
   const deleteConversationMutation = useMutation({
     mutationFn: async (id: string) => {
-      await apiRequest(`/api/chat/conversations/${id}`, "DELETE");
+      await apiRequest("DELETE", `/api/chat/conversations/${id}`);
     },
     onSuccess: (_, id) => {
       queryClient.invalidateQueries({ queryKey: ["/api/chat/conversations"] });
