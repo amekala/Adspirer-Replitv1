@@ -25,11 +25,29 @@ export default function ChatPage() {
   });
 
   // Fetch current conversation and messages
-  const { data: currentConversation, isLoading: isLoadingConversation } = useQuery({
+  const { 
+    data: currentConversation, 
+    isLoading: isLoadingConversation 
+  } = useQuery({
     queryKey: ["/api/chat/conversations", currentConversationId],
     enabled: !!currentConversationId && !!user,
-    onSuccess: (data) => {
-      console.log("Received conversation data:", data);
+    select: (data) => {
+      console.log("Processing conversation data:", data);
+      
+      // Format the data properly for the Chat component
+      if (data && typeof data === 'object') {
+        // If data includes conversation and messages separately (GET api/chat/conversations/:id)
+        if (data.conversation && data.messages) {
+          console.log("Found conversation structure with messages", data.messages.length);
+          return {
+            ...data.conversation,
+            messages: data.messages
+          };
+        }
+      }
+      
+      // Return unmodified data if structure doesn't match expected format
+      return data;
     }
   });
 

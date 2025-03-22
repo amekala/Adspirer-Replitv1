@@ -64,13 +64,32 @@ export function Chat({ conversation, isLoading }: ChatProps) {
   if (conversation) {
     // Check if the API response is in the expected format
     if (conversation.messages && Array.isArray(conversation.messages)) {
-      // Direct messages array
+      // Direct messages array from streaming or cache
       messages = conversation.messages;
-    } else if (conversation.conversation && conversation.messages) {
+    } else if (conversation.conversation && Array.isArray(conversation.messages)) {
       // Format from GET /api/chat/conversations/:id endpoint
       messages = conversation.messages;
     } else {
-      console.error('Unexpected conversation format:', conversation);
+      // Response might be from the server with nested structure
+      console.log('Trying to process conversation format:', conversation);
+      try {
+        if (typeof conversation === 'object') {
+          // Try to extract messages from various possible structures
+          if (Array.isArray(conversation)) {
+            messages = conversation;
+          } else if (conversation?.messages && Array.isArray(conversation.messages)) {
+            messages = conversation.messages;
+          } else if (conversation?.conversation?.messages && Array.isArray(conversation.conversation.messages)) {
+            messages = conversation.conversation.messages;
+          }
+        }
+      } catch (error) {
+        console.error('Error processing conversation data:', error);
+      }
+      
+      if (messages.length === 0) {
+        console.error('Unable to extract messages from conversation format:', conversation);
+      }
     }
   }
 
