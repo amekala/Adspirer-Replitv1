@@ -928,35 +928,55 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Collect assistant's message
       let assistantMessage = '';
       
-      // Setup AI SDK with message tracking
-      const result = streamText({
-        model: openai('gpt-3.5-turbo'), // Using 3.5-turbo instead of gpt-4o for faster responses
-        messages: formattedMessages,
-        temperature: 0.7,
-        maxTokens: 1000,
-        onFinish: async (completion) => {
-          // Save the complete message to database
-          assistantMessage = completion;
-          try {
-            console.log('Received complete AI response, saving to database');
-            
-            // Create the assistant message
-            const messageData = {
-              role: "assistant" as const,
-              content: assistantMessage,
-              conversationId
-            };
-            
-            await storage.createChatMessage(messageData);
-            console.log('AI response saved successfully');
-          } catch (err) {
-            console.error('Error saving assistant message:', err);
-          }
-        }
-      });
+      console.log('OpenAI API key available:', !!process.env.OPENAI_API_KEY);
       
-      // Return the streaming response
-      return result.toDataStreamResponse();
+      try {
+        // Setup AI SDK with message tracking
+        const result = streamText({
+          model: openai('gpt-3.5-turbo'), // Using 3.5-turbo instead of gpt-4o for faster responses
+          messages: formattedMessages,
+          temperature: 0.7,
+          maxTokens: 1000,
+          onToken: (token) => {
+            // Log tokens as they come in (this is optional, but helpful for debugging)
+            assistantMessage += token;
+            console.log('Token received:', token);
+          },
+          onFinish: async (completion) => {
+            // Save the complete message to database
+            console.log('onFinish called with completion:', completion);
+            assistantMessage = completion;
+            try {
+              console.log('Received complete AI response, saving to database');
+              
+              // Create the assistant message with metadata
+              const messageData = {
+                role: "assistant" as const,
+                content: assistantMessage,
+                conversationId,
+                metadata: {
+                  model: 'gpt-3.5-turbo',
+                  timestamp: new Date().toISOString(),
+                  processed: true
+                }
+              };
+              
+              const savedMessage = await storage.createChatMessage(messageData);
+              console.log('AI response saved successfully with ID:', savedMessage.id);
+            } catch (err) {
+              console.error('Error saving assistant message:', err);
+            }
+          }
+        });
+        
+        console.log('Stream response setup complete, returning streaming response');
+        
+        // Return the streaming response
+        return result.toDataStreamResponse();
+      } catch (openaiError) {
+        console.error('Error in streamText setup:', openaiError instanceof Error ? openaiError.message : 'Unknown OpenAI setup error');
+        throw openaiError;
+      }
     } catch (error) {
       console.error('Error generating chat completion:', error instanceof Error ? error.message : 'Unknown error');
       return res.status(500).json({ message: "Failed to generate chat completion", error: error instanceof Error ? error.message : 'Unknown error' });
