@@ -954,9 +954,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         
         console.log('Creating chat completion stream with OpenAI...');
         
-        // Create a streaming chat completion
+        // Create a streaming chat completion using gpt-4o
         const stream = await openaiClient.chat.completions.create({
-          model: 'gpt-3.5-turbo',
+          model: 'gpt-4o',
           messages: formattedMessages,
           temperature: 0.7,
           max_tokens: 1000,
@@ -989,7 +989,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             content: fullAssistantMessage,
             conversationId,
             metadata: {
-              model: 'gpt-3.5-turbo',
+              model: 'gpt-4o',
               timestamp: new Date().toISOString(),
               processed: true
             }
