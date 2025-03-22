@@ -74,7 +74,7 @@ export async function processRagQuery(
     }
     
     // Step 3: Extract campaign IDs for SQL query
-    const campaignIds = similarCampaigns.map(camp => camp.campaignId);
+    const campaignIds = similarCampaigns.map((camp: { campaignId: string }) => camp.campaignId);
     log(`Extracted ${campaignIds.length} campaign IDs for SQL query`, 'rag-service');
     
     // Step 4: Fetch detailed campaign data from SQL
@@ -142,7 +142,7 @@ export async function processRagQueryNonStreaming(
     }
     
     // Step 3: Extract campaign IDs for SQL query
-    const campaignIds = similarCampaigns.map(camp => camp.campaignId);
+    const campaignIds = similarCampaigns.map((camp: { campaignId: string }) => camp.campaignId);
     
     // Step 4: Fetch detailed campaign data from SQL
     const campaignData = await fetchCampaignData(campaignIds, userId);

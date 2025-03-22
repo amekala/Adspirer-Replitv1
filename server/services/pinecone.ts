@@ -87,16 +87,16 @@ export async function initializePinecone() {
     // Create Pinecone client
     log('Initializing Pinecone client...', 'pinecone');
     pineconeClient = new Pinecone({
-      apiKey: PINECONE_API_KEY,
-      environment: PINECONE_ENVIRONMENT
+      apiKey: PINECONE_API_KEY
     });
 
     // Get the index (create if it doesn't exist)
     const indexes = await pineconeClient.listIndexes();
-    log(`Found ${indexes.length} Pinecone indexes`, 'pinecone');
+    log(`Found ${Object.keys(indexes).length} Pinecone indexes`, 'pinecone');
     
     // Check if our index exists
-    const indexExists = indexes.some((idx: any) => idx.name === PINECONE_INDEX_NAME);
+    const indexNames = Object.keys(indexes);
+    const indexExists = indexNames.includes(PINECONE_INDEX_NAME);
 
     if (!indexExists) {
       log(`Creating new Pinecone index: ${PINECONE_INDEX_NAME}`, 'pinecone');
