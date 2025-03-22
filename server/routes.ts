@@ -969,6 +969,82 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // RAG (Retrieval Augmented Generation) endpoint for campaign analytics
+  app.post("/api/rag/query", async (req: Request, res: Response) => {
+    if (!req.isAuthenticated() || !req.user) {
+      console.log('Unauthorized request to RAG query endpoint - user not authenticated');
+      return res.status(401).send("Unauthorized");
+    }
+    
+    const { id: userId } = req.user;
+    const { query, conversationId } = req.body;
+    
+    if (!query) {
+      return res.status(400).json({ message: "Query is required" });
+    }
+
+    try {
+      console.log(`[RAG API] Processing query for user ${userId}: "${query}"`);
+      
+      // Import the RAG service dynamically
+      const { processRagQuery } = await import('./services/rag');
+      
+      // Process the query and stream the response
+      await processRagQuery(query, userId, conversationId, res);
+      
+      // Response is handled by the RAG service (streaming)
+    } catch (error) {
+      console.error('Error processing RAG query:', error instanceof Error ? error.message : 'Unknown error');
+      
+      // If we haven't sent any response yet, send error
+      if (!res.headersSent) {
+        return res.status(500).json({ 
+          message: "Failed to process query", 
+          error: error instanceof Error ? error.message : 'Unknown error' 
+        });
+      }
+      
+      // Otherwise ensure the stream is properly ended
+      try {
+        res.write('data: [ERROR]\n\n');
+        res.end();
+      } catch (streamError) {
+        console.error('Error ending stream after RAG error:', streamError);
+      }
+    }
+  });
+
+  // Non-streaming RAG endpoint for API usage
+  app.post("/api/rag/query/sync", async (req: Request, res: Response) => {
+    if (!req.isAuthenticated() || !req.user) {
+      return res.status(401).send("Unauthorized");
+    }
+    
+    const { id: userId } = req.user;
+    const { query } = req.body;
+    
+    if (!query) {
+      return res.status(400).json({ message: "Query is required" });
+    }
+
+    try {
+      console.log(`[RAG API] Processing sync query for user ${userId}: "${query}"`);
+      
+      // Import the RAG service dynamically
+      const { processRagQueryNonStreaming } = await import('./services/rag');
+      
+      // Process the query and return the response
+      const result = await processRagQueryNonStreaming(query, userId);
+      return res.json(result);
+    } catch (error) {
+      console.error('Error processing RAG query:', error instanceof Error ? error.message : 'Unknown error');
+      return res.status(500).json({ 
+        message: "Failed to process query", 
+        error: error instanceof Error ? error.message : 'Unknown error' 
+      });
+    }
+  });
+
   // Admin endpoint to run database migrations
   // Temporarily allowing migration runs without authentication for development
   app.post("/api/admin/run-migrations", async (req: Request, res: Response) => {
