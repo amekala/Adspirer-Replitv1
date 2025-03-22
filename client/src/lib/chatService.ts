@@ -89,6 +89,10 @@ export function formatConversationResponse(data: any): {
 
 /**
  * Send a message and handle the streaming response
+ * 
+ * This implementation prioritizes using the RAG (Retrieval-Augmented Generation) 
+ * endpoint for advertising-related queries, which provides context-aware,
+ * data-driven responses based on campaign metrics
  */
 export async function sendMessage(
   conversationId: string, 
@@ -110,23 +114,23 @@ export async function sendMessage(
       queryKey: ["/api/chat/conversations", conversationId] 
     });
     
-    // Step 2: Call the AI completions endpoint
-    console.log('Calling AI completions endpoint...');
-    const completionResponse = await fetch('/api/chat/completions', {
+    // Step 2: Use RAG endpoint by default for advertising-focused context-aware responses
+    console.log('Calling RAG query endpoint...');
+    const completionResponse = await fetch('/api/rag/query', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
         conversationId: conversationId,
-        message: messageContent
+        query: messageContent
       }),
       credentials: 'include' // Include credentials for session authentication
     });
 
     if (!completionResponse.ok) {
       const errorText = await completionResponse.text();
-      console.error('AI completion error:', errorText);
+      console.error('RAG query error:', errorText);
       throw new Error(`HTTP error! status: ${completionResponse.status}`);
     }
 

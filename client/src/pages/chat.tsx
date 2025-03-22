@@ -191,23 +191,23 @@ export default function ChatPage() {
           content: messageContent,
         });
         
-        // Step 2: Call the AI completions endpoint
-        console.log('Calling AI completions endpoint...');
-        const completionResponse = await fetch('/api/chat/completions', {
+        // Step 2: Call the RAG query endpoint for data-aware responses
+        console.log('Calling RAG query endpoint...');
+        const completionResponse = await fetch('/api/rag/query', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({
             conversationId: currentConversationId,
-            message: messageContent
+            query: messageContent
           }),
           credentials: 'include' // Include credentials for session authentication
         });
 
         if (!completionResponse.ok) {
           const errorText = await completionResponse.text();
-          console.error('AI completion error:', errorText);
+          console.error('RAG query error:', errorText);
           throw new Error(`HTTP error! status: ${completionResponse.status}`);
         }
 
@@ -271,8 +271,8 @@ export default function ChatPage() {
                         };
                         
                         // Create a copy of the messages array
-                        let messages = Array.isArray(latestConversation.messages) 
-                          ? [...latestConversation.messages] 
+                        let messages = Array.isArray((latestConversation as any).messages) 
+                          ? [...(latestConversation as any).messages] 
                           : [];
                           
                         // Find if we have a typing indicator already
@@ -300,7 +300,7 @@ export default function ChatPage() {
                         queryClient.setQueryData(
                           ['/api/chat/conversations', currentConversationId, 'specific'],
                           {
-                            conversation: latestConversation.conversation,
+                            conversation: (latestConversation as any).conversation,
                             messages
                           }
                         );
@@ -418,7 +418,7 @@ export default function ChatPage() {
   return (
     <div className="flex h-screen overflow-hidden">
         <ChatSidebar 
-          conversations={conversations} 
+          conversations={conversations as any[]} 
           currentConversationId={currentConversationId}
           onConversationSelect={handleConversationSelect}
           onNewConversation={handleNewConversation}
@@ -449,11 +449,20 @@ export default function ChatPage() {
               </>
             ) : (
               <div className="flex items-center justify-center h-full">
-                <div className="text-center space-y-4">
+                <div className="text-center space-y-4 max-w-lg">
                   <h2 className="text-2xl font-bold">Welcome to Adspirer AI Chat</h2>
                   <p className="text-muted-foreground">
-                    Start a new conversation to get insights about your advertising campaigns
+                    This AI assistant analyzes your campaign data to provide data-driven insights about your advertising performance.
                   </p>
+                  <div className="bg-muted p-4 rounded-lg text-left space-y-2">
+                    <p className="font-medium">Ask questions like:</p>
+                    <ul className="list-disc pl-5 space-y-1">
+                      <li>What's the ROAS of our Amazon campaigns?</li>
+                      <li>How does Google perform compared to Amazon?</li>
+                      <li>Show me the CTR trend over the past month</li>
+                      <li>Which campaigns should I optimize based on performance?</li>
+                    </ul>
+                  </div>
                   <Button 
                     onClick={handleNewConversation}
                     className="mt-4"
@@ -476,7 +485,7 @@ export default function ChatPage() {
                     value={message}
                     onChange={(e) => setMessage(e.target.value)}
                     onKeyDown={handleKeyDown}
-                    placeholder="Type your message..."
+                    placeholder="Ask about your advertising campaigns..."
                     className="min-h-[60px] resize-none overflow-hidden"
                     rows={1}
                   />
