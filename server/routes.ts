@@ -846,7 +846,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/chat/conversations/:id/messages", async (req: Request, res: Response) => {
     if (!req.isAuthenticated()) return res.sendStatus(401);
     
-    const result = insertChatMessageSchema.safeParse(req.body);
+    // Add conversationId to the request body
+    const messageData = {
+      ...req.body,
+      conversationId: req.params.id
+    };
+    
+    const result = insertChatMessageSchema.safeParse(messageData);
     if (!result.success) {
       return res.status(400).json({ message: "Invalid message data", errors: result.error.errors });
     }
@@ -863,10 +869,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       // Save the user message
-      const message = await storage.createChatMessage({
-        ...result.data,
-        conversationId: req.params.id
-      });
+      const message = await storage.createChatMessage(result.data);
       
       return res.status(201).json(message);
     } catch (error) {
@@ -896,12 +899,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(403).json({ message: "Unauthorized access to conversation" });
       }
 
-      // Save the user message
-      await storage.createChatMessage({
-        role: "user",
-        content: message,
-        conversationId
-      });
+      // The createChatMessage was moved to the /messages endpoint
+      // No need to save the user message here as it should already be saved
 
       // Get previous messages for context
       const messages = await storage.getChatMessages(conversationId);
@@ -928,11 +927,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
           // Save the complete message to database
           assistantMessage = completion;
           try {
-            await storage.createChatMessage({
+            // Use the correct message schema format
+            const messageData = {
               role: "assistant",
               content: assistantMessage,
               conversationId
-            });
+            };
+            
+            await storage.createChatMessage(messageData);
           } catch (err) {
             console.error('Error saving assistant message:', err);
           }

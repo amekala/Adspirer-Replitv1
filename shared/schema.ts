@@ -226,6 +226,7 @@ export const insertChatConversationSchema = createInsertSchema(chatConversations
 export const insertChatMessageSchema = createInsertSchema(chatMessages, {
   role: z.enum(["user", "assistant"]),
   content: z.string().min(1, "Message content is required"),
+  conversationId: z.string().uuid(),
 }).omit({ id: true, createdAt: true });
 
 // Export additional types for google tables
