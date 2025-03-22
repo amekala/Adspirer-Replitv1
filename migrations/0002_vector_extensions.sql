@@ -7,4 +7,4 @@ ALTER TABLE "embeddings_store" ADD COLUMN IF NOT EXISTS "updated_at" TIMESTAMP N
 -- Create basic indices for faster queries
 CREATE INDEX IF NOT EXISTS "idx_embeddings_type" ON "embeddings_store" ("type");
 CREATE INDEX IF NOT EXISTS "idx_embeddings_source_id" ON "embeddings_store" ("source_id");
-CREATE INDEX IF NOT EXISTS "idx_chat_embeddings_conversation_id" ON "chat_embeddings" ("conversation_id");
+CREATE INDEX IF NOT EXISTS "idx_chat_embeddings_conversation_id" ON "chat_embeddings" ("chat_conversation_id");

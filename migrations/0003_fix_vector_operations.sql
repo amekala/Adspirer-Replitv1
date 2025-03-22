@@ -10,7 +10,7 @@ CREATE INDEX IF NOT EXISTS "idx_embeddings_type" ON "embeddings_store" ("type");
 CREATE INDEX IF NOT EXISTS "idx_embeddings_created_at" ON "embeddings_store" ("created_at");
 
 -- Create index on chat embeddings for faster lookups
-CREATE INDEX IF NOT EXISTS "idx_chat_embeddings_conversation_id" ON "chat_embeddings" ("conversation_id");
+CREATE INDEX IF NOT EXISTS "idx_chat_embeddings_conversation_id" ON "chat_embeddings" ("chat_conversation_id");
 CREATE INDEX IF NOT EXISTS "idx_chat_embeddings_embedding_id" ON "chat_embeddings" ("embedding_id");
 
 -- Add a timestamp column to track when embeddings were last used
