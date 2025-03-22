@@ -2,10 +2,14 @@ import { Express, Request, Response } from "express";
 import { createServer, type Server } from "http";
 import { setupAuth } from "./auth";
 import { storage } from "./storage";
+import { openai } from "@ai-sdk/openai";
+import { streamText } from "ai";
 import { 
   insertApiKeySchema, 
   insertAdvertiserSchema,
   insertDemoRequestSchema,
+  insertChatConversationSchema,
+  insertChatMessageSchema,
   campaignMetrics 
 } from "@shared/schema";
 
@@ -736,6 +740,210 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Failed to create demo request:", error);
       res.status(500).json({ message: "Failed to submit demo request" });
+    }
+  });
+
+  // Initialize OpenAI
+  // OpenAI client is now imported from @ai-sdk/openai at the top of the file
+
+  // Chat endpoints
+  app.get("/api/chat/conversations", async (req: Request, res: Response) => {
+    if (!req.isAuthenticated()) return res.sendStatus(401);
+    try {
+      const conversations = await storage.getChatConversations(req.user!.id);
+      return res.json(conversations);
+    } catch (error) {
+      console.error('Error fetching conversations:', error);
+      return res.status(500).json({ message: "Failed to fetch conversations" });
+    }
+  });
+
+  app.post("/api/chat/conversations", async (req: Request, res: Response) => {
+    if (!req.isAuthenticated()) return res.sendStatus(401);
+    
+    const { title = "New conversation" } = req.body;
+    
+    try {
+      const conversation = await storage.createChatConversation(req.user!.id, title);
+      return res.status(201).json(conversation);
+    } catch (error) {
+      console.error('Error creating conversation:', error);
+      return res.status(500).json({ message: "Failed to create conversation" });
+    }
+  });
+
+  app.get("/api/chat/conversations/:id", async (req: Request, res: Response) => {
+    if (!req.isAuthenticated()) return res.sendStatus(401);
+    
+    try {
+      const conversation = await storage.getChatConversation(req.params.id);
+      if (!conversation) {
+        return res.status(404).json({ message: "Conversation not found" });
+      }
+      
+      // Security check: ensure user owns the conversation
+      if (conversation.userId !== req.user!.id) {
+        return res.status(403).json({ message: "Unauthorized access to conversation" });
+      }
+      
+      const messages = await storage.getChatMessages(req.params.id);
+      return res.json({ conversation, messages });
+    } catch (error) {
+      console.error('Error fetching conversation:', error);
+      return res.status(500).json({ message: "Failed to fetch conversation" });
+    }
+  });
+
+  app.put("/api/chat/conversations/:id", async (req: Request, res: Response) => {
+    if (!req.isAuthenticated()) return res.sendStatus(401);
+    
+    const { title } = req.body;
+    if (!title) {
+      return res.status(400).json({ message: "Title is required" });
+    }
+    
+    try {
+      const conversation = await storage.getChatConversation(req.params.id);
+      if (!conversation) {
+        return res.status(404).json({ message: "Conversation not found" });
+      }
+      
+      // Security check: ensure user owns the conversation
+      if (conversation.userId !== req.user!.id) {
+        return res.status(403).json({ message: "Unauthorized access to conversation" });
+      }
+      
+      const updatedConversation = await storage.updateChatConversationTitle(req.params.id, title);
+      return res.json(updatedConversation);
+    } catch (error) {
+      console.error('Error updating conversation:', error);
+      return res.status(500).json({ message: "Failed to update conversation" });
+    }
+  });
+
+  app.delete("/api/chat/conversations/:id", async (req: Request, res: Response) => {
+    if (!req.isAuthenticated()) return res.sendStatus(401);
+    
+    try {
+      const conversation = await storage.getChatConversation(req.params.id);
+      if (!conversation) {
+        return res.status(404).json({ message: "Conversation not found" });
+      }
+      
+      // Security check: ensure user owns the conversation
+      if (conversation.userId !== req.user!.id) {
+        return res.status(403).json({ message: "Unauthorized access to conversation" });
+      }
+      
+      await storage.deleteChatConversation(req.params.id);
+      return res.status(204).send();
+    } catch (error) {
+      console.error('Error deleting conversation:', error);
+      return res.status(500).json({ message: "Failed to delete conversation" });
+    }
+  });
+
+  app.post("/api/chat/conversations/:id/messages", async (req: Request, res: Response) => {
+    if (!req.isAuthenticated()) return res.sendStatus(401);
+    
+    const result = insertChatMessageSchema.safeParse(req.body);
+    if (!result.success) {
+      return res.status(400).json({ message: "Invalid message data", errors: result.error.errors });
+    }
+    
+    try {
+      const conversation = await storage.getChatConversation(req.params.id);
+      if (!conversation) {
+        return res.status(404).json({ message: "Conversation not found" });
+      }
+      
+      // Security check: ensure user owns the conversation
+      if (conversation.userId !== req.user!.id) {
+        return res.status(403).json({ message: "Unauthorized access to conversation" });
+      }
+      
+      // Save the user message
+      const message = await storage.createChatMessage({
+        ...result.data,
+        conversationId: req.params.id
+      });
+      
+      return res.status(201).json(message);
+    } catch (error) {
+      console.error('Error creating message:', error);
+      return res.status(500).json({ message: "Failed to create message" });
+    }
+  });
+
+  // Chat completion endpoint with streaming
+  app.post("/api/chat/completions", async (req: Request, res: Response) => {
+    if (!req.isAuthenticated()) return res.sendStatus(401);
+
+    const { conversationId, message } = req.body;
+    
+    if (!conversationId || !message) {
+      return res.status(400).json({ message: "Conversation ID and message are required" });
+    }
+
+    try {
+      // Check if the conversation exists and belongs to the user
+      const conversation = await storage.getChatConversation(conversationId);
+      if (!conversation) {
+        return res.status(404).json({ message: "Conversation not found" });
+      }
+      
+      if (conversation.userId !== req.user!.id) {
+        return res.status(403).json({ message: "Unauthorized access to conversation" });
+      }
+
+      // Save the user message
+      await storage.createChatMessage({
+        role: "user",
+        content: message,
+        conversationId
+      });
+
+      // Get previous messages for context
+      const messages = await storage.getChatMessages(conversationId);
+      
+      // Format messages for OpenAI
+      const formattedMessages = messages.map(msg => ({
+        role: msg.role,
+        content: msg.content
+      }));
+
+      // Collect assistant's message
+      let assistantMessage = '';
+      
+      // Setup AI SDK with message tracking
+      const result = streamText({
+        model: openai('gpt-4o'),
+        messages: formattedMessages.map(msg => ({
+          role: msg.role as 'user' | 'assistant' | 'system',
+          content: msg.content
+        })),
+        temperature: 0.7,
+        maxTokens: 2000,
+        onFinish: async (completion) => {
+          // Save the complete message to database
+          assistantMessage = completion;
+          try {
+            await storage.createChatMessage({
+              role: "assistant",
+              content: assistantMessage,
+              conversationId
+            });
+          } catch (err) {
+            console.error('Error saving assistant message:', err);
+          }
+        }
+      });
+      
+      // Return the streaming response
+      return result.toDataStreamResponse();
+    } catch (error) {
+      console.error('Error generating chat completion:', error);
+      return res.status(500).json({ message: "Failed to generate chat completion", error: error.message });
     }
   });
 
