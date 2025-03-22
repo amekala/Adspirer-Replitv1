@@ -1,4 +1,4 @@
-import { pgTable, text, serial, integer, boolean, timestamp, json, uuid, numeric, date } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, integer, boolean, timestamp, json, uuid, numeric, date, pgEnum } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -235,6 +235,34 @@ export const insertChatMessageSchema = createInsertSchema(chatMessages, {
 export type GoogleToken = typeof googleTokens.$inferSelect;
 export type GoogleAdvertiserAccount = typeof googleAdvertiserAccounts.$inferSelect;
 export type GoogleCampaignMetrics = typeof googleCampaignMetrics.$inferSelect;
+
+// Content type enum for text embeddings
+export const contentTypeEnum = pgEnum('content_type', ['message', 'document', 'product', 'campaign']);
+
+// Text embeddings table for semantic search
+export const textEmbeddings = pgTable("text_embeddings", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  content: text("content").notNull(),  // The original text content
+  contentType: contentTypeEnum("content_type").notNull(), // Type of content being embedded
+  embedding: json("embedding").notNull(), // Vector representation as JSON array
+  metadata: json("metadata").default({}).notNull(), // Additional data about the content
+  sourceId: text("source_id"), // ID of the source (message ID, document ID, etc.)
+  userId: uuid("user_id").references(() => users.id), // Owner of this embedding
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+// Text embedding schema
+export const insertTextEmbeddingSchema = createInsertSchema(textEmbeddings, {
+  content: z.string().min(1, "Content is required"),
+  contentType: z.enum(['message', 'document', 'product', 'campaign']),
+  embedding: z.array(z.number()),
+  metadata: z.record(z.any()).optional(),
+  sourceId: z.string().optional(),
+}).omit({ id: true, createdAt: true });
+
+// Export types for text embeddings
+export type TextEmbedding = typeof textEmbeddings.$inferSelect;
+export type InsertTextEmbedding = z.infer<typeof insertTextEmbeddingSchema>;
 
 // Export types for chat
 export type ChatConversation = typeof chatConversations.$inferSelect;

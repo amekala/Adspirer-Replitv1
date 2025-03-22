@@ -4,9 +4,10 @@ import {
   DemoRequest, InsertDemoRequest, demoRequests,
   GoogleToken, GoogleAdvertiserAccount, GoogleCampaignMetrics,
   ChatConversation, ChatMessage, InsertChatConversation, InsertChatMessage,
+  TextEmbedding, InsertTextEmbedding, 
   users, amazonTokens, apiKeys, advertiserAccounts, tokenRefreshLog, 
   campaignMetrics, googleTokens, googleAdvertiserAccounts, googleCampaignMetrics, 
-  chatConversations, chatMessages
+  chatConversations, chatMessages, textEmbeddings
 } from "@shared/schema";
 import session from "express-session";
 import { drizzle } from "drizzle-orm/postgres-js";
@@ -82,6 +83,13 @@ export interface IStorage {
   // Chat messages
   createChatMessage(message: InsertChatMessage & { conversationId: string }): Promise<ChatMessage>;
   getChatMessages(conversationId: string): Promise<ChatMessage[]>;
+  
+  // Text embeddings
+  createTextEmbedding(embedding: InsertTextEmbedding): Promise<TextEmbedding>;
+  getTextEmbedding(id: string): Promise<TextEmbedding | undefined>;
+  getTextEmbeddingsBySourceId(sourceId: string): Promise<TextEmbedding[]>;
+  getTextEmbeddingsByUserId(userId: string, contentType?: string): Promise<TextEmbedding[]>;
+  searchSimilarEmbeddings(embedding: number[], contentType?: string, limit?: number): Promise<TextEmbedding[]>;
   
   sessionStore: session.Store;
 }
