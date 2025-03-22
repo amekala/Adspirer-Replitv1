@@ -40,6 +40,8 @@ app.use((req, res, next) => {
 (async () => {
   try {
     console.log('Starting server initialization...');
+    
+    // Initialize routes first, but optimize by moving setup operations after port binding
     const server = await registerRoutes(app);
 
     // Error handling middleware
@@ -50,23 +52,31 @@ app.use((req, res, next) => {
       res.status(status).json({ message });
     });
 
-    // Development environment setup
-    if (app.get("env") === "development") {
-      console.log('Setting up Vite middleware for development...');
-      await setupVite(app, server);
-    } else {
-      console.log('Setting up static file serving for production...');
-      serveStatic(app);
-    }
-
+    // Start server immediately to bind the port
     const port = 5000;
     server.listen({
       port,
       host: "0.0.0.0",
       reusePort: true,
-    }, () => {
-      console.log(`Server initialization complete`);
-      log(`Server running on port ${port}`);
+    }, async () => {
+      // After port is bound, continue with remaining setup
+      try {
+        // Development environment setup
+        if (app.get("env") === "development") {
+          console.log('Setting up Vite middleware for development...');
+          await setupVite(app, server);
+        } else {
+          console.log('Setting up static file serving for production...');
+          serveStatic(app);
+        }
+        
+        // Signal completion
+        console.log(`Server initialization complete`);
+        console.log(`🚀 Server ready at http://0.0.0.0:${port}`);
+        log(`Server running on port ${port}`);
+      } catch (setupError) {
+        console.error('Error during post-bind setup:', setupError);
+      }
     });
   } catch (error) {
     console.error('Failed to start server:', error);
