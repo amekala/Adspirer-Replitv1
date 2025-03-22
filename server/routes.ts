@@ -880,23 +880,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Chat completion endpoint with streaming
+  // Chat completion endpoint with streaming and context-aware AI
   app.post("/api/chat/completions", async (req: Request, res: Response) => {
     if (!req.isAuthenticated() || !req.user) {
       console.log('Unauthorized request to chat completions endpoint - user not authenticated');
       return res.status(401).send("Unauthorized");
     }
     
-    console.log('User authenticated:', req.user.id);
-
-    const { conversationId, message } = req.body;
+    const { id: userId } = req.user;
+    const { conversationId, message, useContextAwarePrompt = true } = req.body;
     
     if (!conversationId || !message) {
       return res.status(400).json({ message: "Conversation ID and message are required" });
     }
 
     try {
-      console.log('Generating chat completion for conversation:', conversationId);
+      const log = (msg: string) => console.log(`[Chat API] ${msg}`);
+      log(`Generating chat completion for conversation: ${conversationId}`);
       
       // Check if the conversation exists and belongs to the user
       const conversation = await storage.getChatConversation(conversationId);
@@ -904,21 +904,41 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ message: "Conversation not found" });
       }
       
-      if (conversation.userId !== req.user!.id) {
+      if (conversation.userId !== userId) {
         return res.status(403).json({ message: "Unauthorized access to conversation" });
       }
 
       try {
-        // Import OpenAI service dynamically to avoid circular dependencies
+        // Import services dynamically to avoid circular dependencies
         const { getConversationHistory, streamChatCompletion } = await import('./services/openai');
+        const { generateContextAwarePrompt } = await import('./services/embedding');
         
         // Get conversation history from the database
-        // This already includes the user message we just saved
         const messages = await getConversationHistory(conversationId);
-        console.log(`Retrieved ${messages.length} messages for chat completion context`);
+        log(`Retrieved ${messages.length} messages for chat context`);
+        
+        // Generate a context-aware system prompt if requested
+        let systemPrompt;
+        if (useContextAwarePrompt) {
+          try {
+            log('Generating context-aware prompt with embedding similarity search');
+            systemPrompt = await generateContextAwarePrompt(conversation, userId);
+            log('Generated context-aware prompt with relevant insights');
+          } catch (promptError) {
+            log(`Error generating context-aware prompt: ${promptError instanceof Error ? promptError.message : 'Unknown error'}`);
+            // Fall back to default prompt on error
+          }
+        }
         
         // Stream the chat completion using our dedicated service
-        await streamChatCompletion(conversationId, req.user.id, res, messages);
+        await streamChatCompletion(
+          conversationId, 
+          userId, 
+          res, 
+          messages,
+          systemPrompt, // Pass the enhanced prompt if available
+          true // Always generate embeddings for AI responses
+        );
         
         // No need to end the response here - the service handles that
       } catch (openaiError) {
@@ -944,6 +964,52 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.error('Error generating chat completion:', error instanceof Error ? error.message : 'Unknown error');
       return res.status(500).json({ 
         message: "Failed to generate chat completion", 
+        error: error instanceof Error ? error.message : 'Unknown error' 
+      });
+    }
+  });
+
+  // Admin endpoint to run database migrations (protected)
+  app.post("/api/admin/run-migrations", async (req: Request, res: Response) => {
+    if (!req.isAuthenticated() || !req.user) {
+      return res.status(401).send("Unauthorized");
+    }
+    
+    try {
+      const fs = await import('fs');
+      const path = await import('path');
+      const { pool } = await import('./db');
+      
+      // Get all migration files
+      const migrationsDir = path.join(process.cwd(), 'migrations');
+      const migrationFiles = fs.readdirSync(migrationsDir)
+        .filter(file => file.endsWith('.sql'))
+        .sort(); // Ensure files are processed in alphabetical order
+      
+      const results = [];
+      
+      for (const file of migrationFiles) {
+        try {
+          const filePath = path.join(migrationsDir, file);
+          const sql = fs.readFileSync(filePath, 'utf8');
+          
+          console.log(`Running migration: ${file}`);
+          await pool.query(sql);
+          results.push({ file, status: 'success' });
+        } catch (error) {
+          console.error(`Error running migration ${file}:`, error);
+          results.push({ file, status: 'error', message: error instanceof Error ? error.message : String(error) });
+        }
+      }
+      
+      return res.json({ 
+        message: "Migrations completed", 
+        results 
+      });
+    } catch (error) {
+      console.error('Error running migrations:', error);
+      return res.status(500).json({ 
+        message: "Failed to run migrations", 
         error: error instanceof Error ? error.message : 'Unknown error' 
       });
     }

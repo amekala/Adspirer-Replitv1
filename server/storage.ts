@@ -574,6 +574,9 @@ export class DatabaseStorage implements IStorage {
     limit: number = 5
   ): Promise<Array<{embedding: EmbeddingStore, similarity: number}>> {
     try {
+      // Import the pool from db.ts to avoid circular dependencies
+      const { pool } = await import('./db');
+      
       // Use PostgreSQL's native vector operations for efficient similarity search
       // This optimized approach uses a raw SQL query to leverage PostgreSQL's vector capabilities
       
@@ -581,39 +584,61 @@ export class DatabaseStorage implements IStorage {
       const vectorString = JSON.stringify(queryVector);
       
       // Build the SQL query with optional type filter
-      const typeFilter = type ? `AND type = '${type}'` : '';
+      // Use parameterized query for type to prevent SQL injection
+      let query;
+      let params;
       
-      // Use the dot product / (magnitude of A * magnitude of B) for cosine similarity
-      const query = `
-        SELECT 
-          id, 
-          type, 
-          source_id as "sourceId", 
-          metadata, 
-          vector,
-          created_at as "createdAt",
-          updated_at as "updatedAt",
-          (vector <=> $1::jsonb) as similarity
-        FROM embeddings_store
-        WHERE 1=1 ${typeFilter}
-        ORDER BY similarity ASC
-        LIMIT $2
-      `;
+      if (type) {
+        query = `
+          SELECT 
+            id, 
+            type, 
+            source_id as "sourceId", 
+            metadata, 
+            vector,
+            text,
+            created_at as "createdAt",
+            updated_at as "updatedAt",
+            (vector <=> $1::jsonb) as similarity
+          FROM embeddings_store
+          WHERE type = $3
+          ORDER BY similarity ASC
+          LIMIT $2
+        `;
+        params = [vectorString, limit, type];
+      } else {
+        query = `
+          SELECT 
+            id, 
+            type, 
+            source_id as "sourceId", 
+            metadata, 
+            vector,
+            text,
+            created_at as "createdAt",
+            updated_at as "updatedAt",
+            (vector <=> $1::jsonb) as similarity
+          FROM embeddings_store
+          ORDER BY similarity ASC
+          LIMIT $2
+        `;
+        params = [vectorString, limit];
+      }
       
       // Execute the raw query with parameters
-      const result = await pool.query(query, [vectorString, limit]);
+      const result = await pool.query(query, params);
       
       // Format the results
-      return result.rows.map(row => {
+      return result.rows.map((row: any) => {
         // Convert the database row to the expected EmbeddingStore format
         const embedding: EmbeddingStore = {
           id: row.id,
-          type: row.type,
+          type: row.type as any, // Type cast to match schema
           sourceId: row.sourceId,
           metadata: row.metadata,
           vector: row.vector,
-          createdAt: new Date(row.createdAt),
-          updatedAt: new Date(row.updatedAt)
+          text: row.text,
+          createdAt: new Date(row.createdAt)
         };
         
         // PostgreSQL's <=> operator returns distance (smaller is more similar)
