@@ -108,6 +108,22 @@ export function ChatSidebar({
   const toggleCollapsed = () => {
     setIsCollapsed(!isCollapsed);
   };
+  
+  // Handle opening delete confirmation dialog
+  const handleDeleteClick = (id: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setConversationToDelete(id);
+    setIsDeleteDialogOpen(true);
+  };
+  
+  // Handle confirming deletion
+  const handleConfirmDelete = () => {
+    if (conversationToDelete) {
+      onDeleteConversation(conversationToDelete);
+      setConversationToDelete(null);
+    }
+    setIsDeleteDialogOpen(false);
+  };
 
   return (
     <div className={`border-r border-border transition-all duration-300 ${
@@ -329,10 +345,7 @@ export function ChatSidebar({
                             </DropdownMenuItem>
                             <DropdownMenuItem
                               className="text-destructive focus:text-destructive"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                onDeleteConversation(conversation.id);
-                              }}
+                              onClick={(e) => handleDeleteClick(conversation.id, e)}
                             >
                               <Trash2 className="h-4 w-4 mr-2" />
                               Delete
@@ -375,6 +388,31 @@ export function ChatSidebar({
           )}
         </div>
       </div>
+      
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center">
+              <AlertTriangle className="h-5 w-5 text-destructive mr-2" />
+              Delete Conversation
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              This will permanently delete this conversation and all its messages.
+              This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleConfirmDelete}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
