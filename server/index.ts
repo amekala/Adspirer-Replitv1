@@ -1,6 +1,7 @@
   import express, { type Request, Response, NextFunction } from "express";
   import { registerRoutes } from "./routes";
   import { setupVite, serveStatic, log } from "./vite";
+  import { request, IncomingMessage } from "http";
 
   const app = express();
   app.use(express.json());
@@ -39,6 +40,11 @@
   (async () => {
     const server = await registerRoutes(app);
 
+    // Add a health check endpoint that Replit can use to detect the server
+    app.get("/health", (req, res) => {
+      res.status(200).send("OK");
+    });
+
     app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
       const status = err.status || err.statusCode || 500;
       const message = err.message || "Internal Server Error";
@@ -56,10 +62,58 @@
       serveStatic(app);
     }
 
-    // Use the port provided by environment variable or default to 3000
+    // Use the port provided by environment variable or default to 5000
     // Bind to 0.0.0.0 to allow external connections (required for Replit)
-    const port = process.env.PORT ? parseInt(process.env.PORT) : 3000;
+    const port = process.env.PORT ? parseInt(process.env.PORT) : 5000;
+    
+    // Create a health check ping to keep the port active
+    setInterval(() => {
+      try {
+        const req = request({
+          host: 'localhost',
+          port: port,
+          path: '/health',
+          method: 'GET'
+        }, (res: IncomingMessage) => {
+          const { statusCode } = res;
+          if (statusCode !== 200) {
+            log(`Health check ping failed with status: ${statusCode}`);
+          }
+        });
+        req.on('error', (e: Error) => {
+          log(`Health check error: ${e.message}`);
+        });
+        req.end();
+      } catch (error) {
+        log(`Error sending health check: ${error}`);
+      }
+    }, 5000);
+
     server.listen(port, "0.0.0.0", () => {
       log(`Server is running on port ${port}`);
+      
+      // Log messages specifically for Replit workflow detection
+      console.log(`🚀 Server ready at http://0.0.0.0:${port}`);
+      console.log(`Server listening on port ${port}`);
+      
+      // Add initial health check
+      setTimeout(() => {
+        try {
+          const req = request({
+            host: 'localhost',
+            port: port,
+            path: '/health',
+            method: 'GET'
+          }, (res: IncomingMessage) => {
+            console.log(`Initial health check: ${res.statusCode}`);
+          });
+          req.on('error', (e: Error) => {
+            console.error(`Initial health check error: ${e.message}`);
+          });
+          req.end();
+        } catch (error) {
+          console.error(`Initial health check failed: ${error}`);
+        }
+      }, 1000);
     });
   })();
