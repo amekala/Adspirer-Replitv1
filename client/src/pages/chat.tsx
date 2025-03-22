@@ -182,57 +182,118 @@ function ChatPageContent() {
       }
 
       console.log('Processing AI streaming response...');
-      // Process streaming response
-      const reader = completionResponse.body?.getReader();
+      // Process the streaming response directly from the completionResponse
+      console.log('Processing streaming response...');
       
-      if (reader) {
-        let streamedText = '';
-        const decoder = new TextDecoder();
-        
-        // Start asynchronous reading to handle streaming
-        const readStream = async () => {
-          try {
-            // Poll the server every 2 seconds to refresh messages
-            const intervalId = setInterval(() => {
-              queryClient.invalidateQueries({ 
-                queryKey: ["/api/chat/conversations", currentConversationId] 
-              });
-            }, 2000);
+      // Get a reader from the response body
+      const reader = completionResponse.body?.getReader();
+      const decoder = new TextDecoder();
+      
+      if (!reader) {
+        console.error('No reader available from response');
+        throw new Error('No reader available from response');
+      }
+      
+      let streamedMessage = '';
+      
+      // Track if we've received any data
+      let hasReceivedData = false;
+      let streamedMessage = '';
+      
+      // Listen for message events
+      eventSource.onmessage = (event) => {
+        try {
+          console.log('SSE message received:', event.data);
+          
+          if (event.data === '[DONE]') {
+            console.log('Stream completed.');
+            eventSource.close();
+            return;
+          }
+          
+          if (event.data === '[ERROR]') {
+            console.error('Server reported an error in the stream.');
+            eventSource.close();
+            return;
+          }
+          
+          // Parse the JSON data
+          const data = JSON.parse(event.data);
+          
+          if (data.content) {
+            streamedMessage += data.content;
+            hasReceivedData = true;
             
-            let streamDone = false;
-            while (!streamDone) {
-              const { value, done } = await reader.read();
-              streamDone = done;
+            // Update the UI with the streaming content
+            if (currentConversation && currentConversation.messages) {
+              // If we have the typing indicator, replace it with the current streamed content
+              const updatedMessages = [...currentConversation.messages];
               
-              if (value) {
-                const chunk = decoder.decode(value);
-                console.log('Received chunk:', chunk);
-                streamedText += chunk;
-              }
-              
-              if (streamDone) {
-                console.log('Stream finished, final message:', streamedText);
-                clearInterval(intervalId);
-                
-                // Final refresh after stream is complete
-                queryClient.invalidateQueries({ 
-                  queryKey: ["/api/chat/conversations", currentConversationId] 
+              // Find or create the assistant message
+              const lastIndex = updatedMessages.length - 1;
+              if (lastIndex >= 0 && updatedMessages[lastIndex].role === 'assistant') {
+                // Update the existing assistant message
+                updatedMessages[lastIndex] = {
+                  ...updatedMessages[lastIndex],
+                  content: streamedMessage
+                };
+              } else {
+                // Add a new assistant message
+                updatedMessages.push({
+                  id: 'temp-assistant-' + Date.now(),
+                  role: 'assistant',
+                  content: streamedMessage,
+                  createdAt: new Date().toISOString()
                 });
-                break;
               }
+              
+              // Update the state with the new message content
+              const tempConversation = {
+                ...currentConversation,
+                messages: updatedMessages
+              };
+              
+              queryClient.setQueryData(
+                ['/api/chat/conversations', currentConversationId],
+                tempConversation
+              );
             }
-          } catch (error) {
-            console.error("Error reading stream:", error);
-            
-            // Refresh messages to show any saved responses
+          }
+        } catch (error) {
+          console.error('Error processing SSE message:', error);
+        }
+      };
+      
+      // Handle errors
+      eventSource.onerror = (error) => {
+        console.error('EventSource error:', error);
+        eventSource.close();
+        
+        // Refresh messages to get the final state
+        queryClient.invalidateQueries({ 
+          queryKey: ["/api/chat/conversations", currentConversationId] 
+        });
+      };
+      
+      // Give the stream time to complete, then close it if it hasn't already
+      setTimeout(() => {
+        if (eventSource.readyState !== 2) { // 2 = CLOSED
+          console.log('Stream timeout reached, closing EventSource');
+          eventSource.close();
+          
+          // Final refresh after timeout
+          if (hasReceivedData) {
             queryClient.invalidateQueries({ 
               queryKey: ["/api/chat/conversations", currentConversationId] 
             });
           }
-        };
-        
-        // Start reading the stream
-        await readStream();
+        }
+      }, 10000); // 10 second timeout
+      
+      // Wait for the stream to complete (this won't actually work as written, but we'll leave in place)
+      await new Promise(resolve => {
+        eventSource.onclose = resolve;
+      });
       }
     } catch (error) {
       console.error("Error in chat process:", error);

@@ -936,47 +936,79 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.log('OpenAI API key available:', !!process.env.OPENAI_API_KEY);
       
       try {
-        // Setup AI SDK with message tracking
-        const result = streamText({
-          model: openai('gpt-3.5-turbo'), // Using 3.5-turbo instead of gpt-4o for faster responses
+        console.log('Making request to OpenAI with API key available:', !!process.env.OPENAI_API_KEY);
+        console.log('Messages being sent to OpenAI:', JSON.stringify(formattedMessages, null, 2));
+        
+        // Create a more direct implementation using the OpenAI API
+        const { OpenAI } = await import('openai');
+        
+        // Initialize the OpenAI client
+        const openaiClient = new OpenAI({
+          apiKey: process.env.OPENAI_API_KEY, // This uses the OPENAI_API_KEY from environment variables
+        });
+        
+        // Set appropriate headers for streaming
+        res.setHeader('Content-Type', 'text/event-stream');
+        res.setHeader('Cache-Control', 'no-cache');
+        res.setHeader('Connection', 'keep-alive');
+        
+        console.log('Creating chat completion stream with OpenAI...');
+        
+        // Create a streaming chat completion
+        const stream = await openaiClient.chat.completions.create({
+          model: 'gpt-3.5-turbo',
           messages: formattedMessages,
           temperature: 0.7,
-          maxTokens: 1000
+          max_tokens: 1000,
+          stream: true,
         });
         
-        console.log('Stream response setup complete, returning streaming response');
+        // Stream the response to the client
+        let fullAssistantMessage = '';
         
-        // Set up event listeners on the stream
-        result.addEventListener('content', (chunk) => {
-          assistantMessage += chunk;
-          console.log('Token received:', chunk);
-        });
+        console.log('Stream created, sending chunks to client...');
         
-        result.addEventListener('end', async () => {
-          try {
-            console.log('Stream completed, saving final message to database');
+        for await (const chunk of stream) {
+          const content = chunk.choices[0]?.delta?.content || '';
+          if (content) {
+            fullAssistantMessage += content;
+            console.log('Chunk received:', content);
             
-            // Create the assistant message with metadata
-            const messageData = {
-              role: "assistant" as const,
-              content: assistantMessage,
-              conversationId,
-              metadata: {
-                model: 'gpt-3.5-turbo',
-                timestamp: new Date().toISOString(),
-                processed: true
-              }
-            };
-            
-            const savedMessage = await storage.createChatMessage(messageData);
-            console.log('AI response saved successfully with ID:', savedMessage.id);
-          } catch (err) {
-            console.error('Error saving assistant message:', err);
+            // Send the chunk to the client
+            res.write(`data: ${JSON.stringify({ content })}\n\n`);
           }
-        });
+        }
         
-        // Return the streaming response
-        return result.toDataStreamResponse();
+        console.log('Stream completed, saving final message to database');
+        
+        // Save the complete response to the database
+        try {
+          // Create the assistant message with metadata
+          const messageData = {
+            role: "assistant" as const,
+            content: fullAssistantMessage,
+            conversationId,
+            metadata: {
+              model: 'gpt-3.5-turbo',
+              timestamp: new Date().toISOString(),
+              processed: true
+            }
+          };
+          
+          const savedMessage = await storage.createChatMessage(messageData);
+          console.log('AI response saved successfully with ID:', savedMessage.id);
+          
+          // End the stream
+          res.write('data: [DONE]\n\n');
+          res.end();
+          
+          return;
+        } catch (err) {
+          console.error('Error saving assistant message:', err);
+          res.write('data: [ERROR]\n\n');
+          res.end();
+          return;
+        }
       } catch (openaiError) {
         console.error('Error in streamText setup:', openaiError instanceof Error ? openaiError.message : 'Unknown OpenAI setup error');
         throw openaiError;
