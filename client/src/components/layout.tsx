@@ -56,6 +56,9 @@ export function Layout({ children }: { children: React.ReactNode }) {
                     <DropdownMenuItem asChild>
                       <Link href="/dashboard">Dashboard</Link>
                     </DropdownMenuItem>
+                    <DropdownMenuItem asChild>
+                      <Link href="/chat">AI Chat</Link>
+                    </DropdownMenuItem>
                     <DropdownMenuItem
                       onClick={handleLogout}
                       disabled={logoutMutation.isPending}
@@ -106,6 +109,9 @@ export function Layout({ children }: { children: React.ReactNode }) {
                     <>
                       <Link href="/dashboard" onClick={closeSheet} className="text-muted-foreground hover:text-foreground transition-colors">
                         Dashboard
+                      </Link>
+                      <Link href="/chat" onClick={closeSheet} className="text-muted-foreground hover:text-foreground transition-colors">
+                        AI Chat
                       </Link>
                       <button
                         onClick={() => {

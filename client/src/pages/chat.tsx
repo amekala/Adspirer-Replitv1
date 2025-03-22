@@ -12,6 +12,10 @@ import { Send, PlusCircle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 export default function ChatPage() {
+  return <ChatPageContent />;
+}
+
+function ChatPageContent() {
   const { user } = useAuth() || {};
   const { toast } = useToast();
   const [message, setMessage] = useState("");
