@@ -1,2 +1,6 @@
 entrypoint = "pure-port-detector.js"
 modules = ["nodejs-20", "postgresql-16"]
+
+[[ports]]
+localPort = 5000
+externalPort = 80
