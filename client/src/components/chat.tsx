@@ -58,7 +58,23 @@ export function Chat({ conversation, isLoading }: ChatProps) {
     );
   }
 
-  const messages = conversation?.messages || [];
+  // Extract messages from the response format
+  let messages: Message[] = [];
+  
+  if (conversation) {
+    // Check if the API response is in the expected format
+    if (conversation.messages && Array.isArray(conversation.messages)) {
+      // Direct messages array
+      messages = conversation.messages;
+    } else if (conversation.conversation && conversation.messages) {
+      // Format from GET /api/chat/conversations/:id endpoint
+      messages = conversation.messages;
+    } else {
+      console.error('Unexpected conversation format:', conversation);
+    }
+  }
+
+  console.log('Rendering messages:', messages);
 
   return (
     <div className="space-y-6">

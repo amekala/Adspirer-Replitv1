@@ -28,6 +28,9 @@ export default function ChatPage() {
   const { data: currentConversation, isLoading: isLoadingConversation } = useQuery({
     queryKey: ["/api/chat/conversations", currentConversationId],
     enabled: !!currentConversationId && !!user,
+    onSuccess: (data) => {
+      console.log("Received conversation data:", data);
+    }
   });
 
   // Create new conversation
@@ -374,10 +377,16 @@ export default function ChatPage() {
             className="flex-1 overflow-y-auto p-4 space-y-4"
           >
             {currentConversationId ? (
-              <Chat
-                conversation={currentConversation}
-                isLoading={isLoadingConversation}
-              />
+              <>
+                {/* Adding debug info */}
+                <div className="hidden">
+                  <pre>{JSON.stringify(currentConversation, null, 2)}</pre>
+                </div>
+                <Chat
+                  conversation={currentConversation}
+                  isLoading={isLoadingConversation}
+                />
+              </>
             ) : (
               <div className="flex items-center justify-center h-full">
                 <div className="text-center space-y-4">
