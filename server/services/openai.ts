@@ -47,14 +47,21 @@ function getOpenAIClient(): OpenAI {
  * @param systemPrompt - Optional custom system prompt
  * @param includeEmbeddings - Whether to generate embeddings for the response (default: true)
  */
-export async function streamChatCompletion(
-  conversationId: string,
-  userId: string,
-  res: Response,
-  messages: any[],
+export async function streamChatCompletion({
+  conversationId,
+  userId,
+  res,
+  messages,
   systemPrompt = 'You are an AI assistant for Adspirer, a platform that helps manage retail media advertising campaigns. You have knowledge about Amazon Advertising and Google Ads APIs, campaign metrics, and advertising strategies. Provide helpful, concise responses about advertising, analytics, and campaign management.',
   includeEmbeddings = true
-): Promise<void> {
+}: {
+  conversationId: string;
+  userId: string;
+  res: Response;
+  messages: any[];
+  systemPrompt?: string;
+  includeEmbeddings?: boolean;
+}): Promise<void> {
   try {
     // Create a proper system message if not already included
     if (!messages.some(msg => msg.role === 'system')) {
