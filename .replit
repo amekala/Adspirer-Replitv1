@@ -1,2 +1,2 @@
 entrypoint = "pure-port-detector.js"
-modules = ["nodejs-20"]
+modules = ["nodejs-20", "postgresql-16"]
