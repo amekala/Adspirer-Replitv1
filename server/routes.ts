@@ -1108,12 +1108,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
     const { id: userId } = req.user;
     const { query, includeDebugInfo = false, conversationId, streamingId } = req.body;
     
+    // Log request body for debugging
+    console.log(`[Two-LLM RAG API] Request body:`, JSON.stringify(req.body, null, 2));
+    
     if (!query) {
       return res.status(400).json({ message: "Query is required" });
     }
 
     try {
       console.log(`[Two-LLM RAG API] Processing sync query for user ${userId}: "${query}"`);
+      console.log(`[Two-LLM RAG API] Using conversation ID: ${conversationId}, streaming ID: ${streamingId}`);
       
       // Import the two-LLM RAG service dynamically
       const { processTwoLlmRagQueryNonStreaming } = await import('./services/two-llm-rag');

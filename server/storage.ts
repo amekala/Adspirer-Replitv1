@@ -483,6 +483,14 @@ export class DatabaseStorage implements IStorage {
   }
   
   async createChatMessage(message: InsertChatMessage & { conversationId: string }): Promise<ChatMessage> {
+    console.log(`Creating chat message with data:`, JSON.stringify({
+      id: message.id,
+      conversationId: message.conversationId,
+      role: message.role,
+      contentLength: message.content?.length || 0,
+      hasMetadata: !!message.metadata
+    }, null, 2));
+    
     // Update conversation timestamp
     await db.update(chatConversations)
       .set({ updatedAt: new Date() })
@@ -492,14 +500,21 @@ export class DatabaseStorage implements IStorage {
     const messageId = message.id || crypto.randomUUID();
     
     // Create message
-    const [newMessage] = await db.insert(chatMessages)
-      .values({
-        id: messageId,
-        ...message,
-        createdAt: new Date()
-      })
-      .returning();
-    return newMessage;
+    try {
+      const [newMessage] = await db.insert(chatMessages)
+        .values({
+          id: messageId,
+          ...message,
+          createdAt: new Date()
+        })
+        .returning();
+      
+      console.log(`Successfully created message with ID: ${newMessage.id}`);
+      return newMessage;
+    } catch (error) {
+      console.error(`Error creating chat message:`, error);
+      throw error;
+    }
   }
   
   async getChatMessages(conversationId: string): Promise<ChatMessage[]> {
