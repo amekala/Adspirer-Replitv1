@@ -11,7 +11,8 @@ export const PINECONE_API_KEY = process.env.PINECONE_API_KEY;
 // Using gcp-starter which is supported in free plan
 export const PINECONE_ENVIRONMENT = process.env.PINECONE_ENVIRONMENT || 'gcp-starter';
 // Store index region info separately to ensure proper initialization
-export const PINECONE_REGION = process.env.PINECONE_REGION || 'us-central1';
+// Use us-west1-gcp-free for the free tier
+export const PINECONE_REGION = process.env.PINECONE_REGION || 'us-west1-gcp-free';
 export const PINECONE_INDEX_NAME = process.env.PINECONE_INDEX_NAME || 'adspirer-embeddings';
 
 // Pinecone index configuration
