@@ -17,7 +17,7 @@ async function testNonStreaming() {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
       email: 'testuser@example.com',
-      password: 'password123'
+      password: 'testpass'
     })
   });
 
@@ -57,10 +57,31 @@ async function testNonStreaming() {
 
   // 3. Send a message using the non-streaming endpoint
   console.log('\n3. Sending direct message to non-streaming RAG endpoint...');
-  const testMessage = `Test non-streaming message ${Date.now()}`;
+  const testMessage = `How are my Amazon campaigns performing this month?`;
   const streamingId = `streaming-${Date.now()}`;
   
   console.log(`Generated streaming ID: ${streamingId}`);
+  
+  // Also save the user message directly to ensure we have a proper user-assistant sequence
+  console.log('Saving user message first...');
+  const saveUserMessageResponse = await fetch(`http://localhost:5000/api/chat/conversations/${conversationId}/messages`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Cookie': sessionCookie
+    },
+    body: JSON.stringify({
+      content: testMessage,
+      role: 'user'
+    })
+  });
+  
+  if (!saveUserMessageResponse.ok) {
+    throw new Error(`Failed to save user message: ${saveUserMessageResponse.status}`);
+  }
+  
+  const savedMessage = await saveUserMessageResponse.json();
+  console.log(`✅ Saved user message with ID: ${savedMessage.id}`);
   
   const requestBody = {
     conversationId: conversationId,

@@ -358,8 +358,34 @@ export async function processTwoLlmRagQueryNonStreaming(
 
     if (campaignIds.length === 0) {
       // If no relevant campaigns found, return a fallback response
+      const answer = "I couldn't find campaign data relevant to your question. Could you provide more details about which campaigns you're interested in?";
+      
+      // Save the fallback message to database if we have conversation ID
+      if (options.conversationId) {
+        log(`Saving fallback assistant message with conversationId=${options.conversationId}, streamingId=${options.streamingId}`, 'two-llm-rag');
+        try {
+          await storage.createChatMessage({
+            id: options.streamingId, // Use the provided streaming ID to maintain consistency with client
+            conversationId: options.conversationId,
+            role: 'assistant',
+            content: answer,
+            metadata: {
+              model: 'gpt-4o',
+              processed: true,
+              timestamp: new Date().toISOString(),
+              fallback: true
+            }
+          });
+          log(`Successfully saved fallback assistant message to database for conversation ${options.conversationId}`, 'two-llm-rag');
+        } catch (saveError) {
+          log(`Error saving fallback assistant message: ${saveError}`, 'two-llm-rag');
+        }
+      } else {
+        log(`No conversationId provided, skipping message persistence for fallback response`, 'two-llm-rag');
+      }
+      
       const response: RAGResponse = {
-        answer: "I couldn't find campaign data relevant to your question. Could you provide more details about which campaigns you're interested in?",
+        answer,
         campaigns: [],
         insights: {},
         retrievalSuccess: false
@@ -523,8 +549,34 @@ Use a friendly, helpful tone appropriate for a chat interface.
     // Handle errors
     log(`Error in non-streaming Two-LLM RAG process: ${error}`, 'two-llm-rag');
     
+    const errorMessage = "I encountered an error while retrieving campaign data. Please try again or rephrase your question.";
+    
+    // Save error message to database if we have a conversation ID
+    if (options.conversationId) {
+      log(`Saving error message with conversationId=${options.conversationId}, streamingId=${options.streamingId}`, 'two-llm-rag');
+      try {
+        await storage.createChatMessage({
+          id: options.streamingId || `error-${Date.now()}`, // Use the provided streaming ID or generate one
+          conversationId: options.conversationId,
+          role: 'assistant',
+          content: errorMessage,
+          metadata: {
+            model: 'gpt-4o',
+            processed: true,
+            timestamp: new Date().toISOString(),
+            error: true
+          }
+        });
+        log(`Successfully saved error message to database for conversation ${options.conversationId}`, 'two-llm-rag');
+      } catch (saveError) {
+        log(`Error saving error message: ${saveError}`, 'two-llm-rag');
+      }
+    } else {
+      log(`No conversationId provided, skipping message persistence for error response`, 'two-llm-rag');
+    }
+    
     return {
-      answer: "I encountered an error while retrieving campaign data. Please try again or rephrase your question.",
+      answer: errorMessage,
       campaigns: [],
       insights: {},
       retrievalSuccess: false,
