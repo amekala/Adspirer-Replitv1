@@ -27,6 +27,13 @@ export interface RAGResponse {
   insights: Record<string, any>;
   retrievalSuccess: boolean;
   error?: string;
+  debugInfo?: {
+    queryVectorDimensions?: number;
+    similarVectors?: any[];
+    campaignIds?: string[];
+    contextLength?: number;
+    processingTimeMs?: number;
+  };
 }
 
 /**
@@ -119,53 +126,100 @@ export async function processRagQuery(
  * Process a non-streaming RAG query (for API usage)
  * @param {string} query - User's question
  * @param {string} userId - User ID for data access
+ * @param {Object} options - Additional options
+ * @param {boolean} options.includeDebugInfo - Whether to include debug info in the response
  * @returns {Promise<RAGResponse>} The response data
  */
 export async function processRagQueryNonStreaming(
   query: string,
-  userId: string
+  userId: string,
+  options: { includeDebugInfo?: boolean } = {}
 ): Promise<RAGResponse> {
+  const processingStart = Date.now();
+  
   try {
-    // Step 1: Extract parameters from the query
+    // Step 1: Generate embedding for the query
+    const queryVector = await generateEmbedding(query);
+    
+    // Step 2: Extract parameters from the query
     const queryParams = extractQueryParameters(query);
     
-    // Step 2: Find relevant campaigns via vector search
+    // Step 3: Find relevant campaigns via vector search
     const similarCampaigns = await querySimilarCampaigns(query, userId);
     
     if (similarCampaigns.length === 0) {
-      return {
+      const response: RAGResponse = {
         answer: "I couldn't find campaign data relevant to your question. Could you provide more details about which campaigns you're interested in?",
         campaigns: [],
         insights: {},
         retrievalSuccess: false
       };
+      
+      // Add debug info if requested
+      if (options.includeDebugInfo) {
+        response.debugInfo = {
+          queryVectorDimensions: queryVector.length,
+          similarVectors: [],
+          campaignIds: [],
+          contextLength: 0,
+          processingTimeMs: Date.now() - processingStart
+        };
+      }
+      
+      return response;
     }
     
-    // Step 3: Extract campaign IDs for SQL query
+    // Step 4: Extract campaign IDs for SQL query
     const campaignIds = similarCampaigns.map((camp: { campaignId: string }) => camp.campaignId);
     
-    // Step 4: Fetch detailed campaign data from SQL
+    // Step 5: Fetch detailed campaign data from SQL
     const campaignData = await fetchCampaignData(campaignIds, userId);
     
-    // Step 5: Extract insights from campaign data
+    // Step 6: Extract insights from campaign data
     const insights = extractCampaignInsights(campaignData);
     
-    // Step 6: Assemble context for LLM
+    // Step 7: Assemble context for LLM
     const context = assembleContext(query, campaignData, queryParams, insights, userId);
     
-    // Step 7: Generate system prompt
+    // Step 8: Generate system prompt
     const systemPrompt = generateSystemPrompt();
     
-    // Step 8: Get completion (non-streaming)
-    // Note: In a real implementation, you would call a non-streaming version
-    // of the OpenAI service here. For now, we'll return a placeholder.
+    // Step 9: Get completion (non-streaming)
+    // For the test, we'll use OpenAI's client directly to get a non-streaming response
+    const openaiClient = getOpenAIClient();
     
-    return {
-      answer: "This is a placeholder response for non-streaming RAG queries. In a real implementation, this would be an answer from the OpenAI API.",
+    const completion = await openaiClient.chat.completions.create({
+      model: 'gpt-4o',
+      messages: [
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: context }
+      ],
+      temperature: 0.7,
+      max_tokens: 1000,
+    });
+    
+    const answer = completion.choices[0].message.content || '';
+    
+    // Create response object
+    const response: RAGResponse = {
+      answer,
       campaigns: campaignData,
-      insights: insights,
+      insights,
       retrievalSuccess: true
     };
+    
+    // Add debug info if requested
+    if (options.includeDebugInfo) {
+      response.debugInfo = {
+        queryVectorDimensions: queryVector.length,
+        similarVectors: similarCampaigns,
+        campaignIds,
+        contextLength: context.length,
+        processingTimeMs: Date.now() - processingStart
+      };
+    }
+    
+    return response;
     
   } catch (error) {
     // Handle errors
@@ -176,7 +230,10 @@ export async function processRagQueryNonStreaming(
       campaigns: [],
       insights: {},
       retrievalSuccess: false,
-      error: error instanceof Error ? error.message : String(error)
+      error: error instanceof Error ? error.message : String(error),
+      debugInfo: options.includeDebugInfo ? {
+        processingTimeMs: Date.now() - processingStart
+      } : undefined
     };
   }
 }

@@ -1,110 +1,177 @@
-import fs from 'fs';
-import path from 'path';
-import { exec } from 'child_process';
-import https from 'https';
-import http from 'http';
+/**
+ * Test script for RAG (Retrieval-Augmented Generation) synchronization
+ * 
+ * This script validates the complete RAG pipeline:
+ * 1. Text to embedding conversion
+ * 2. Vector similarity search
+ * 3. Campaign ID extraction
+ * 4. SQL data retrieval
+ * 5. Context assembly
+ * 6. AI response generation
+ * 
+ * Run this script to verify the entire RAG system is working correctly
+ */
 
-// This script tests our RAG API by:
-// 1. Getting a valid session cookie via login
-// 2. Using that to call the RAG sync endpoint with a sample query
-// 3. Analyzing the response to confirm SQL data is being used
+const fetch = require('node-fetch');
+const { writeFileSync } = require('fs');
 
 // Configuration
 const BASE_URL = 'http://localhost:5000';
-const EMAIL = 'test@example.com';
-const PASSWORD = 'password123';
-const TEST_QUERY = 'What are my best performing campaigns by ROAS?';
+const TEST_EMAIL = 'test@example.com';
+const TEST_PASSWORD = 'password123';
 
-// Extract cookies from curl response
+// Test queries that should trigger RAG
+const TEST_QUERIES = [
+  'How are my Amazon campaigns performing?',
+  'Which campaigns had the highest CTR last month?',
+  'Compare performance between my Google and Amazon ads',
+  'Show me underperforming campaigns with high spend',
+  'What are the trends in my ad performance over the last 3 months?'
+];
+
 function extractCookiesFromResponse(stdout) {
-  const lines = stdout.toString().split('\n');
-  const cookieLines = lines.filter(line => line.includes('Set-Cookie:'));
-  
-  return cookieLines.map(line => {
-    const cookiePart = line.split('Set-Cookie:')[1].trim();
-    return cookiePart.split(';')[0];
-  }).join('; ');
+  // Extract the cookies from the response headers
+  const cookieRegex = /set-cookie:([^;]*;)/gi;
+  const matches = [...stdout.matchAll(cookieRegex)];
+  return matches.map(match => match[1].trim()).join(' ');
 }
 
-// Main function
 async function testRagSync() {
-  console.log('Starting RAG sync test...');
-  
-  // Step 1: Login to get a valid session cookie
-  console.log('Logging in to get session cookie...');
-  
-  const loginCmd = `curl -v -X POST ${BASE_URL}/api/auth/login -H "Content-Type: application/json" -d '{"email":"${EMAIL}","password":"${PASSWORD}"}'`;
-  
   try {
-    // Execute the login request
-    const { stdout, stderr } = await new Promise((resolve, reject) => {
-      exec(loginCmd, (error, stdout, stderr) => {
-        if (error) {
-          reject(error);
-          return;
-        }
-        resolve({ stdout, stderr });
-      });
+    console.log('Starting RAG sync test...');
+    
+    // Step 1: Login to get session cookie
+    console.log('Logging in...');
+    const loginResponse = await fetch(`${BASE_URL}/api/auth/login`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        email: TEST_EMAIL,
+        password: TEST_PASSWORD,
+      }),
+      redirect: 'follow',
     });
     
+    if (!loginResponse.ok) {
+      throw new Error(`Login failed: ${loginResponse.status} ${loginResponse.statusText}`);
+    }
+
     // Extract cookies for subsequent requests
-    const cookies = extractCookiesFromResponse(stderr);
-    console.log('Login successful, got cookies');
+    const cookies = loginResponse.headers.get('set-cookie');
+    console.log('Login successful, obtained session cookie');
     
-    // Step 2: Call the RAG sync endpoint
-    console.log('Calling RAG sync endpoint with query:', TEST_QUERY);
+    // Create a test log file
+    const logFile = `rag-test-results-${new Date().toISOString().replace(/:/g, '-')}.json`;
+    const testResults = [];
     
-    const ragCmd = `curl -X POST ${BASE_URL}/api/rag/query/sync -H "Content-Type: application/json" -H "Cookie: ${cookies}" -d '{"query":"${TEST_QUERY}"}'`;
-    
-    const { stdout: ragResponse } = await new Promise((resolve, reject) => {
-      exec(ragCmd, (error, stdout, stderr) => {
-        if (error) {
-          reject(error);
-          return;
-        }
-        resolve({ stdout, stderr });
-      });
+    // Step 2: Create a new conversation
+    console.log('Creating new conversation...');
+    const conversationResponse = await fetch(`${BASE_URL}/api/chat/conversations`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Cookie: cookies,
+      },
+      body: JSON.stringify({
+        title: 'RAG Test Conversation',
+      }),
     });
     
-    // Step 3: Analyze the response
-    console.log('Response received, analyzing...');
-    
-    try {
-      const response = JSON.parse(ragResponse);
-      
-      console.log('== RAG QUERY TEST RESULTS ==');
-      console.log('Query:', TEST_QUERY);
-      console.log('Has answer:', !!response.answer);
-      console.log('Number of campaigns retrieved:', response.campaigns?.length || 0);
-      console.log('Retrieval success:', response.retrievalSuccess);
-      
-      if (response.campaigns && response.campaigns.length > 0) {
-        console.log('\nSample campaign data retrieved:');
-        console.log(JSON.stringify(response.campaigns[0], null, 2));
-      }
-      
-      if (response.insights) {
-        console.log('\nInsights generated from SQL data:');
-        console.log(JSON.stringify(response.insights, null, 2));
-      }
-      
-      console.log('\nTest conclusion:');
-      if (response.retrievalSuccess && response.campaigns && response.campaigns.length > 0) {
-        console.log('✅ SUCCESS: RAG query is successfully pulling data from SQL');
-      } else {
-        console.log('❌ FAILURE: RAG query is not retrieving SQL data');
-        console.log('Error details:', response.error || 'No specific error message provided');
-      }
-      
-    } catch (parseError) {
-      console.error('Error parsing RAG response:', parseError);
-      console.log('Raw response:', ragResponse);
+    if (!conversationResponse.ok) {
+      throw new Error(`Failed to create conversation: ${conversationResponse.status} ${conversationResponse.statusText}`);
     }
     
+    const conversation = await conversationResponse.json();
+    console.log(`Created conversation with ID: ${conversation.id}`);
+    
+    // Step 3: Test each query
+    for (let i = 0; i < TEST_QUERIES.length; i++) {
+      const query = TEST_QUERIES[i];
+      console.log(`\nTesting query ${i+1}/${TEST_QUERIES.length}: "${query}"`);
+      
+      // Step 3.1: Send a message
+      console.log('Sending message...');
+      const messageResponse = await fetch(`${BASE_URL}/api/chat/conversations/${conversation.id}/messages`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Cookie: cookies,
+        },
+        body: JSON.stringify({
+          role: 'user',
+          content: query,
+        }),
+      });
+      
+      if (!messageResponse.ok) {
+        console.error(`Failed to send message: ${messageResponse.status} ${messageResponse.statusText}`);
+        continue;
+      }
+      
+      const message = await messageResponse.json();
+      console.log(`Sent message with ID: ${message.id}`);
+      
+      // Step 3.2: Trigger the RAG query with additional debugging
+      console.log('Triggering RAG query with debug info...');
+      const ragResponse = await fetch(`${BASE_URL}/api/rag/query/sync`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Cookie: cookies,
+        },
+        body: JSON.stringify({
+          conversationId: conversation.id,
+          query: query,
+          includeDebugInfo: true
+        }),
+      });
+      
+      if (!ragResponse.ok) {
+        console.error(`RAG query failed: ${ragResponse.status} ${ragResponse.statusText}`);
+        continue;
+      }
+      
+      const ragResult = await ragResponse.json();
+      console.log(`RAG response received with ${ragResult.campaigns?.length || 0} campaigns`);
+      
+      // Record test results
+      testResults.push({
+        query,
+        queryTimestamp: new Date().toISOString(),
+        retrievalSuccess: ragResult.retrievalSuccess,
+        campaignsCount: ragResult.campaigns?.length || 0,
+        insightsGenerated: Object.keys(ragResult.insights || {}).length > 0,
+        answer: ragResult.answer?.substring(0, 100) + '...' // First 100 chars of answer
+      });
+      
+      // If we have debug info, log vector search details
+      if (ragResult.debugInfo) {
+        console.log('--- Vector Search Debug Info ---');
+        console.log(`Query vector dimensions: ${ragResult.debugInfo.queryVectorDimensions}`);
+        console.log(`Similar vectors found: ${ragResult.debugInfo.similarVectors?.length || 0}`);
+        console.log(`Campaign IDs extracted: ${ragResult.debugInfo.campaignIds?.join(', ') || 'none'}`);
+        console.log(`Context length (chars): ${ragResult.debugInfo.contextLength || 0}`);
+        console.log('-----------------------------');
+      }
+      
+      // Small delay between requests
+      await new Promise(resolve => setTimeout(resolve, 2000));
+    }
+    
+    // Save test results to file
+    writeFileSync(logFile, JSON.stringify(testResults, null, 2));
+    console.log(`\nTest completed! Results saved to ${logFile}`);
+    
+    // Summary statistics
+    const successfulQueries = testResults.filter(r => r.retrievalSuccess).length;
+    console.log(`\nSuccess rate: ${successfulQueries}/${testResults.length} (${Math.round(successfulQueries/testResults.length*100)}%)`);
+    console.log(`Average campaigns retrieved: ${testResults.reduce((acc, r) => acc + r.campaignsCount, 0) / testResults.length}`);
+    
   } catch (error) {
-    console.error('Error executing test:', error);
+    console.error('Test failed:', error);
   }
 }
 
-// Run the test
 testRagSync();
