@@ -280,7 +280,9 @@ async function generateSQL(
                7. Use appropriate aggregations (SUM, AVG, COUNT) as needed
                8. Use snake_case for all column names (user_id, campaign_id, etc.)
                9. For CTR (click-through rate) calculations, use (clicks::float / impressions) * 100
-               10. For ROAS (return on ad spend) calculations, use (sales::float / cost)`
+               10. For ROAS (return on ad spend) calculations, use (sales::float / cost) as a direct ratio, not as a percentage
+               11. When calculating average ROAS across multiple campaigns, use weighted averages based on cost
+               12. All ROAS calculations should be formatted as a direct ratio (e.g., "5.4x") not as a percentage`
     }
   ];
   
