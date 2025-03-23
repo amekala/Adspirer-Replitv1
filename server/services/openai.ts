@@ -57,13 +57,40 @@ function convertToResponsesFormat(params: any): any {
   if (params.messages && Array.isArray(params.messages)) {
     // For cases with messages array
     if (params.messages.length > 0) {
-      // In the Responses API format, we need to structure the input differently
-      // The whole messages array should be passed as input, including system messages
+      // In the new Responses API format, messages should be in the input array
       responsesParams.input = params.messages;
+      
+      // Add text format configuration
+      responsesParams.text = {
+        format: {
+          type: "text"
+        }
+      };
+      
+      // Add reasoning field (used by the model for step-by-step thinking)
+      responsesParams.reasoning = {};
     }
   } else if (params.input) {
     // If input is already provided (single string or structured format)
     responsesParams.input = params.input;
+    
+    // Ensure text format is set
+    if (!params.text) {
+      responsesParams.text = {
+        format: {
+          type: "text"
+        }
+      };
+    } else {
+      responsesParams.text = params.text;
+    }
+    
+    // Add reasoning if not already included
+    if (!params.reasoning) {
+      responsesParams.reasoning = {};
+    } else {
+      responsesParams.reasoning = params.reasoning;
+    }
   }
 
   // Handle optional parameters (only set if defined)
@@ -91,6 +118,14 @@ function convertToResponsesFormat(params: any): any {
 
   if (params.response_format) {
     responsesParams.response_format = params.response_format;
+  }
+  
+  // Set store parameter for response storage if needed
+  if (params.store !== undefined) {
+    responsesParams.store = params.store;
+  } else {
+    // Default to true as per OpenAI's recommendation
+    responsesParams.store = true;
   }
 
   if (params.frequency_penalty !== undefined) {
@@ -505,6 +540,13 @@ When interacting with users:
         messages,
         temperature: 0.7,
         max_output_tokens: 500, // Welcome messages can be shorter
+        text: {
+          format: {
+            type: "text"
+          }
+        },
+        reasoning: {},
+        store: true
       };
 
       // Convert parameters to Responses API format
@@ -582,6 +624,13 @@ When interacting with users:
         ],
         temperature: 0.1,
         max_output_tokens: 500,
+        text: {
+          format: {
+            type: "text"
+          }
+        },
+        reasoning: {},
+        store: true
       };
 
       // Convert parameters to Responses API format
@@ -627,6 +676,13 @@ When interacting with users:
       temperature: 0.7,
       max_output_tokens: 1000,
       stream: true,
+      text: {
+        format: {
+          type: "text"
+        }
+      },
+      reasoning: {},
+      store: true
     };
 
     // Convert parameters to Responses API format
