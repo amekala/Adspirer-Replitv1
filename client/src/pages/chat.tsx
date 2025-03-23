@@ -193,8 +193,16 @@ export default function ChatPage() {
       // Step 2: Use the chatService to handle the message and streaming response
       console.log('Calling advanced RAG query endpoint...');
       
+      // Reference to temporary streaming message ID
+      const streamingMessageIdRef = useRef<string>('');
+      
       // Get streaming content handler
       const updateStreamingContent = (streamedContent: string) => {
+        // Generate a persistent streaming message ID if none exists
+        if (!streamingMessageIdRef.current) {
+          streamingMessageIdRef.current = 'streaming-' + Date.now();
+        }
+        
         // Get latest conversation data
         const latestConversation = queryClient.getQueryData([
           "/api/chat/conversations", 
@@ -210,28 +218,30 @@ export default function ChatPage() {
           ? [...(latestConversation as any).messages] 
           : [];
           
-        // Find if we have a typing indicator already
+        // Find if we have a streaming message already
         const typingIndex = messages.findIndex(m => 
-          m.id === 'typing-indicator' || m.id.startsWith('streaming-'));
+          m.id === streamingMessageIdRef.current || m.id === 'typing-indicator');
         
         if (typingIndex >= 0) {
-          // Update the existing typing indicator with content
+          // Update the existing streaming message with content
           messages[typingIndex] = {
             ...messages[typingIndex],
-            id: 'streaming-' + Date.now(),
-            content: streamedContent
+            id: streamingMessageIdRef.current,
+            role: 'assistant',
+            content: streamedContent,
+            createdAt: new Date().toISOString()
           };
         } else {
           // Add new assistant message
           messages.push({
-            id: 'streaming-' + Date.now(),
+            id: streamingMessageIdRef.current,
             role: 'assistant',
             content: streamedContent,
             createdAt: new Date().toISOString()
           });
         }
         
-        // Update the query cache
+        // Update the query cache with consistent reference
         queryClient.setQueryData(
           ['/api/chat/conversations', currentConversationId, 'specific'],
           {
