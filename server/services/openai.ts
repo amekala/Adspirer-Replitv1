@@ -593,73 +593,88 @@ When interacting with users:
 
     // For streaming responses, check if this is a data query that should be handled by SQL Builder
     if (isStreaming) {
-      // First, ask the main LLM if this should be handled as a data query
-      const openaiClient = getOpenAIClient();
+      // Quick early check for common greetings and simple messages
+      // These should never be routed to the SQL Builder
+      const simpleGreetings = [
+        "hi", "hello", "hey", "hi there", "hello there", "hey there", 
+        "good morning", "good afternoon", "good evening", "greetings"
+      ];
+      
+      if (lastUserMessage && 
+          (simpleGreetings.includes(lastUserMessage.toLowerCase()) || 
+           lastUserMessage.length < 10)) {
+        console.log(`Simple greeting detected: "${lastUserMessage}" → GENERAL (bypassed routing)`);
+      } else {
+        // Proceed with LLM-based routing for more complex queries
+        const openaiClient = getOpenAIClient();
 
-      // Create parameters for routing decision
-      const routingParams = {
-        model: "gpt-4o",
-        messages: [
-          {
-            role: "system",
-            content: `You are a routing agent for an advertising platform assistant.
-                     Your job is to determine if a user's message should be answered with:
-                     1. Campaign data from the database (using SQL)
-                     2. General knowledge about advertising
-                     
-                     Only route to the database if the user is clearly asking for their specific campaign performance,
-                     metrics, or data about their advertising accounts. Examples of database queries:
-                     - "How are my Amazon campaigns performing?"
-                     - "What was my CTR last week?"
-                     - "Show me my campaigns with the highest ROAS"
-                     - "Which of my Google ads had the most impressions yesterday?"
-                     
-                     If the user is asking general questions about advertising strategy, best practices,
-                     or how something works, do NOT route to the database.`,
+        // Create parameters for routing decision
+        const routingParams = {
+          model: "gpt-4o",
+          messages: [
+            {
+              role: "system",
+              content: `You are a routing agent for an advertising platform assistant.
+                       Your job is to determine if a user's message should be answered with:
+                       1. Campaign data from the database (using SQL)
+                       2. General knowledge about advertising
+                       
+                       Only route to the database if the user is clearly asking for their specific campaign performance,
+                       metrics, or data about their advertising accounts. Examples of database queries:
+                       - "How are my Amazon campaigns performing?"
+                       - "What was my CTR last week?"
+                       - "Show me my campaigns with the highest ROAS"
+                       - "Which of my Google ads had the most impressions yesterday?"
+                       
+                       If the user is asking general questions about advertising strategy, best practices,
+                       or how something works, do NOT route to the database.
+                       
+                       Simple greetings, acknowledgments, or very short messages should NEVER be routed to the database.`,
+            },
+            {
+              role: "user",
+              content: `Here is the conversation so far:\n${conversationContext}\n\nBased on this context and the latest message, should I route to the database or handle it as a general knowledge query? Reply with only "DATABASE" or "GENERAL".`,
+            },
+          ],
+          temperature: 0.1,
+          max_output_tokens: 500,
+          text: {
+            format: {
+              type: "text"
+            }
           },
-          {
-            role: "user",
-            content: `Here is the conversation so far:\n${conversationContext}\n\nBased on this context and the latest message, should I route to the database or handle it as a general knowledge query? Reply with only "DATABASE" or "GENERAL".`,
-          },
-        ],
-        temperature: 0.1,
-        max_output_tokens: 500,
-        text: {
-          format: {
-            type: "text"
-          }
-        },
-        reasoning: {},
-        store: true
-      };
+          reasoning: {},
+          store: true
+        };
 
-      // Convert parameters to Responses API format
-      const responsesParams = convertToResponsesFormat(routingParams);
+        // Convert parameters to Responses API format
+        const responsesParams = convertToResponsesFormat(routingParams);
 
-      // Use Responses API for routing decision
-      const routingDecision =
-        await openaiClient.responses.create(responsesParams);
+        // Use Responses API for routing decision
+        const routingDecision =
+          await openaiClient.responses.create(responsesParams);
 
-      // Extract the decision from the response
-      const decision =
-        routingDecision.output_text?.trim().toUpperCase() || "GENERAL";
-      console.log(
-        `Routing decision for query: "${lastUserMessage}" → ${decision}`,
-      );
-
-      if (decision === "DATABASE") {
-        // If the main LLM thinks this is a data query, pass to SQL Builder with context
-        console.log(`Routing to SQL Builder with context`);
-        await handleDataQuery(
-          conversationId,
-          userId,
-          res!,
-          lastUserMessage,
-          conversationContext,
+        // Extract the decision from the response
+        const decision =
+          routingDecision.output_text?.trim().toUpperCase() || "GENERAL";
+        console.log(
+          `Routing decision for query: "${lastUserMessage}" → ${decision}`,
         );
-        return;
+
+        if (decision === "DATABASE") {
+          // If the main LLM thinks this is a data query, pass to SQL Builder with context
+          console.log(`Routing to SQL Builder with context`);
+          await handleDataQuery(
+            conversationId,
+            userId,
+            res!,
+            lastUserMessage,
+            conversationContext,
+          );
+          return;
+        }
+        // Otherwise fall through to regular completion
       }
-      // Otherwise fall through to regular completion
     }
     // ----- END INTELLIGENT QUERY HANDLING -----
 
