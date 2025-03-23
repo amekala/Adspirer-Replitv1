@@ -201,12 +201,35 @@ Use a friendly, helpful tone appropriate for a chat interface.
       'Connection': 'keep-alive'
     });
 
+    // Collect the full response while streaming
+    let fullResponse = '';
+    
     // Stream the response
     for await (const chunk of stream) {
       const content = chunk.choices[0]?.delta?.content || '';
       if (content) {
+        fullResponse += content; // Collect the response
         res.write(`data: {"content":"${content.replace(/\n/g, '\\n')}"}\n\n`);
       }
+    }
+
+    // Save the assistant's response to the database
+    try {
+      await storage.createChatMessage({
+        conversationId: conversationId,
+        role: 'assistant',
+        content: fullResponse,
+        metadata: {
+          model: 'gpt-4o',
+          processed: true,
+          timestamp: new Date().toISOString(),
+          campaignIds: campaignIds.length > 0 ? campaignIds : undefined
+        }
+      });
+      log(`Saved assistant message to database for conversation ${conversationId}`, 'two-llm-rag');
+    } catch (saveError) {
+      log(`Error saving assistant message: ${saveError}`, 'two-llm-rag');
+      // We don't want to fail the response if saving fails
     }
 
     res.write('data: [DONE]\n\n');
