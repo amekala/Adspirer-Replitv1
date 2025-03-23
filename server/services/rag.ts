@@ -40,6 +40,41 @@ export interface RAGResponse {
 }
 
 /**
+ * Save message to database (used by both streaming and non-streaming versions)
+ * @param {string} conversationId - The conversation ID
+ * @param {string} content - The message content
+ * @param {string[]} campaignIds - Any associated campaign IDs
+ * @param {boolean} isError - Whether this is an error message
+ * @returns {Promise<void>}
+ */
+async function saveMessageToDatabase(
+  conversationId: string | undefined,
+  content: string,
+  campaignIds: string[] = [],
+  isError: boolean = false
+): Promise<void> {
+  if (!conversationId) return;
+  
+  try {
+    await storage.createChatMessage({
+      conversationId,
+      role: 'assistant',
+      content,
+      metadata: {
+        model: 'gpt-4o',
+        processed: true,
+        timestamp: new Date().toISOString(),
+        campaignIds: campaignIds.length > 0 ? campaignIds : undefined,
+        error: isError || undefined
+      }
+    });
+    log(`Saved ${isError ? 'error' : 'assistant'} message to database for conversation ${conversationId}`, 'rag-service');
+  } catch (saveError) {
+    log(`Error saving message to database: ${saveError}`, 'rag-service');
+  }
+}
+
+/**
  * Process a user query using the RAG approach
  * @param {string} query - User's question
  * @param {string} userId - User ID for data access
@@ -143,7 +178,7 @@ async function processRagQueryWithIds(
   campaignIds: string[],
   queryVector: number[],
   queryParams: Record<string, any>,
-  options: { includeDebugInfo?: boolean } = {},
+  options: { includeDebugInfo?: boolean; conversationId?: string } = {},
   processingStart: number
 ): Promise<RAGResponse> {
   try {
@@ -183,6 +218,16 @@ async function processRagQueryWithIds(
     const answer = completion.choices[0].message.content || '';
     log(`Received answer from OpenAI with ${answer.length} characters`, 'rag-service');
     
+    // Save to database if we have a conversation ID
+    if (options.conversationId) {
+      await saveMessageToDatabase(
+        options.conversationId,
+        answer,
+        campaignIds,
+        false
+      );
+    }
+    
     // Create response object
     const response: RAGResponse = {
       answer,
@@ -208,12 +253,25 @@ async function processRagQueryWithIds(
     // Handle errors
     log(`Error in explicit ID RAG process: ${error}`, 'rag-service');
     
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    const errorResponse = "I encountered an error while retrieving campaign data. Please try again or rephrase your question.";
+    
+    // Save the error message to database if we have a conversation ID
+    if (options.conversationId) {
+      await saveMessageToDatabase(
+        options.conversationId,
+        errorResponse,
+        [],
+        true // Mark as error
+      );
+    }
+    
     return {
-      answer: "I encountered an error while retrieving campaign data. Please try again or rephrase your question.",
+      answer: errorResponse,
       campaigns: [],
       insights: {},
       retrievalSuccess: false,
-      error: error instanceof Error ? error.message : String(error),
+      error: errorMessage,
       debugInfo: options.includeDebugInfo ? {
         processingTimeMs: Date.now() - processingStart
       } : undefined
@@ -257,8 +315,20 @@ export async function processRagQueryNonStreaming(
     
     if (similarCampaigns.length === 0) {
       log(`No similar campaigns found, returning empty response`, 'rag-service');
+      const noDataAnswer = "I couldn't find campaign data relevant to your question. Could you provide more details about which campaigns you're interested in?";
+      
+      // Save the error message to database if we have a conversation ID
+      if (options.conversationId) {
+        await saveMessageToDatabase(
+          options.conversationId,
+          noDataAnswer,
+          [],
+          true // Mark as error
+        );
+      }
+      
       const response: RAGResponse = {
-        answer: "I couldn't find campaign data relevant to your question. Could you provide more details about which campaigns you're interested in?",
+        answer: noDataAnswer,
         campaigns: [],
         insights: {},
         retrievalSuccess: false
@@ -357,6 +427,16 @@ export async function processRagQueryNonStreaming(
     const answer = completion.choices[0].message.content || '';
     log(`Received answer from OpenAI with ${answer.length} characters`, 'rag-service');
     
+    // Save to database if we have a conversation ID
+    if (options.conversationId) {
+      await saveMessageToDatabase(
+        options.conversationId,
+        answer,
+        campaignIds,
+        false
+      );
+    }
+    
     // Create response object
     const response: RAGResponse = {
       answer,
@@ -383,12 +463,25 @@ export async function processRagQueryNonStreaming(
     // Handle errors
     log(`Error in non-streaming RAG process: ${error}`, 'rag-service');
     
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    const errorResponse = "I encountered an error while retrieving campaign data. Please try again or rephrase your question.";
+    
+    // Save the error message to database if we have a conversation ID
+    if (options.conversationId) {
+      await saveMessageToDatabase(
+        options.conversationId,
+        errorResponse,
+        [],
+        true // Mark as error
+      );
+    }
+    
     return {
-      answer: "I encountered an error while retrieving campaign data. Please try again or rephrase your question.",
+      answer: errorResponse,
       campaigns: [],
       insights: {},
       retrievalSuccess: false,
-      error: error instanceof Error ? error.message : String(error),
+      error: errorMessage,
       debugInfo: options.includeDebugInfo ? {
         processingTimeMs: Date.now() - processingStart
       } : undefined
