@@ -191,11 +191,7 @@ export default function ChatPage() {
       });
       
       // Step 2: Use the chatService to handle the message and streaming response
-      // This will automatically use the selected architecture (one or two-LLM)
-      const chatComponent = document.querySelector('.chat-component');
-      const useTwoLlm = chatComponent?.getAttribute('data-llm-mode') === 'two-llm';
-      
-      console.log(`Calling ${useTwoLlm ? 'Two-LLM' : 'Standard'} RAG query endpoint...`);
+      console.log('Calling advanced RAG query endpoint...');
       
       // Get streaming content handler
       const updateStreamingContent = (streamedContent: string) => {
@@ -249,8 +245,7 @@ export default function ChatPage() {
       await sendMessage(
         currentConversationId,
         messageContent,
-        updateStreamingContent,
-        useTwoLlm
+        updateStreamingContent
       );
       
       // Message was sent via the chatService, so we don't need to process the response here

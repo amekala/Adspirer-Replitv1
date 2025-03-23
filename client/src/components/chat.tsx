@@ -2,11 +2,8 @@ import { useState, useEffect, useRef } from "react";
 import { Avatar } from "@/components/ui/avatar";
 import { Card } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Bot, User, BrainCircuit, Zap } from "lucide-react";
+import { Bot, User } from "lucide-react";
 import { Message, Conversation, formatConversationResponse } from "@/lib/chatService";
-import { Switch } from "@/components/ui/switch";
-import { Label } from "@/components/ui/label";
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 interface ChatProps {
   conversation: any; // This will be processed into the correct format
@@ -16,7 +13,6 @@ interface ChatProps {
 export function Chat({ conversation, isLoading }: ChatProps) {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const [isTyping, setIsTyping] = useState(false);
-  const [useTwoLlm, setUseTwoLlm] = useState(true); // Default to two-LLM architecture
   const [processed, setProcessed] = useState<{
     conversation: Conversation | null;
     messages: Message[];
@@ -97,48 +93,16 @@ export function Chat({ conversation, isLoading }: ChatProps) {
   );
 
   return (
-    <div className="space-y-6 pb-4 chat-component" data-llm-mode={useTwoLlm ? 'two-llm' : 'standard'}>
-      {/* Two-LLM Architecture Toggle */}
-      <div className="flex items-center justify-end gap-2 mb-2 px-2">
-        <TooltipProvider>
-          <Tooltip>
-            <TooltipTrigger>
-              <div className="flex items-center">
-                {useTwoLlm ? <BrainCircuit className="h-4 w-4 text-blue-500" /> : <Zap className="h-4 w-4 text-amber-500" />}
-              </div>
-            </TooltipTrigger>
-            <TooltipContent>
-              <p className="text-xs">
-                {useTwoLlm 
-                  ? "Two-LLM Architecture: One LLM generates SQL, another generates the response" 
-                  : "Standard Architecture: Single LLM handles query and response"}
-              </p>
-            </TooltipContent>
-          </Tooltip>
-        </TooltipProvider>
-        <div className="flex items-center gap-2">
-          <Label htmlFor="llm-toggle" className="text-xs text-muted-foreground">
-            Two-LLM Mode
-          </Label>
-          <Switch
-            id="llm-toggle"
-            checked={useTwoLlm}
-            onCheckedChange={setUseTwoLlm}
-          />
-        </div>
-      </div>
-      
+    <div className="space-y-6 pb-4 chat-component">
       {messages.length === 0 ? (
         <div className="text-center py-12">
           <p className="text-muted-foreground">Start the conversation by typing a message below.</p>
           <div className="mt-4 text-xs text-muted-foreground">
-            <p>Using {useTwoLlm ? "Two-LLM" : "Standard"} Architecture</p>
-            {useTwoLlm && (
-              <p className="mt-2 max-w-md mx-auto">
-                The Two-LLM architecture uses one LLM to generate SQL queries and another to produce the final response, 
-                providing greater accuracy for data-driven questions.
-              </p>
-            )}
+            <p>Ask questions about your ad campaigns</p>
+            <p className="mt-2 max-w-md mx-auto">
+              Our AI combines your campaign data with analytical capabilities to provide 
+              detailed insights and actionable recommendations.
+            </p>
           </div>
         </div>
       ) : (

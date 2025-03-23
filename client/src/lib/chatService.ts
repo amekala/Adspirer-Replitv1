@@ -90,20 +90,18 @@ export function formatConversationResponse(data: any): {
 /**
  * Send a message and handle the streaming response
  * 
- * This implementation prioritizes using the RAG (Retrieval-Augmented Generation) 
+ * This implementation uses the advanced RAG (Retrieval-Augmented Generation) 
  * endpoint for advertising-related queries, which provides context-aware,
- * data-driven responses based on campaign metrics
+ * data-driven responses based on campaign metrics using a two-LLM architecture
  * 
  * @param conversationId - ID of the conversation to send the message to
  * @param messageContent - The message content to send
  * @param onStreamUpdate - Callback function that receives streamed content updates
- * @param useTwoLlm - Whether to use the two-LLM architecture (default: true)
  */
 export async function sendMessage(
   conversationId: string, 
   messageContent: string,
-  onStreamUpdate: (content: string) => void,
-  useTwoLlm: boolean = true
+  onStreamUpdate: (content: string) => void
 ): Promise<void> {
   // Don't send empty messages
   if (!messageContent.trim() || !conversationId) return;
@@ -120,9 +118,9 @@ export async function sendMessage(
       queryKey: ["/api/chat/conversations", conversationId] 
     });
     
-    // Step 2: Determine which RAG endpoint to use
-    const endpoint = useTwoLlm ? '/api/rag/query-two-llm' : '/api/rag/query';
-    console.log(`Calling ${useTwoLlm ? 'Two-LLM' : 'Standard'} RAG query endpoint...`);
+    // Step 2: Use the advanced RAG endpoint with Two-LLM architecture
+    const endpoint = '/api/rag/query-two-llm';
+    console.log('Calling Two-LLM RAG query endpoint...');
     
     const completionResponse = await fetch(endpoint, {
       method: 'POST',
