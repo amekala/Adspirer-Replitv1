@@ -241,3 +241,85 @@ export type ChatConversation = typeof chatConversations.$inferSelect;
 export type ChatMessage = typeof chatMessages.$inferSelect;
 export type InsertChatConversation = z.infer<typeof insertChatConversationSchema>;
 export type InsertChatMessage = z.infer<typeof insertChatMessageSchema>;
+
+// Campaign metrics cache and summaries
+export const campaignMetricsSummary = pgTable("campaign_metrics_summary", {
+  id: serial("id").primaryKey(),
+  userId: uuid("user_id").notNull().references(() => users.id),
+  timeFrame: text("time_frame").notNull(), // 'daily', 'weekly', 'monthly', 'quarterly', 'yearly'
+  startDate: date("start_date").notNull(),
+  endDate: date("end_date").notNull(),
+  profileId: text("profile_id").notNull(),
+  campaignId: text("campaign_id").notNull(),
+  totalImpressions: integer("total_impressions").notNull(),
+  totalClicks: integer("total_clicks").notNull(),
+  totalCost: numeric("total_cost").notNull(),
+  ctr: numeric("ctr").notNull(),
+  conversions: integer("conversions").default(0),
+  roas: numeric("roas"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
+// Google campaign metrics summaries
+export const googleCampaignMetricsSummary = pgTable("google_campaign_metrics_summary", {
+  id: serial("id").primaryKey(),
+  userId: uuid("user_id").notNull().references(() => users.id),
+  timeFrame: text("time_frame").notNull(), // 'daily', 'weekly', 'monthly', 'quarterly', 'yearly'
+  startDate: date("start_date").notNull(),
+  endDate: date("end_date").notNull(),
+  customerId: text("customer_id").notNull(),
+  campaignId: text("campaign_id").notNull(),
+  totalImpressions: integer("total_impressions").notNull(),
+  totalClicks: integer("total_clicks").notNull(),
+  totalCost: numeric("total_cost").notNull(),
+  ctr: numeric("ctr").notNull(),
+  conversions: integer("conversions").default(0),
+  roas: numeric("roas"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
+// Query cache for common LLM questions
+export const queryCacheEntries = pgTable("query_cache_entries", {
+  id: serial("id").primaryKey(),
+  userId: uuid("user_id").notNull().references(() => users.id),
+  queryHash: text("query_hash").notNull(),
+  normalizedQuery: text("normalized_query").notNull(),
+  responseData: json("response_data").notNull(),
+  expiresAt: timestamp("expires_at").notNull(),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  hitCount: integer("hit_count").notNull().default(0),
+});
+
+// Create insert schemas for the new tables
+export const insertCampaignMetricsSummarySchema = createInsertSchema(campaignMetricsSummary, {
+  timeFrame: z.string(),
+  totalImpressions: z.number().int().min(0),
+  totalClicks: z.number().int().min(0),
+  totalCost: z.number().min(0),
+  ctr: z.number().min(0),
+}).omit({ id: true, createdAt: true, updatedAt: true });
+
+export const insertGoogleCampaignMetricsSummarySchema = createInsertSchema(googleCampaignMetricsSummary, {
+  timeFrame: z.string(),
+  totalImpressions: z.number().int().min(0),
+  totalClicks: z.number().int().min(0),
+  totalCost: z.number().min(0),
+  ctr: z.number().min(0),
+  conversions: z.number().int().min(0),
+}).omit({ id: true, createdAt: true, updatedAt: true });
+
+export const insertQueryCacheSchema = createInsertSchema(queryCacheEntries, {
+  queryHash: z.string(),
+  normalizedQuery: z.string(),
+  responseData: z.record(z.any()),
+}).omit({ id: true, createdAt: true, hitCount: true });
+
+// Export additional types
+export type CampaignMetricsSummary = typeof campaignMetricsSummary.$inferSelect;
+export type GoogleCampaignMetricsSummary = typeof googleCampaignMetricsSummary.$inferSelect;
+export type QueryCacheEntry = typeof queryCacheEntries.$inferSelect;
+export type InsertCampaignMetricsSummary = z.infer<typeof insertCampaignMetricsSummarySchema>;
+export type InsertGoogleCampaignMetricsSummary = z.infer<typeof insertGoogleCampaignMetricsSummarySchema>;
+export type InsertQueryCache = z.infer<typeof insertQueryCacheSchema>;

@@ -4,9 +4,12 @@ import {
   DemoRequest, InsertDemoRequest, demoRequests,
   GoogleToken, GoogleAdvertiserAccount, GoogleCampaignMetrics,
   ChatConversation, ChatMessage, InsertChatConversation, InsertChatMessage,
+  CampaignMetricsSummary, GoogleCampaignMetricsSummary, QueryCacheEntry,
+  InsertCampaignMetricsSummary, InsertGoogleCampaignMetricsSummary, InsertQueryCache,
   users, amazonTokens, apiKeys, advertiserAccounts, tokenRefreshLog, 
   campaignMetrics, googleTokens, googleAdvertiserAccounts, googleCampaignMetrics, 
-  chatConversations, chatMessages
+  chatConversations, chatMessages, campaignMetricsSummary, googleCampaignMetricsSummary,
+  queryCacheEntries
 } from "@shared/schema";
 import session from "express-session";
 import { drizzle } from "drizzle-orm/postgres-js";
@@ -82,6 +85,24 @@ export interface IStorage {
   // Chat messages
   createChatMessage(message: InsertChatMessage & { conversationId: string }): Promise<ChatMessage>;
   getChatMessages(conversationId: string): Promise<ChatMessage[]>;
+  
+  // Campaign metrics summary management
+  createCampaignMetricsSummary(summary: Omit<CampaignMetricsSummary, "id" | "createdAt" | "updatedAt">): Promise<CampaignMetricsSummary>;
+  getCampaignMetricsSummaries(userId: string, timeFrame: string, startDate?: Date, endDate?: Date): Promise<CampaignMetricsSummary[]>;
+  updateCampaignMetricsSummary(id: number, summary: Partial<CampaignMetricsSummary>): Promise<CampaignMetricsSummary>;
+  generateCampaignMetricsSummaries(userId: string): Promise<void>;
+  
+  // Google campaign metrics summary management
+  createGoogleCampaignMetricsSummary(summary: Omit<GoogleCampaignMetricsSummary, "id" | "createdAt" | "updatedAt">): Promise<GoogleCampaignMetricsSummary>;
+  getGoogleCampaignMetricsSummaries(userId: string, timeFrame: string, startDate?: Date, endDate?: Date): Promise<GoogleCampaignMetricsSummary[]>;
+  updateGoogleCampaignMetricsSummary(id: number, summary: Partial<GoogleCampaignMetricsSummary>): Promise<GoogleCampaignMetricsSummary>;
+  generateGoogleCampaignMetricsSummaries(userId: string): Promise<void>;
+  
+  // Query cache management
+  createQueryCacheEntry(entry: Omit<QueryCacheEntry, "id" | "createdAt" | "hitCount">): Promise<QueryCacheEntry>;
+  getQueryCacheEntry(userId: string, queryHash: string): Promise<QueryCacheEntry | undefined>;
+  updateQueryCacheHitCount(id: number): Promise<QueryCacheEntry>;
+  invalidateQueryCache(userId: string, olderThan?: Date): Promise<void>;
   
   sessionStore: session.Store;
 }
@@ -491,6 +512,426 @@ export class DatabaseStorage implements IStorage {
       .from(chatMessages)
       .where(eq(chatMessages.conversationId, conversationId))
       .orderBy(chatMessages.createdAt);
+  }
+  
+  // Campaign metrics summary methods
+  async createCampaignMetricsSummary(summary: Omit<CampaignMetricsSummary, "id" | "createdAt" | "updatedAt">): Promise<CampaignMetricsSummary> {
+    try {
+      const now = new Date();
+      const [result] = await db.insert(campaignMetricsSummary)
+        .values({
+          ...summary,
+          createdAt: now,
+          updatedAt: now
+        })
+        .returning();
+      return result;
+    } catch (error) {
+      console.error('Error creating campaign metrics summary:', error);
+      throw error;
+    }
+  }
+  
+  async getCampaignMetricsSummaries(userId: string, timeFrame: string, startDate?: Date, endDate?: Date): Promise<CampaignMetricsSummary[]> {
+    try {
+      let query = db.select()
+        .from(campaignMetricsSummary)
+        .where(
+          and(
+            eq(campaignMetricsSummary.userId, userId),
+            eq(campaignMetricsSummary.timeFrame, timeFrame)
+          )
+        );
+      
+      // Add date filters if provided
+      if (startDate) {
+        query = query.where(gte(campaignMetricsSummary.startDate, startDate));
+      }
+      
+      if (endDate) {
+        query = query.where(lte(campaignMetricsSummary.endDate, endDate));
+      }
+      
+      return await query.orderBy(desc(campaignMetricsSummary.endDate));
+    } catch (error) {
+      console.error('Error fetching campaign metrics summaries:', error);
+      throw error;
+    }
+  }
+  
+  async updateCampaignMetricsSummary(id: number, summary: Partial<CampaignMetricsSummary>): Promise<CampaignMetricsSummary> {
+    try {
+      const [result] = await db.update(campaignMetricsSummary)
+        .set({
+          ...summary,
+          updatedAt: new Date()
+        })
+        .where(eq(campaignMetricsSummary.id, id))
+        .returning();
+      return result;
+    } catch (error) {
+      console.error('Error updating campaign metrics summary:', error);
+      throw error;
+    }
+  }
+  
+  async generateCampaignMetricsSummaries(userId: string): Promise<void> {
+    try {
+      // Get all advertiser accounts for this user
+      const accounts = await this.getAdvertiserAccounts(userId);
+      
+      if (!accounts.length) {
+        return; // No accounts to summarize
+      }
+      
+      // Define time frame ranges
+      const timeFrames = [
+        { name: 'daily', days: 1 },
+        { name: 'weekly', days: 7 },
+        { name: 'monthly', days: 30 },
+        { name: 'quarterly', days: 90 },
+      ];
+      
+      const now = new Date();
+      
+      // For each account + time frame, generate summaries
+      for (const account of accounts) {
+        for (const timeFrame of timeFrames) {
+          // For each campaign in the account
+          // First get distinct campaigns
+          const campaigns = await db.selectDistinct({ campaignId: campaignMetrics.campaignId })
+            .from(campaignMetrics)
+            .where(
+              and(
+                eq(campaignMetrics.userId, userId), 
+                eq(campaignMetrics.profileId, account.profileId)
+              )
+            );
+            
+          for (const campaign of campaigns) {
+            // Set date range for this time frame
+            const endDate = new Date(now);
+            const startDate = new Date(now);
+            startDate.setDate(now.getDate() - timeFrame.days);
+            
+            // Calculate aggregate metrics
+            const metrics = await db.select({
+              totalImpressions: sql`SUM(${campaignMetrics.impressions})`,
+              totalClicks: sql`SUM(${campaignMetrics.clicks})`,
+              totalCost: sql`SUM(${campaignMetrics.cost})`
+            })
+            .from(campaignMetrics)
+            .where(
+              and(
+                eq(campaignMetrics.userId, userId),
+                eq(campaignMetrics.profileId, account.profileId),
+                eq(campaignMetrics.campaignId, campaign.campaignId),
+                gte(campaignMetrics.date, startDate),
+                lte(campaignMetrics.date, endDate)
+              )
+            );
+            
+            if (metrics.length && metrics[0].totalImpressions) {
+              const { totalImpressions, totalClicks, totalCost } = metrics[0];
+              
+              // Calculate CTR
+              const ctr = totalImpressions > 0 
+                ? (Number(totalClicks) / Number(totalImpressions)) * 100 
+                : 0;
+              
+              // Check if summary exists for this time frame + campaign
+              const existingSummaries = await db.select()
+                .from(campaignMetricsSummary)
+                .where(
+                  and(
+                    eq(campaignMetricsSummary.userId, userId),
+                    eq(campaignMetricsSummary.profileId, account.profileId),
+                    eq(campaignMetricsSummary.campaignId, campaign.campaignId),
+                    eq(campaignMetricsSummary.timeFrame, timeFrame.name),
+                    gte(campaignMetricsSummary.startDate, startDate),
+                    lte(campaignMetricsSummary.endDate, endDate)
+                  )
+                );
+                
+              if (existingSummaries.length) {
+                // Update existing summary
+                await this.updateCampaignMetricsSummary(existingSummaries[0].id, {
+                  totalImpressions: Number(totalImpressions),
+                  totalClicks: Number(totalClicks),
+                  totalCost: Number(totalCost),
+                  ctr
+                });
+              } else {
+                // Create new summary
+                await this.createCampaignMetricsSummary({
+                  userId,
+                  timeFrame: timeFrame.name,
+                  startDate,
+                  endDate,
+                  profileId: account.profileId,
+                  campaignId: campaign.campaignId,
+                  totalImpressions: Number(totalImpressions),
+                  totalClicks: Number(totalClicks),
+                  totalCost: Number(totalCost),
+                  ctr,
+                  conversions: 0 // Default value
+                });
+              }
+            }
+          }
+        }
+      }
+    } catch (error) {
+      console.error('Error generating campaign metrics summaries:', error);
+      throw error;
+    }
+  }
+  
+  // Google campaign metrics summary methods
+  async createGoogleCampaignMetricsSummary(summary: Omit<GoogleCampaignMetricsSummary, "id" | "createdAt" | "updatedAt">): Promise<GoogleCampaignMetricsSummary> {
+    try {
+      const now = new Date();
+      const [result] = await db.insert(googleCampaignMetricsSummary)
+        .values({
+          ...summary,
+          createdAt: now,
+          updatedAt: now
+        })
+        .returning();
+      return result;
+    } catch (error) {
+      console.error('Error creating Google campaign metrics summary:', error);
+      throw error;
+    }
+  }
+  
+  async getGoogleCampaignMetricsSummaries(userId: string, timeFrame: string, startDate?: Date, endDate?: Date): Promise<GoogleCampaignMetricsSummary[]> {
+    try {
+      let query = db.select()
+        .from(googleCampaignMetricsSummary)
+        .where(
+          and(
+            eq(googleCampaignMetricsSummary.userId, userId),
+            eq(googleCampaignMetricsSummary.timeFrame, timeFrame)
+          )
+        );
+      
+      // Add date filters if provided
+      if (startDate) {
+        query = query.where(gte(googleCampaignMetricsSummary.startDate, startDate));
+      }
+      
+      if (endDate) {
+        query = query.where(lte(googleCampaignMetricsSummary.endDate, endDate));
+      }
+      
+      return await query.orderBy(desc(googleCampaignMetricsSummary.endDate));
+    } catch (error) {
+      console.error('Error fetching Google campaign metrics summaries:', error);
+      throw error;
+    }
+  }
+  
+  async updateGoogleCampaignMetricsSummary(id: number, summary: Partial<GoogleCampaignMetricsSummary>): Promise<GoogleCampaignMetricsSummary> {
+    try {
+      const [result] = await db.update(googleCampaignMetricsSummary)
+        .set({
+          ...summary,
+          updatedAt: new Date()
+        })
+        .where(eq(googleCampaignMetricsSummary.id, id))
+        .returning();
+      return result;
+    } catch (error) {
+      console.error('Error updating Google campaign metrics summary:', error);
+      throw error;
+    }
+  }
+  
+  async generateGoogleCampaignMetricsSummaries(userId: string): Promise<void> {
+    try {
+      // Get all Google advertiser accounts for this user
+      const accounts = await this.getGoogleAdvertiserAccounts(userId);
+      
+      if (!accounts.length) {
+        return; // No accounts to summarize
+      }
+      
+      // Define time frame ranges
+      const timeFrames = [
+        { name: 'daily', days: 1 },
+        { name: 'weekly', days: 7 },
+        { name: 'monthly', days: 30 },
+        { name: 'quarterly', days: 90 },
+      ];
+      
+      const now = new Date();
+      
+      // For each account + time frame, generate summaries
+      for (const account of accounts) {
+        for (const timeFrame of timeFrames) {
+          // For each campaign in the account
+          // First get distinct campaigns
+          const campaigns = await db.selectDistinct({ campaignId: googleCampaignMetrics.campaignId })
+            .from(googleCampaignMetrics)
+            .where(
+              and(
+                eq(googleCampaignMetrics.userId, userId), 
+                eq(googleCampaignMetrics.customerId, account.customerId)
+              )
+            );
+            
+          for (const campaign of campaigns) {
+            // Set date range for this time frame
+            const endDate = new Date(now);
+            const startDate = new Date(now);
+            startDate.setDate(now.getDate() - timeFrame.days);
+            
+            // Calculate aggregate metrics
+            const metrics = await db.select({
+              totalImpressions: sql`SUM(${googleCampaignMetrics.impressions})`,
+              totalClicks: sql`SUM(${googleCampaignMetrics.clicks})`,
+              totalCost: sql`SUM(${googleCampaignMetrics.cost})`,
+              conversions: sql`SUM(${googleCampaignMetrics.conversions})`
+            })
+            .from(googleCampaignMetrics)
+            .where(
+              and(
+                eq(googleCampaignMetrics.userId, userId),
+                eq(googleCampaignMetrics.customerId, account.customerId),
+                eq(googleCampaignMetrics.campaignId, campaign.campaignId),
+                gte(googleCampaignMetrics.date, startDate),
+                lte(googleCampaignMetrics.date, endDate)
+              )
+            );
+            
+            if (metrics.length && metrics[0].totalImpressions) {
+              const { totalImpressions, totalClicks, totalCost, conversions } = metrics[0];
+              
+              // Calculate CTR
+              const ctr = totalImpressions > 0 
+                ? (Number(totalClicks) / Number(totalImpressions)) * 100 
+                : 0;
+              
+              // Check if summary exists for this time frame + campaign
+              const existingSummaries = await db.select()
+                .from(googleCampaignMetricsSummary)
+                .where(
+                  and(
+                    eq(googleCampaignMetricsSummary.userId, userId),
+                    eq(googleCampaignMetricsSummary.customerId, account.customerId),
+                    eq(googleCampaignMetricsSummary.campaignId, campaign.campaignId),
+                    eq(googleCampaignMetricsSummary.timeFrame, timeFrame.name),
+                    gte(googleCampaignMetricsSummary.startDate, startDate),
+                    lte(googleCampaignMetricsSummary.endDate, endDate)
+                  )
+                );
+                
+              if (existingSummaries.length) {
+                // Update existing summary
+                await this.updateGoogleCampaignMetricsSummary(existingSummaries[0].id, {
+                  totalImpressions: Number(totalImpressions),
+                  totalClicks: Number(totalClicks),
+                  totalCost: Number(totalCost),
+                  conversions: Number(conversions || 0),
+                  ctr
+                });
+              } else {
+                // Create new summary
+                await this.createGoogleCampaignMetricsSummary({
+                  userId,
+                  timeFrame: timeFrame.name,
+                  startDate,
+                  endDate,
+                  customerId: account.customerId,
+                  campaignId: campaign.campaignId,
+                  totalImpressions: Number(totalImpressions),
+                  totalClicks: Number(totalClicks),
+                  totalCost: Number(totalCost),
+                  conversions: Number(conversions || 0),
+                  ctr
+                });
+              }
+            }
+          }
+        }
+      }
+    } catch (error) {
+      console.error('Error generating Google campaign metrics summaries:', error);
+      throw error;
+    }
+  }
+  
+  // Query cache methods
+  async createQueryCacheEntry(entry: Omit<QueryCacheEntry, "id" | "createdAt" | "hitCount">): Promise<QueryCacheEntry> {
+    try {
+      const [result] = await db.insert(queryCacheEntries)
+        .values({
+          ...entry,
+          createdAt: new Date(),
+          hitCount: 0
+        })
+        .returning();
+      return result;
+    } catch (error) {
+      console.error('Error creating query cache entry:', error);
+      throw error;
+    }
+  }
+  
+  async getQueryCacheEntry(userId: string, queryHash: string): Promise<QueryCacheEntry | undefined> {
+    try {
+      const [entry] = await db.select()
+        .from(queryCacheEntries)
+        .where(
+          and(
+            eq(queryCacheEntries.userId, userId),
+            eq(queryCacheEntries.queryHash, queryHash),
+            gte(queryCacheEntries.expiresAt, new Date()) // Only return non-expired entries
+          )
+        );
+      
+      if (entry) {
+        // Increment hit count
+        await this.updateQueryCacheHitCount(entry.id);
+      }
+      
+      return entry;
+    } catch (error) {
+      console.error('Error fetching query cache entry:', error);
+      throw error;
+    }
+  }
+  
+  async updateQueryCacheHitCount(id: number): Promise<QueryCacheEntry> {
+    try {
+      const [updatedEntry] = await db.update(queryCacheEntries)
+        .set({
+          hitCount: sql`hit_count + 1`
+        })
+        .where(eq(queryCacheEntries.id, id))
+        .returning();
+      return updatedEntry;
+    } catch (error) {
+      console.error('Error updating query cache hit count:', error);
+      throw error;
+    }
+  }
+  
+  async invalidateQueryCache(userId: string, olderThan?: Date): Promise<void> {
+    try {
+      let query = db.delete(queryCacheEntries)
+        .where(eq(queryCacheEntries.userId, userId));
+      
+      if (olderThan) {
+        query = query.where(lte(queryCacheEntries.createdAt, olderThan));
+      }
+      
+      await query;
+    } catch (error) {
+      console.error('Error invalidating query cache:', error);
+      throw error;
+    }
   }
 }
 
