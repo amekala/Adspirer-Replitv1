@@ -132,8 +132,9 @@ const formatValue = (value: string | number, type: MetricType, unit?: string) =>
     case 'sales':
       return `$${value.toLocaleString('en-US', { maximumFractionDigits: 2 })}`;
     case 'ctr':
-    case 'roas':
       return `${value.toLocaleString('en-US', { maximumFractionDigits: 1 })}${unit || '%'}`;
+    case 'roas':
+      return `${value.toLocaleString('en-US', { maximumFractionDigits: 2 })}${unit || 'x'}`;
     default:
       return value.toLocaleString('en-US');
   }

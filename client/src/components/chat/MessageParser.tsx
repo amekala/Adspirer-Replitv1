@@ -226,7 +226,7 @@ function extractMetrics(content: string): Metric[] {
     {
       type: 'roas' as MetricType,
       name: 'ROAS',
-      pattern: /(?:Return on Ad Spend|ROAS)(?:\s+\(ROAS\))?[:"]?\s+(?:is|was|were|of)?\s*([\d.]+)x?/i
+      pattern: /(?:Return on Ad Spend|ROAS)(?:\s+\(ROAS\))?[:"]?\s+(?:is|was|were|of)?\s*(\$?[\d,.]+)(?:x|X)?/i
     }
   ];
   
@@ -235,19 +235,28 @@ function extractMetrics(content: string): Metric[] {
     const match = content.match(pattern);
     
     if (match) {
-      // Parse value (remove commas)
-      let value: string | number = match[1].replace(/,/g, '');
+      // Parse value (remove commas and dollar signs)
+      let value: string | number = match[1].replace(/,|\$/g, '');
       
       // Convert to number if possible
       if (!isNaN(parseFloat(value))) {
         value = parseFloat(value);
+        
+        // Ensure ROAS is displayed as a ratio (no percentage conversion)
+        if (type === 'roas' && value < 1) {
+          // If ROAS was entered as a percentage (e.g., 8.5 meaning 8.5%),
+          // convert it to a proper ratio (0.085)
+          if (value > 0.5) {
+            value = value / 100;
+          }
+        }
       }
       
       metrics.push({
         type,
         name,
         value,
-        unit: type === 'ctr' ? '%' : undefined
+        unit: type === 'ctr' ? '%' : type === 'roas' ? 'x' : undefined
       });
     }
   });

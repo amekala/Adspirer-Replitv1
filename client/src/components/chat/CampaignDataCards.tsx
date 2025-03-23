@@ -51,8 +51,9 @@ function formatValue(value: string | number, type: string): string {
     case 'cost':
       return `$${value.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
     case 'ctr':
-    case 'roas':
       return `${value.toLocaleString('en-US', { minimumFractionDigits: 1, maximumFractionDigits: 1 })}%`;
+    case 'roas':
+      return `${value.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}x`;
     default:
       return String(value);
   }
