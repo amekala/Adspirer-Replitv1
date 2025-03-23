@@ -12,12 +12,12 @@
  * Run this script to verify the entire RAG system is working correctly
  */
 
-const fetch = require('node-fetch');
-const { writeFileSync } = require('fs');
+import fetch from 'node-fetch';
+import { writeFile } from 'fs/promises';
 
 // Configuration
 const BASE_URL = 'http://localhost:5000';
-const TEST_EMAIL = 'test@example.com';
+const TEST_EMAIL = 'demo@adspirer.io';
 const TEST_PASSWORD = 'password123';
 
 // Test queries that should trigger RAG
@@ -52,6 +52,7 @@ async function testRagSync() {
         password: TEST_PASSWORD,
       }),
       redirect: 'follow',
+      credentials: 'include',
     });
     
     if (!loginResponse.ok) {
@@ -59,8 +60,13 @@ async function testRagSync() {
     }
 
     // Extract cookies for subsequent requests
-    const cookies = loginResponse.headers.get('set-cookie');
+    const cookieHeader = loginResponse.headers.get('set-cookie');
+    const cookies = cookieHeader || '';
     console.log('Login successful, obtained session cookie');
+    
+    // Create a cookie jar for session management
+    const parsedCookies = cookies.split(',').map(cookie => cookie.split(';')[0].trim()).join('; ');
+    console.log(`Session cookies: ${parsedCookies ? '[cookies received]' : '[no cookies]'}`);
     
     // Create a test log file
     const logFile = `rag-test-results-${new Date().toISOString().replace(/:/g, '-')}.json`;
@@ -72,8 +78,9 @@ async function testRagSync() {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        Cookie: cookies,
+        ...(cookies ? { Cookie: cookies } : {}),
       },
+      credentials: 'include',
       body: JSON.stringify({
         title: 'RAG Test Conversation',
       }),
@@ -97,8 +104,9 @@ async function testRagSync() {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          Cookie: cookies,
+          ...(cookies ? { Cookie: cookies } : {}),
         },
+        credentials: 'include',
         body: JSON.stringify({
           role: 'user',
           content: query,
@@ -119,8 +127,9 @@ async function testRagSync() {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          Cookie: cookies,
+          ...(cookies ? { Cookie: cookies } : {}),
         },
+        credentials: 'include',
         body: JSON.stringify({
           conversationId: conversation.id,
           query: query,
@@ -161,7 +170,7 @@ async function testRagSync() {
     }
     
     // Save test results to file
-    writeFileSync(logFile, JSON.stringify(testResults, null, 2));
+    await writeFile(logFile, JSON.stringify(testResults, null, 2));
     console.log(`\nTest completed! Results saved to ${logFile}`);
     
     // Summary statistics
