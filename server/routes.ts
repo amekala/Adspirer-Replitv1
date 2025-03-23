@@ -773,9 +773,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
           // Import the service to avoid circular dependencies
           const { generateWelcomeMessage } = await import('./services/openai');
           
-          // Generate welcome message in the background
-          // We don't await this so the API can return immediately
-          generateWelcomeMessage(conversation.id, req.user!.id)
+          // Generate welcome message
+          // We'll use await here to make sure welcome message is ready before the client loads the conversation
+          await generateWelcomeMessage(conversation.id, req.user!.id)
             .then(() => {
               console.log(`Welcome message generated for conversation ${conversation.id}`);
             })

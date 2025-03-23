@@ -113,9 +113,9 @@ export default function ChatPage() {
           );
           
           // The server automatically generates a welcome message when creating a conversation
-          // We just need to refresh to get the server-generated welcome message
+          // Set up polling to check for the welcome message
           try {
-            // Final refresh to ensure we have the welcome message
+            // Start with an immediate refresh
             queryClient.invalidateQueries({ 
               queryKey: ["/api/chat/conversations", newConversation.id] 
             });
@@ -123,8 +123,64 @@ export default function ChatPage() {
             queryClient.invalidateQueries({ 
               queryKey: ["/api/chat/conversations", newConversation.id, "specific"] 
             });
+            
+            // Then set up a polling mechanism to check for the welcome message
+            let pollCount = 0;
+            const maxPolls = 10; // Try up to 10 times
+            const pollInterval = 500; // Every 500ms
+            
+            const pollForWelcomeMessage = async () => {
+              if (pollCount >= maxPolls) {
+                console.log('Reached maximum poll attempts for welcome message');
+                return;
+              }
+              
+              pollCount++;
+              console.log(`Polling for welcome message (attempt ${pollCount})`);
+              
+              // Fetch the conversation with messages
+              try {
+                const response = await fetch(`/api/chat/conversations/${newConversation.id}`, {
+                  credentials: 'include'
+                });
+                
+                if (response.ok) {
+                  const data = await response.json();
+                  
+                  // Check if the welcome message exists
+                  if (data.messages && data.messages.length > 0) {
+                    console.log('Welcome message detected, updating UI');
+                    
+                    // Update both query caches
+                    queryClient.setQueryData(
+                      ['/api/chat/conversations', newConversation.id],
+                      data
+                    );
+                    
+                    queryClient.setQueryData(
+                      ['/api/chat/conversations', newConversation.id, 'specific'],
+                      data
+                    );
+                    
+                    // Successfully found welcome message, stop polling
+                    return;
+                  }
+                }
+                
+                // Schedule next poll if we didn't find a welcome message
+                setTimeout(pollForWelcomeMessage, pollInterval);
+              } catch (error) {
+                console.error('Error polling for welcome message:', error);
+                // Continue polling despite error
+                setTimeout(pollForWelcomeMessage, pollInterval);
+              }
+            };
+            
+            // Start polling after a short delay to allow server to generate the welcome message
+            setTimeout(pollForWelcomeMessage, 1000);
+            
           } catch (error) {
-            console.error("Error refreshing conversation data:", error);
+            console.error("Error setting up welcome message polling:", error);
           }
         }, 500);
       } catch (error) {
