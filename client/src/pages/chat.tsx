@@ -18,6 +18,7 @@ export default function ChatPage() {
   const [currentConversationId, setCurrentConversationId] = useState<string | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const chatContainerRef = useRef<HTMLDivElement>(null);
+  const streamingMessageIdRef = useRef<string>('');
 
   // Fetch conversations
   const { data: conversations = [], isLoading: isLoadingConversations } = useQuery({
@@ -193,15 +194,11 @@ export default function ChatPage() {
       // Step 2: Use the chatService to handle the message and streaming response
       console.log('Calling advanced RAG query endpoint...');
       
-      // Reference to temporary streaming message ID
-      const streamingMessageIdRef = useRef<string>('');
+      // Reset the streaming message ID for a new message
+      streamingMessageIdRef.current = 'streaming-' + Date.now();
       
       // Get streaming content handler
       const updateStreamingContent = (streamedContent: string) => {
-        // Generate a persistent streaming message ID if none exists
-        if (!streamingMessageIdRef.current) {
-          streamingMessageIdRef.current = 'streaming-' + Date.now();
-        }
         
         // Get latest conversation data
         const latestConversation = queryClient.getQueryData([
