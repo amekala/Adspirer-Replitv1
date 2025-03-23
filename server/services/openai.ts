@@ -478,7 +478,14 @@ When interacting with users:
       });
 
       // Use string indexing for type safety since the API types might not match actual response
-      const welcomeMessage = welcomeResponse['text'] || welcomeResponse['output_text'] || "";
+      let welcomeMessage = "";
+      if (typeof welcomeResponse === 'object' && welcomeResponse !== null) {
+        // Try to get the text from various possible locations in the response
+        welcomeMessage = 
+          (typeof welcomeResponse['text'] === 'string' ? welcomeResponse['text'] : '') || 
+          (typeof welcomeResponse['output_text'] === 'string' ? welcomeResponse['output_text'] : '') || 
+          "Hello! I'm your Adspirer assistant. How can I help you with your advertising campaigns today?";
+      }
 
       // Save welcome message to database
       const messageData: MessageData = {
@@ -523,22 +530,59 @@ When interacting with users:
       for await (const chunk of stream) {
         // Handle chunks using string indexing since TypeScript definitions may not match
         if (chunk && typeof chunk === 'object') {
-          // Check for text_delta events (new content being added)
-          if (chunk['type'] === 'text_delta' && 'text' in chunk && typeof chunk['text'] === 'string') {
-            // Add the new text to our accumulator
-            contentAccumulator += chunk['text'];
+          const chunkType = typeof chunk['type'] === 'string' ? chunk['type'] : '';
+          
+          // Handle text delta events (new content being added)
+          if (chunkType.includes('delta')) {
+            // Try to extract delta text from various possible places in the response
+            let deltaText = '';
             
-            // Send chunk to client
-            res!.write(`data: ${JSON.stringify({ content: chunk['text'] })}\n\n`);
+            // Check various properties where text might be found
+            if ('text' in chunk && typeof chunk['text'] === 'string') {
+              deltaText = chunk['text'];
+            } else if ('output_text' in chunk && typeof chunk['output_text'] === 'string') { 
+              deltaText = chunk['output_text'];
+            } else if ('content' in chunk && typeof chunk['content'] === 'string') {
+              deltaText = chunk['content'];
+            } else if ('delta' in chunk && typeof chunk['delta'] === 'object' && chunk['delta'] !== null) {
+              // Some APIs return the delta text nested in a delta object
+              const delta = chunk['delta'];
+              if ('text' in delta && typeof delta['text'] === 'string') {
+                deltaText = delta['text'];
+              } else if ('content' in delta && typeof delta['content'] === 'string') {
+                deltaText = delta['content'];
+              }
+            }
+            
+            if (deltaText) {
+              // Add the new text to our accumulator
+              contentAccumulator += deltaText;
+              
+              // Send chunk to client
+              res!.write(`data: ${JSON.stringify({ content: deltaText })}\n\n`);
+            }
           }
-          // Check for finish events (stream complete)
-          else if (chunk['type'] === 'finish' && 'text' in chunk && typeof chunk['text'] === 'string') {
-            // In case there's additional text in the finish event
-            if (chunk['text'] !== contentAccumulator) {
-              const finalText = chunk['text'].slice(contentAccumulator.length);
-              if (finalText) {
-                contentAccumulator = chunk['text'];
-                res!.write(`data: ${JSON.stringify({ content: finalText })}\n\n`);
+          // Handle finish events (stream complete)
+          else if (chunkType.includes('finish') || chunkType.includes('done')) {
+            // Try to extract the full final text from the finish event
+            let finalText = '';
+            
+            if ('text' in chunk && typeof chunk['text'] === 'string') {
+              finalText = chunk['text'];
+            } else if ('output_text' in chunk && typeof chunk['output_text'] === 'string') {
+              finalText = chunk['output_text'];
+            } else if ('content' in chunk && typeof chunk['content'] === 'string') {
+              finalText = chunk['content'];
+            }
+            
+            // If we got a full final text that's different from our accumulator,
+            // send the remaining part to the client
+            if (finalText && finalText !== contentAccumulator) {
+              // Only send the part we haven't sent yet
+              const remainingText = finalText.substring(contentAccumulator.length);
+              if (remainingText) {
+                contentAccumulator = finalText;
+                res!.write(`data: ${JSON.stringify({ content: remainingText })}\n\n`);
               }
             }
           }
@@ -580,7 +624,14 @@ When interacting with users:
         store: true
       });
 
-      const responseContent = fallbackResponse.text || "I'm sorry, I couldn't generate a proper response.";
+      // Get response text using string indexing for safety
+      let responseContent = "I'm sorry, I couldn't generate a proper response.";
+      if (typeof fallbackResponse === 'object' && fallbackResponse !== null) {
+        responseContent = 
+          (typeof fallbackResponse['text'] === 'string' ? fallbackResponse['text'] : '') || 
+          (typeof fallbackResponse['output_text'] === 'string' ? fallbackResponse['output_text'] : '') || 
+          responseContent;
+      }
       
       // Send the full response to the client
       res!.write(`data: ${JSON.stringify({ content: responseContent })}\n\n`);
@@ -650,10 +701,16 @@ export async function getConversationHistory(
 
   // Map database messages to OpenAI message format
   // Note: 'system' role from database is mapped to 'developer' for Responses API
-  const formattedMessages: OpenAIMessage[] = messages.map((msg) => ({
-    role: msg.role === 'system' ? 'developer' as MessageRole : msg.role as MessageRole,
-    content: msg.content
-  }));
+  const formattedMessages: OpenAIMessage[] = messages.map((msg) => {
+    // Make sure content is a string to prevent [object Object] in the UI
+    const content = typeof msg.content === 'string' ? msg.content : 
+                   (msg.content ? JSON.stringify(msg.content) : '');
+    
+    return {
+      role: msg.role === 'system' ? 'developer' as MessageRole : msg.role as MessageRole,
+      content: content
+    };
+  });
 
   return formattedMessages;
 }
@@ -668,9 +725,31 @@ export async function generateWelcomeMessage(
   conversationId: string,
   userId: string
 ): Promise<void> {
-  // For welcome messages, we only send the system prompt
-  // No user messages are needed
-  const messages: OpenAIMessage[] = [];
+  // For welcome messages, we send a comprehensive system prompt
+  // that encourages interactive conversation and explains capabilities
+  const messages: OpenAIMessage[] = [
+    {
+      role: "developer",
+      content: `You are an AI assistant for Adspirer, an advertising analytics platform that helps users understand their Amazon and Google ad campaign performance.
+      
+Your capabilities include:
+- Analyzing campaign metrics like CTR, impressions, clicks, conversions, and ROAS
+- Answering questions about campaign performance
+- Explaining what the metrics mean
+- Providing insights and trends from campaign data
+- Comparing campaigns to identify top performers
+
+When interacting with users:
+1. Be friendly, concise and helpful
+2. Ask clarifying questions if the user request is ambiguous
+3. Present ROAS as a ratio (e.g., "9.98x") rather than as a percentage
+4. When a user mentions revenue or sales figures, apply this information to analyze the campaigns they're referring to
+5. Always explain your thinking step by step before drawing conclusions
+6. Use data visualizations when possible to make information easier to understand
+
+When you begin the conversation, ask the user how you can help them with their advertising campaign analytics today.`
+    }
+  ];
   
   // Start the streaming process with null for res because it's non-streaming
   const res = null as unknown as Response;
