@@ -1,5 +1,4 @@
 import { useState } from "react";
-import { Sidebar } from "@/components/ui/sidebar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { 
@@ -10,7 +9,8 @@ import {
   Trash2, 
   Check, 
   X,
-  Search
+  Search,
+  Home
 } from "lucide-react";
 import { 
   DropdownMenu,
@@ -30,6 +30,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { Link } from "wouter";
 
 interface Conversation {
   id: string;
@@ -103,7 +104,7 @@ export function ChatSidebar({
   };
 
   return (
-    <div className="min-w-[300px] border-r border-border">
+    <div className="min-w-[300px] border-r border-border h-full flex flex-col">
       {/* Delete Confirmation Dialog */}
       <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
         <AlertDialogContent>
@@ -126,31 +127,34 @@ export function ChatSidebar({
         </AlertDialogContent>
       </AlertDialog>
       
-      <div className="flex flex-col h-full">
-        <div className="p-3 border-b">
-          <Button
-            onClick={onNewConversation}
-            className="w-full justify-start"
-            variant="outline"
-            aria-label="New Chat"
-          >
-            <PlusCircle className="mr-2 h-4 w-4" />
-            New Chat
-          </Button>
-        </div>
+      {/* New Chat Button */}
+      <div className="p-3 border-b">
+        <Button
+          onClick={onNewConversation}
+          className="w-full justify-start"
+          variant="outline"
+          aria-label="New Chat"
+        >
+          <PlusCircle className="mr-2 h-4 w-4" />
+          New Chat
+        </Button>
+      </div>
 
-        <div className="p-3 border-b">
-          <div className="relative">
-            <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
-            <Input
-              placeholder="Search conversations..."
-              className="pl-8"
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-            />
-          </div>
+      {/* Search Box */}
+      <div className="p-3 border-b">
+        <div className="relative">
+          <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+          <Input
+            placeholder="Search conversations..."
+            className="pl-8"
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+          />
         </div>
+      </div>
 
+      {/* Conversation List */}
+      <div className="flex-1 overflow-hidden flex flex-col">
         <ScrollArea className="flex-1">
           <div className="p-3 space-y-1" data-testid="conversation-list">
             {isLoading ? (
@@ -235,7 +239,7 @@ export function ChatSidebar({
                               <ChevronRight className="h-4 w-4" />
                             </Button>
                           </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end">
+                          <DropdownMenuContent side="right" align="start" sideOffset={10}>
                             <DropdownMenuItem
                               onClick={(e) => {
                                 e.stopPropagation();
@@ -266,6 +270,20 @@ export function ChatSidebar({
             )}
           </div>
         </ScrollArea>
+      </div>
+      
+      {/* Home Button - Fixed at bottom */}
+      <div className="p-3 border-t mt-auto">
+        <Button
+          variant="outline"
+          className="w-full justify-start"
+          asChild
+        >
+          <Link href="/dashboard">
+            <Home className="mr-2 h-4 w-4" />
+            Dashboard
+          </Link>
+        </Button>
       </div>
     </div>
   );
