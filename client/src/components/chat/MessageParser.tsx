@@ -226,7 +226,7 @@ function extractMetrics(content: string): Metric[] {
     {
       type: 'roas' as MetricType,
       name: 'ROAS',
-      pattern: /(?:Return on Ad Spend|ROAS)(?:\s+\(ROAS\))?[:"]?\s+(?:is|was|were|of)?\s*(\$?[\d,.]+)(?:x|X)?/i
+      pattern: /(?:Return on Ad Spend|ROAS)(?:\s+\(ROAS\))?[:"]?\s+(?:is|was|were|of)?\s*(\$?[\d,.]+)(?:x|X|\s+times|%|\s+percent)?/i
     }
   ];
   
@@ -242,11 +242,14 @@ function extractMetrics(content: string): Metric[] {
       if (!isNaN(parseFloat(value))) {
         value = parseFloat(value);
         
-        // Ensure ROAS is displayed as a ratio (no percentage conversion)
-        if (type === 'roas' && value < 1) {
-          // If ROAS was entered as a percentage (e.g., 8.5 meaning 8.5%),
-          // convert it to a proper ratio (0.085)
-          if (value > 0.5) {
+        // Ensure ROAS is displayed as a ratio
+        if (type === 'roas') {
+          // Handle different formats of ROAS input
+          if (value > 100) {
+            // If ROAS was entered as a percentage like 850% (meaning 8.5x)
+            value = value / 100;
+          } else if (value < 1 && value > 0.5) {
+            // If ROAS was entered as a decimal percentage (e.g., 0.085 meaning 8.5%)
             value = value / 100;
           }
         }
