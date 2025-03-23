@@ -19,11 +19,16 @@ export interface Conversation {
 /**
  * Format the conversation response from the server
  * Handles different response formats: direct list, conversation+messages nested structure, etc.
+ * 
+ * This function is type-safe and handles various response formats from the server
+ * to ensure a consistent structure for the UI components.
  */
-export function formatConversationResponse(data: any): {
+interface FormattedConversationResponse {
   conversation: Conversation;
   messages: Message[];
-} {
+}
+
+export function formatConversationResponse(data: any): FormattedConversationResponse {
   console.log("Formatting conversation response:", data);
   
   // If we have the standard response format with conversation and messages
@@ -46,16 +51,17 @@ export function formatConversationResponse(data: any): {
   
   // Special case: if we're looking at the conversations list array for a specific conversation
   if (Array.isArray(data)) {
-    // CRITICAL FIX: Check if this is an array with a nested messages array 
+    // CRITICAL FIX: Check if this is an array with a nested messages property
     // This is the structure causing the display issue
-    if (data.messages && Array.isArray(data.messages)) {
-      console.log(`Found array with nested messages array (${data.messages.length} messages)`);
+    const firstItem = data[0] as Record<string, any>;
+    if (firstItem && 'messages' in firstItem && Array.isArray(firstItem.messages)) {
+      console.log(`Found array with nested messages array (${firstItem.messages.length} messages)`);
       
       // Use the first item in the array as the conversation if it has an ID
-      let conversation = null;
+      let conversation: Conversation | null = null;
       for (const item of data) {
-        if (item && item.id && typeof item.id === 'string' && item.title) {
-          conversation = item;
+        if (item && 'id' in item && typeof item.id === 'string' && 'title' in item) {
+          conversation = item as Conversation;
           break;
         }
       }
@@ -75,7 +81,7 @@ export function formatConversationResponse(data: any): {
       
       return {
         conversation: conversation,
-        messages: data.messages
+        messages: firstItem.messages as Message[]
       };
     }
     
@@ -102,8 +108,13 @@ export function formatConversationResponse(data: any): {
         updatedAt: new Date().toISOString()
       };
       
-      if (existingData && existingData.conversation) {
-        conversation = existingData.conversation;
+      // Type-safe check for conversation data in queryClient cache
+      if (existingData && 
+          typeof existingData === 'object' && 
+          existingData !== null && 
+          'conversation' in existingData && 
+          typeof existingData.conversation === 'object') {
+        conversation = existingData.conversation as Conversation;
       }
       
       return {
@@ -129,11 +140,17 @@ export function formatConversationResponse(data: any): {
             "specific"
           ]);
           
-          if (existingData && existingData.messages && existingData.messages.length > 0) {
+          // Type-safe check for messages in the cache
+          if (existingData && 
+              typeof existingData === 'object' && 
+              existingData !== null && 
+              'messages' in existingData && 
+              Array.isArray(existingData.messages) &&
+              existingData.messages.length > 0) {
             console.log(`Preserving ${existingData.messages.length} existing messages from cache`);
             return {
               conversation: conversation,
-              messages: existingData.messages
+              messages: existingData.messages as Message[]
             };
           }
           
@@ -352,7 +369,6 @@ export async function sendMessage(
       const result = await queryClient.fetchQuery({
         queryKey: ["/api/chat/conversations", conversationId, "specific"],
         staleTime: 0,
-        refetchOnMount: true,
         networkMode: 'always' // Force a network request instead of using cache
       });
       
@@ -360,10 +376,15 @@ export async function sendMessage(
       console.log(`Server returned ${result ? 'data' : 'null'} for conversation ${conversationId}`);
       if (result) {
         console.log(`Response structure:`, Object.keys(result));
-        if (result.messages) {
+        
+        // Type-safe checks for the response structure
+        if (typeof result === 'object' && result !== null && 'messages' in result && Array.isArray(result.messages)) {
           console.log(`Found ${result.messages.length} messages in result.messages`);
-        } else if (Array.isArray(result) && result.messages) {
-          console.log(`Found ${result.messages.length} messages in array.messages`);
+        } else if (Array.isArray(result) && result.length > 0 && typeof result[0] === 'object' && result[0] !== null && 'messages' in result[0]) {
+          const messagesArray = (result[0] as any).messages;
+          if (Array.isArray(messagesArray)) {
+            console.log(`Found ${messagesArray.length} messages in array.messages`);
+          }
         } else if (Array.isArray(result)) {
           console.log(`Result is array with ${result.length} items`);
         }
