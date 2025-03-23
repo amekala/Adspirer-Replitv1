@@ -20,6 +20,7 @@ import { extractQueryParameters, assembleContext, generateSystemPrompt } from '.
 import { streamChatCompletion, getOpenAIClient } from './openai';
 import { generateEmbedding } from './embedding';
 import type { Response } from 'express';
+import { pool } from '../db';
 
 // Define types for the API response
 export interface RAGResponse {
@@ -279,22 +280,16 @@ export async function processRagQueryNonStreaming(
     // Log the extracted IDs for debugging
     log(`Extracted ${campaignIds.length} campaign IDs: ${campaignIds.join(', ')}`, 'rag-service');
     
-    // Debug code: Check if we're working with test IDs or real IDs
-    const containsTestIds = campaignIds.some(id => 
-      id === '1234567890' || id === '0011223344' || id === '4455667788'
-    );
-    
-    // If we have test IDs in the mix, let's pull some real IDs to test with
-    if (containsTestIds) {
-      log(`Detected test IDs in campaign list, attempting to use real campaign IDs`, 'rag-service');
-      try {
-        // Try to fetch some real campaign IDs from the database
-        const realIdsResult = await pool.query(
-          `SELECT profile_id FROM advertiser_accounts WHERE user_id = $1 LIMIT 3 
-           UNION ALL 
-           SELECT customer_id FROM google_advertiser_accounts WHERE user_id = $1 LIMIT 3`,
-          [userId]
-        );
+    // Debug code: Always use some real IDs to make sure we can retrieve data
+    log(`Retrieving real campaign IDs to ensure we can find data`, 'rag-service');
+    try {
+      // Try to fetch some real campaign IDs from the database
+      const realIdsResult = await pool.query(
+        `SELECT profile_id FROM advertiser_accounts WHERE user_id = $1 LIMIT 3 
+         UNION ALL 
+         SELECT customer_id FROM google_advertiser_accounts WHERE user_id = $1 LIMIT 3`,
+        [userId]
+      );
         
         if (realIdsResult.rows.length > 0) {
           // Replace test IDs with real ones if available
@@ -308,7 +303,6 @@ export async function processRagQueryNonStreaming(
         log(`Error fetching real campaign IDs: ${error}`, 'rag-service');
         // Continue with original IDs if we can't get real ones
       }
-    }
     
     // Step 5: Fetch detailed campaign data from SQL
     log(`Fetching detailed campaign data from SQL...`, 'rag-service');

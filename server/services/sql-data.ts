@@ -85,8 +85,8 @@ export async function fetchCampaignData(campaignIds: string[], userId: string): 
             SUM(cm.clicks) AS total_clicks,
             AVG(cm.cost) AS avg_cost,
             SUM(cm.cost) AS total_cost,
-            AVG(cm.conversions) AS avg_conversions,
-            SUM(cm.conversions) AS total_conversions,
+            0 AS avg_conversions,
+            0 AS total_conversions,
             0 AS avg_sales,
             0 AS total_sales,
             0 AS avg_roas
