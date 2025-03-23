@@ -9,8 +9,8 @@ NC='\033[0m' # No Color
 
 # Configuration
 BASE_URL="http://localhost:5000"
-EMAIL="test@example.com"
-PASSWORD="password123"
+EMAIL="abhilashreddi@gmail.com"
+PASSWORD="T1l1icron!"
 TEST_MESSAGE="Test message from terminal script $(date)"
 
 # Test results
@@ -25,7 +25,7 @@ echo -e "${BLUE}=========================================${NC}"
 
 # Step 1: Login to get session cookie
 echo -e "\n${YELLOW}Step 1: Logging in...${NC}"
-response=$(curl -s -c cookies.txt -X POST "$BASE_URL/api/auth/login" \
+response=$(curl -s -c cookies.txt -X POST "$BASE_URL/api/login" \
   -H "Content-Type: application/json" \
   -d "{\"email\":\"$EMAIL\",\"password\":\"$PASSWORD\"}" \
   -w "\n%{http_code}")
