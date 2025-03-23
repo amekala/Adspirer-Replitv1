@@ -476,16 +476,20 @@ When interacting with users:
     let contentAccumulator = "";
 
     try {
-      // Use the stream API
-      const stream = await openaiClient.beta.chat.completions.stream({
+      // Use the Responses API with streaming
+      const stream = await openaiClient.responses.create({
         model: "gpt-4o",
-        messages: inputMessages.map(msg => ({
-          role: msg.role === "developer" ? "system" : msg.role,
-          content: msg.content
-        })),
+        input: inputMessages,
         temperature: 0.7,
-        max_tokens: 1000,
-        stream: true
+        max_output_tokens: 1000,
+        stream: true,
+        text: {
+          format: {
+            type: "text"
+          }
+        },
+        reasoning: {},
+        store: true
       });
 
       // Log the stream creation
@@ -493,13 +497,15 @@ When interacting with users:
 
       // Handle the streaming response
       for await (const chunk of stream) {
-        // Get the delta content if available
-        if (chunk.choices[0]?.delta?.content) {
-          const chunkText = chunk.choices[0].delta.content;
-          contentAccumulator += chunkText;
-          
-          // Send chunk to client
-          res!.write(`data: ${JSON.stringify({ content: chunkText })}\n\n`);
+        if ('output_text' in chunk && chunk.output_text) {
+          // Get just the new text added since last chunk
+          const newText = chunk.output_text.slice(contentAccumulator.length);
+          if (newText) {
+            contentAccumulator = chunk.output_text;
+            
+            // Send chunk to client
+            res!.write(`data: ${JSON.stringify({ content: newText })}\n\n`);
+          }
         }
       }
 

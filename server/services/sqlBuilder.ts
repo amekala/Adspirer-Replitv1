@@ -318,15 +318,23 @@ async function generateSQL(
     };
   });
   
-  const response = await openai.chat.completions.create({
+  // Using Responses API instead of legacy chat.completions
+  const response = await openai.responses.create({
     model: "gpt-4o",
-    messages: chatMessages,
+    input: chatMessages,
     temperature: 0.1, // Lower temperature for more deterministic SQL generation
-    max_tokens: 500
+    max_output_tokens: 500,
+    text: {
+      format: {
+        type: "text"
+      }
+    },
+    reasoning: {},
+    store: true
   });
   
   // Extract SQL from the response
-  const generatedSql = response.choices[0]?.message?.content?.trim() || '';
+  const generatedSql = response.output_text?.trim() || '';
   return generatedSql;
 }
 
