@@ -229,7 +229,8 @@ export const insertChatMessageSchema = createInsertSchema(chatMessages, {
   content: z.string().min(1, "Message content is required"),
   conversationId: z.string().uuid(),
   metadata: z.record(z.any()).optional(),
-}).omit({ id: true, createdAt: true });
+  id: z.string().uuid().optional(), // Allow custom ID for message persistence
+}).omit({ createdAt: true });
 
 // Export additional types for google tables
 export type GoogleToken = typeof googleTokens.$inferSelect;
