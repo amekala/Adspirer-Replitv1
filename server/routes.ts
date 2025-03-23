@@ -1321,7 +1321,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
               aa.account_type, 
               aa.status
             FROM campaign_metrics cm
-            JOIN advertiser_accounts aa ON cm.profile_id = aa.profile_id
+            LEFT JOIN advertiser_accounts aa ON cm.profile_id = aa.profile_id
             WHERE cm.profile_id = $1 AND cm.user_id = $2
             ORDER BY cm.date DESC
             LIMIT 1
