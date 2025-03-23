@@ -583,37 +583,48 @@ When interacting with users:
     // Convert parameters to Responses API format
     const responsesParams = convertToResponsesFormat(streamParams);
     
-    // Use Responses API for streaming
-    const stream = await openaiClient.responses.create({
+    // Use Responses API for streaming with explicit type casting to handle TypeScript
+    // Need to cast to 'any' to avoid TypeScript errors with streaming interface
+    // This is needed because the OpenAI SDK types don't fully align with TypeScript's
+    // expectations for AsyncIterable objects
+    const response = await openaiClient.responses.create({
       ...responsesParams,
       stream: true
-    }) as Stream<any>;
+    }) as any;
     
     // Track the complete assistant message for saving to the database
     let fullAssistantMessage = '';
     
     console.log('Stream created, sending chunks to client...');
     
-    // Process stream chunks
-    for await (const chunk of stream) {
-      // Ensure we handle the chunk as a Responses API chunk with type checking
-      if ('output_text' in chunk) {
-        // Extract content from the chunk
-        const content = chunk.output_text || '';
-        
-        if (content) {
-          // Only save the content to our full message if it's new (delta) content
-          // If this is a full text replacement, get the difference and add that
-          const newContent = content.substring(fullAssistantMessage.length);
-          fullAssistantMessage = content;
+    try {
+      // Process stream chunks using for-await loop
+      for await (const chunk of response) {
+        // Ensure we handle the chunk as a Responses API chunk with type checking
+        if (chunk && 'output_text' in chunk) {
+          // Extract content from the chunk
+          const content = chunk.output_text || '';
           
-          // Send each chunk to the client
-          res!.write(`data: ${JSON.stringify({ content: newContent })}\n\n`);
+          if (content) {
+            // Only save the content to our full message if it's new (delta) content
+            // If this is a full text replacement, get the difference and add that
+            const newContent = content.substring(fullAssistantMessage.length);
+            fullAssistantMessage = content;
+            
+            // Send each chunk to the client
+            res!.write(`data: ${JSON.stringify({ content: newContent })}\n\n`);
+          }
         }
       }
+      
+      console.log('Stream completed, saving response to database...');
+    } catch (streamError) {
+      console.error('Error processing stream:', streamError);
+      res!.write(`data: ${JSON.stringify({ error: 'Error processing stream' })}\n\n`);
+      res!.write('data: [ERROR]\n\n');
+      res!.end();
+      return;
     }
-    
-    console.log('Stream completed, saving response to database...');
     
     // Save the complete response to the database
     try {
