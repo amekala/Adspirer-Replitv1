@@ -1045,6 +1045,66 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Test endpoint for RAG system with PostgreSQL fallback
+  app.get("/api/rag/test-fallback", async (req: Request, res: Response) => {
+    if (!req.isAuthenticated() || !req.user) {
+      return res.status(401).send("Unauthorized");
+    }
+    
+    const { id: userId } = req.user;
+    
+    try {
+      // Get campaign metrics from database (if any exist)
+      const today = new Date();
+      const thirtyDaysAgo = new Date();
+      thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+      
+      // Get both Amazon and Google metrics if available
+      const amazonMetrics = await storage.getCampaignMetrics(userId, thirtyDaysAgo, today);
+      const googleMetrics = await storage.getGoogleCampaignMetrics(userId, thirtyDaysAgo, today);
+      
+      // Get all embeddings stored in PostgreSQL
+      const campaignEmbeddings = await storage.getEmbeddingsByType('campaign', 10);
+      const chatEmbeddings = await storage.getEmbeddingsByType('chat_message', 10);
+      
+      // Return comprehensive information about what data is available for RAG
+      return res.json({
+        message: "RAG system data availability test",
+        amazonMetrics: {
+          count: amazonMetrics.length,
+          sample: amazonMetrics.slice(0, 3) // Just show a few for demonstration
+        },
+        googleMetrics: {
+          count: googleMetrics.length,
+          sample: googleMetrics.slice(0, 3)
+        },
+        embeddings: {
+          campaignCount: campaignEmbeddings.length,
+          chatMessageCount: chatEmbeddings.length,
+          campaignSample: campaignEmbeddings.slice(0, 2).map(e => ({
+            id: e.id,
+            type: e.type,
+            sourceId: e.sourceId,
+            createdAt: e.createdAt
+          })),
+          chatSample: chatEmbeddings.slice(0, 2).map(e => ({
+            id: e.id,
+            type: e.type,
+            sourceId: e.sourceId,
+            createdAt: e.createdAt
+          }))
+        },
+        instructions: "Try asking about campaign performance in the chat interface"
+      });
+    } catch (error) {
+      console.error('Error testing RAG fallback:', error instanceof Error ? error.message : 'Unknown error');
+      return res.status(500).json({ 
+        message: "Failed to test RAG fallback", 
+        error: error instanceof Error ? error.message : 'Unknown error' 
+      });
+    }
+  });
+
   // Admin endpoint to run database migrations
   // Temporarily allowing migration runs without authentication for development
   app.post("/api/admin/run-migrations", async (req: Request, res: Response) => {
