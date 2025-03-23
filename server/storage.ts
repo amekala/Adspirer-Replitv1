@@ -488,8 +488,8 @@ export class DatabaseStorage implements IStorage {
       .set({ updatedAt: new Date() })
       .where(eq(chatConversations.id, message.conversationId));
     
-    // Generate a UUID for the message
-    const messageId = crypto.randomUUID();
+    // Use provided message ID if present, otherwise generate a new UUID
+    const messageId = message.id || crypto.randomUUID();
     
     // Create message
     const [newMessage] = await db.insert(chatMessages)
