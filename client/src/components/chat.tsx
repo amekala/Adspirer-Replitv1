@@ -98,9 +98,48 @@ export function Chat({ conversation, isLoading }: ChatProps) {
 
   return (
     <div className="space-y-6 pb-4">
+      {/* Two-LLM Architecture Toggle */}
+      <div className="flex items-center justify-end gap-2 mb-2 px-2">
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger>
+              <div className="flex items-center">
+                {useTwoLlm ? <BrainCircuit className="h-4 w-4 text-blue-500" /> : <Zap className="h-4 w-4 text-amber-500" />}
+              </div>
+            </TooltipTrigger>
+            <TooltipContent>
+              <p className="text-xs">
+                {useTwoLlm 
+                  ? "Two-LLM Architecture: One LLM generates SQL, another generates the response" 
+                  : "Standard Architecture: Single LLM handles query and response"}
+              </p>
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
+        <div className="flex items-center gap-2">
+          <Label htmlFor="llm-toggle" className="text-xs text-muted-foreground">
+            Two-LLM Mode
+          </Label>
+          <Switch
+            id="llm-toggle"
+            checked={useTwoLlm}
+            onCheckedChange={setUseTwoLlm}
+          />
+        </div>
+      </div>
+      
       {messages.length === 0 ? (
         <div className="text-center py-12">
           <p className="text-muted-foreground">Start the conversation by typing a message below.</p>
+          <div className="mt-4 text-xs text-muted-foreground">
+            <p>Using {useTwoLlm ? "Two-LLM" : "Standard"} Architecture</p>
+            {useTwoLlm && (
+              <p className="mt-2 max-w-md mx-auto">
+                The Two-LLM architecture uses one LLM to generate SQL queries and another to produce the final response, 
+                providing greater accuracy for data-driven questions.
+              </p>
+            )}
+          </div>
         </div>
       ) : (
         messages.map((message, index) => (

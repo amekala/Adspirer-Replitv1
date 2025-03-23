@@ -9,7 +9,7 @@ import { useAuth } from "@/hooks/use-auth";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { Send, PlusCircle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { Conversation, Message } from "@/lib/chatService";
+import { Conversation, Message, sendMessage } from "@/lib/chatService";
 
 export default function ChatPage() {
   const { user } = useAuth() || {};
