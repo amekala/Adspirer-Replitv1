@@ -193,7 +193,7 @@ export async function querySimilarCampaigns(query: string, userId: string, optio
           return {
             campaignId: item.embedding.sourceId || '',
             score: item.similarity,
-            platformType: metadata.platformType || 'unknown',
+            platformType: (metadata as any).platformType || 'unknown',
             metadata: metadata
           };
         });
@@ -341,9 +341,7 @@ export async function storeChatMessageEmbedding(
       // Also create the chat-embedding relationship
       await storage.createChatEmbedding({
         embeddingId: id,
-        conversationId: metadata.conversationId,
-        messageId: metadata.messageId,
-        createdAt: new Date()
+        chatConversationId: metadata.conversationId
       });
     } catch (postgresError) {
       log(`PostgreSQL storage failed: ${postgresError}`, 'pinecone');
