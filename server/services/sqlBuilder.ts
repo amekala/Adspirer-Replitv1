@@ -11,6 +11,7 @@
 import OpenAI from 'openai';
 import { db } from '../db';
 import { sql } from 'drizzle-orm';
+import { QueryResult } from 'pg';
 
 // Initialize OpenAI client
 function getOpenAIClient(): OpenAI {
@@ -145,8 +146,18 @@ export async function processSQLQuery(userId: string, query: string): Promise<SQ
       
       // Execute the query
       const result = await db.execute(sql.raw(secureQuery));
-      // Convert query result to array for consistent handling
-      data = (result as unknown as any).rows || [];
+      
+      // Safely extract rows from the result
+      if (result && typeof result === 'object') {
+        // PostgreSQL typically returns results with a rows property
+        if ('rows' in result && Array.isArray(result.rows)) {
+          data = result.rows;
+        } 
+        // Handle case where result might be the array directly
+        else if (Array.isArray(result)) {
+          data = result;
+        }
+      }
       
       console.log(`SQL query returned ${data.length} results`);
     } catch (err: any) {

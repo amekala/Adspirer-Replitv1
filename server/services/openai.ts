@@ -10,7 +10,7 @@
 import { OpenAI } from 'openai';
 import { Response } from 'express';
 import { storage } from '../storage';
-import { processSQLQuery } from './sqlBuilder';
+import { processSQLQuery, isDataQuery } from './sqlBuilder';
 
 // Define interfaces for strongly typed parameters
 export interface ChatCompletionOptions {
@@ -30,159 +30,6 @@ function getOpenAIClient(): OpenAI {
   }
   
   return new OpenAI({ apiKey });
-}
-
-/**
- * Process streaming response from OpenAI and save to database
- * @param conversationId - The ID of the conversation
- * @param res - The Express response object for streaming
- * @param messages - The messages to send to OpenAI
- */
-export async function streamChatCompletion(
-  conversationId: string,
-  userId: string,
-  res: Response | null,
-  messages: any[],
-  systemPrompt = 'You are an AI assistant for Adspirer, a platform that helps manage retail media advertising campaigns. You have knowledge about Amazon Advertising and Google Ads APIs, campaign metrics, and advertising strategies. Provide helpful, concise responses about advertising, analytics, and campaign management.'
-): Promise<void> {
-  // Determine if this is a streaming response (with res object) or non-streaming (welcome message)
-  const isStreaming = !!res;
-  
-  try {
-    // Create a proper system message if not already included
-    if (!messages.some(msg => msg.role === 'system')) {
-      messages = [
-        { role: 'system', content: systemPrompt },
-        ...messages
-      ];
-    }
-
-    // Initialize OpenAI client
-    const openaiClient = getOpenAIClient();
-    
-    // Configure SSE headers for streaming
-    if (isStreaming) {
-      res!.setHeader('Content-Type', 'text/event-stream');
-      res!.setHeader('Cache-Control', 'no-cache');
-      res!.setHeader('Connection', 'keep-alive');
-    }
-    
-    console.log('Creating chat completion with OpenAI GPT-4o...');
-    console.log(`Mode: ${isStreaming ? 'Streaming' : 'Non-streaming welcome message'}`);
-    
-    // For welcome messages we can use non-streaming for simplicity
-    if (!isStreaming) {
-      // Non-streaming completion for welcome messages
-      const completion = await openaiClient.chat.completions.create({
-        model: 'gpt-4o',
-        messages,
-        temperature: 0.7,
-        max_tokens: 500, // Welcome messages can be shorter
-      });
-      
-      const fullAssistantMessage = completion.choices[0]?.message?.content || '';
-      
-      // Create metadata for the message
-      const messageData = {
-        role: "assistant" as const,
-        content: fullAssistantMessage,
-        conversationId,
-        metadata: {
-          model: 'gpt-4o',
-          timestamp: new Date().toISOString(),
-          processed: true,
-          isWelcomeMessage: true
-        }
-      };
-      
-      // Save welcome message to database
-      await storage.createChatMessage(messageData);
-      console.log('Welcome message saved successfully');
-      return;
-    }
-    
-    // ----- NEW SECTION: DATA QUERY DETECTION -----
-    // Check if this is a data query that should be handled by SQL Builder
-    import { isDataQuery, processSQLQuery } from './sqlBuilder';
-    
-    // Get the most recent user message to check if it's a data query
-    const userMessage = messages.find(msg => msg.role === 'user')?.content || '';
-    if (isDataQuery(userMessage) && isStreaming) {
-      await handleDataQuery(conversationId, userId, res!, userMessage);
-      return;
-    }
-    // ----- END NEW SECTION -----
-    
-    // Log messages for regular chat completion
-    console.log('Messages being sent to OpenAI:', JSON.stringify(messages, null, 2));
-    
-    // Regular streaming mode for normal interactions
-    const stream = await openaiClient.chat.completions.create({
-      model: 'gpt-4o',
-      messages,
-      temperature: 0.7,
-      max_tokens: 1000,
-      stream: true,
-    });
-    
-    // Track the complete assistant message for saving to the database
-    let fullAssistantMessage = '';
-    
-    console.log('Stream created, sending chunks to client...');
-    
-    // Process stream chunks
-    for await (const chunk of stream) {
-      const content = chunk.choices[0]?.delta?.content || '';
-      
-      if (content) {
-        fullAssistantMessage += content;
-        
-        // Send each chunk to the client
-        res!.write(`data: ${JSON.stringify({ content })}\n\n`);
-      }
-    }
-    
-    console.log('Stream completed, saving response to database...');
-    
-    // Save the complete response to the database
-    try {
-      // Create metadata for the message
-      const messageData = {
-        role: "assistant" as const,
-        content: fullAssistantMessage,
-        conversationId,
-        metadata: {
-          model: 'gpt-4o',
-          timestamp: new Date().toISOString(),
-          processed: true
-        }
-      };
-      
-      // Save to database
-      const savedMessage = await storage.createChatMessage(messageData);
-      console.log('AI response saved successfully with ID:', savedMessage.id);
-      
-      // End the stream
-      res!.write('data: [DONE]\n\n');
-      res!.end();
-      
-    } catch (err) {
-      console.error('Error saving assistant message:', err);
-      if (isStreaming) {
-        res!.write('data: [ERROR]\n\n');
-        res!.end();
-      }
-    }
-  } catch (error) {
-    console.error('Error in OpenAI service:', error);
-    
-    // Send error to client and end response if streaming
-    if (isStreaming) {
-      res!.write(`data: ${JSON.stringify({ error: 'An error occurred with the OpenAI service.' })}\n\n`);
-      res!.write('data: [ERROR]\n\n');
-      res!.end();
-    }
-  }
 }
 
 /**
@@ -302,6 +149,156 @@ async function handleDataQuery(
     // End the stream
     res.write('data: [DONE]\n\n');
     res.end();
+  }
+}
+
+/**
+ * Process streaming response from OpenAI and save to database
+ * @param conversationId - The ID of the conversation
+ * @param res - The Express response object for streaming
+ * @param messages - The messages to send to OpenAI
+ */
+export async function streamChatCompletion(
+  conversationId: string,
+  userId: string,
+  res: Response | null,
+  messages: any[],
+  systemPrompt = 'You are an AI assistant for Adspirer, a platform that helps manage retail media advertising campaigns. You have knowledge about Amazon Advertising and Google Ads APIs, campaign metrics, and advertising strategies. Provide helpful, concise responses about advertising, analytics, and campaign management.'
+): Promise<void> {
+  // Determine if this is a streaming response (with res object) or non-streaming (welcome message)
+  const isStreaming = !!res;
+  
+  try {
+    // Create a proper system message if not already included
+    if (!messages.some(msg => msg.role === 'system')) {
+      messages = [
+        { role: 'system', content: systemPrompt },
+        ...messages
+      ];
+    }
+
+    // Initialize OpenAI client
+    const openaiClient = getOpenAIClient();
+    
+    // Configure SSE headers for streaming
+    if (isStreaming) {
+      res!.setHeader('Content-Type', 'text/event-stream');
+      res!.setHeader('Cache-Control', 'no-cache');
+      res!.setHeader('Connection', 'keep-alive');
+    }
+    
+    console.log('Creating chat completion with OpenAI GPT-4o...');
+    console.log(`Mode: ${isStreaming ? 'Streaming' : 'Non-streaming welcome message'}`);
+    
+    // For welcome messages we can use non-streaming for simplicity
+    if (!isStreaming) {
+      // Non-streaming completion for welcome messages
+      const completion = await openaiClient.chat.completions.create({
+        model: 'gpt-4o',
+        messages,
+        temperature: 0.7,
+        max_tokens: 500, // Welcome messages can be shorter
+      });
+      
+      const fullAssistantMessage = completion.choices[0]?.message?.content || '';
+      
+      // Create metadata for the message
+      const messageData = {
+        role: "assistant" as const,
+        content: fullAssistantMessage,
+        conversationId,
+        metadata: {
+          model: 'gpt-4o',
+          timestamp: new Date().toISOString(),
+          processed: true,
+          isWelcomeMessage: true
+        }
+      };
+      
+      // Save welcome message to database
+      await storage.createChatMessage(messageData);
+      console.log('Welcome message saved successfully');
+      return;
+    }
+    
+    // ----- DATA QUERY DETECTION -----
+    // Get the most recent user message to check if it's a data query
+    const userMessage = messages.find(msg => msg.role === 'user')?.content || '';
+    if (isDataQuery(userMessage) && isStreaming) {
+      await handleDataQuery(conversationId, userId, res!, userMessage);
+      return;
+    }
+    // ----- END DATA QUERY DETECTION -----
+    
+    // Log messages for regular chat completion
+    console.log('Messages being sent to OpenAI:', JSON.stringify(messages, null, 2));
+    
+    // Regular streaming mode for normal interactions
+    const stream = await openaiClient.chat.completions.create({
+      model: 'gpt-4o',
+      messages,
+      temperature: 0.7,
+      max_tokens: 1000,
+      stream: true,
+    });
+    
+    // Track the complete assistant message for saving to the database
+    let fullAssistantMessage = '';
+    
+    console.log('Stream created, sending chunks to client...');
+    
+    // Process stream chunks
+    for await (const chunk of stream) {
+      const content = chunk.choices[0]?.delta?.content || '';
+      
+      if (content) {
+        fullAssistantMessage += content;
+        
+        // Send each chunk to the client
+        res!.write(`data: ${JSON.stringify({ content })}\n\n`);
+      }
+    }
+    
+    console.log('Stream completed, saving response to database...');
+    
+    // Save the complete response to the database
+    try {
+      // Create metadata for the message
+      const messageData = {
+        role: "assistant" as const,
+        content: fullAssistantMessage,
+        conversationId,
+        metadata: {
+          model: 'gpt-4o',
+          timestamp: new Date().toISOString(),
+          processed: true
+        }
+      };
+      
+      // Save to database
+      const savedMessage = await storage.createChatMessage(messageData);
+      console.log('AI response saved successfully with ID:', savedMessage.id);
+      
+      // End the stream
+      res!.write('data: [DONE]\n\n');
+      res!.end();
+      
+    } catch (err) {
+      console.error('Error saving assistant message:', err);
+      if (isStreaming) {
+        res!.write('data: [ERROR]\n\n');
+        res!.end();
+      }
+    }
+  } catch (error) {
+    console.error('Error in OpenAI service:', error);
+    
+    // Send error to client and end response if streaming
+    if (isStreaming) {
+      res!.write(`data: ${JSON.stringify({ error: 'An error occurred with the OpenAI service.' })}\n\n`);
+      res!.write('data: [ERROR]\n\n');
+      res!.end();
+    }
   }
 }
 
