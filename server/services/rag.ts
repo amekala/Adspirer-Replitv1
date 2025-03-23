@@ -137,18 +137,33 @@ export async function processRagQueryNonStreaming(
   options: { includeDebugInfo?: boolean } = {}
 ): Promise<RAGResponse> {
   const processingStart = Date.now();
+  log(`Starting non-streaming RAG process for query: "${query}"`, 'rag-service');
   
   try {
     // Step 1: Generate embedding for the query
+    log(`Generating embedding for query...`, 'rag-service');
     const queryVector = await generateEmbedding(query);
+    log(`Generated embedding with ${queryVector.length} dimensions`, 'rag-service');
     
     // Step 2: Extract parameters from the query
     const queryParams = extractQueryParameters(query);
+    log(`Extracted parameters: ${JSON.stringify(queryParams)}`, 'rag-service');
     
     // Step 3: Find relevant campaigns via vector search
+    log(`Finding relevant campaigns via vector search...`, 'rag-service');
     const similarCampaigns = await querySimilarCampaigns(query, userId);
+    log(`Found ${similarCampaigns.length} similar campaigns`, 'rag-service');
+    
+    // For debugging: print the similarity scores and campaign IDs
+    if (similarCampaigns.length > 0) {
+      const campaignDetails = similarCampaigns.map((camp: any) => 
+        `ID: ${camp.campaignId}, Score: ${camp.score.toFixed(4)}, Platform: ${camp.platformType || 'unknown'}`
+      ).join('\n');
+      log(`Similar campaign details:\n${campaignDetails}`, 'rag-service');
+    }
     
     if (similarCampaigns.length === 0) {
+      log(`No similar campaigns found, returning empty response`, 'rag-service');
       const response: RAGResponse = {
         answer: "I couldn't find campaign data relevant to your question. Could you provide more details about which campaigns you're interested in?",
         campaigns: [],
@@ -172,21 +187,29 @@ export async function processRagQueryNonStreaming(
     
     // Step 4: Extract campaign IDs for SQL query
     const campaignIds = similarCampaigns.map((camp: { campaignId: string }) => camp.campaignId);
+    log(`Extracted ${campaignIds.length} campaign IDs: ${campaignIds.join(', ')}`, 'rag-service');
     
     // Step 5: Fetch detailed campaign data from SQL
+    log(`Fetching detailed campaign data from SQL...`, 'rag-service');
     const campaignData = await fetchCampaignData(campaignIds, userId);
+    log(`Fetched ${campaignData.length} campaigns with data`, 'rag-service');
     
     // Step 6: Extract insights from campaign data
+    log(`Extracting insights from campaign data...`, 'rag-service');
     const insights = extractCampaignInsights(campaignData);
+    log(`Generated ${Object.keys(insights).length} insights`, 'rag-service');
     
     // Step 7: Assemble context for LLM
+    log(`Assembling context for LLM...`, 'rag-service');
     const context = assembleContext(query, campaignData, queryParams, insights, userId);
+    log(`Assembled context with ${context.length} characters`, 'rag-service');
     
     // Step 8: Generate system prompt
     const systemPrompt = generateSystemPrompt();
+    log(`Generated system prompt with ${systemPrompt.length} characters`, 'rag-service');
     
     // Step 9: Get completion (non-streaming)
-    // For the test, we'll use OpenAI's client directly to get a non-streaming response
+    log(`Sending request to OpenAI...`, 'rag-service');
     const openaiClient = getOpenAIClient();
     
     const completion = await openaiClient.chat.completions.create({
@@ -200,6 +223,7 @@ export async function processRagQueryNonStreaming(
     });
     
     const answer = completion.choices[0].message.content || '';
+    log(`Received answer from OpenAI with ${answer.length} characters`, 'rag-service');
     
     // Create response object
     const response: RAGResponse = {
@@ -220,6 +244,7 @@ export async function processRagQueryNonStreaming(
       };
     }
     
+    log(`RAG process completed in ${Date.now() - processingStart}ms`, 'rag-service');
     return response;
     
   } catch (error) {

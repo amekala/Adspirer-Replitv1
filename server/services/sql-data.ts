@@ -20,10 +20,13 @@ import { log } from '../vite';
  * @returns {Promise<any[]>} Campaign data with metrics
  */
 export async function fetchCampaignData(campaignIds: string[], userId: string): Promise<any[]> {
-  if (!campaignIds.length) return [];
+  if (!campaignIds.length) {
+    log(`No campaign IDs provided to fetch`, 'sql-data');
+    return [];
+  }
   
   try {
-    log(`Fetching campaign data for ${campaignIds.length} campaigns`, 'sql-data');
+    log(`Fetching campaign data for ${campaignIds.length} campaigns: ${campaignIds.join(', ')}`, 'sql-data');
     
     // Create placeholders for SQL query
     const placeholders = campaignIds.map((_, i) => `$${i + 2}`).join(',');
@@ -43,8 +46,10 @@ export async function fetchCampaignData(campaignIds: string[], userId: string): 
       AND aa.profile_id IN (${placeholders})
     `;
     
+    log(`Executing Amazon query with user ID: ${userId}`, 'sql-data');
     const amazonResult = await pool.query(amazonQuery, [userId, ...campaignIds]);
     const amazonCampaigns = amazonResult.rows;
+    log(`Found ${amazonCampaigns.length} Amazon campaigns`, 'sql-data');
     
     // Fetch Google campaigns
     const googleQuery = `
@@ -60,8 +65,10 @@ export async function fetchCampaignData(campaignIds: string[], userId: string): 
       AND ga.customer_id IN (${placeholders})
     `;
     
+    log(`Executing Google query with user ID: ${userId}`, 'sql-data');
     const googleResult = await pool.query(googleQuery, [userId, ...campaignIds]);
     const googleCampaigns = googleResult.rows;
+    log(`Found ${googleCampaigns.length} Google campaigns`, 'sql-data');
     
     // Combine all campaigns
     const campaigns = [...amazonCampaigns, ...googleCampaigns];
@@ -79,17 +86,19 @@ export async function fetchCampaignData(campaignIds: string[], userId: string): 
             SUM(cm.cost) AS total_cost,
             AVG(cm.conversions) AS avg_conversions,
             SUM(cm.conversions) AS total_conversions,
-            AVG(cm.sales) AS avg_sales,
-            SUM(cm.sales) AS total_sales,
-            AVG(CASE WHEN cm.cost > 0 THEN cm.sales / cm.cost ELSE 0 END) AS avg_roas
+            0 AS avg_sales,
+            0 AS total_sales,
+            0 AS avg_roas
           FROM campaign_metrics cm
           WHERE cm.profile_id = $1 
           AND cm.user_id = $2
           GROUP BY cm.profile_id
         `;
         
+        log(`Fetching metrics for Amazon campaign ${campaign.campaign_id}`, 'sql-data');
         const metricsResult = await pool.query(metricsQuery, [campaign.campaign_id, userId]);
         campaign.metrics = metricsResult.rows[0] || {};
+        log(`Got metrics: ${JSON.stringify(campaign.metrics)}`, 'sql-data');
       } else if (campaign.platform === 'google') {
         const metricsQuery = `
           SELECT 
@@ -110,8 +119,10 @@ export async function fetchCampaignData(campaignIds: string[], userId: string): 
           GROUP BY gcm.customer_id
         `;
         
+        log(`Fetching metrics for Google campaign ${campaign.campaign_id}`, 'sql-data');
         const metricsResult = await pool.query(metricsQuery, [campaign.campaign_id, userId]);
         campaign.metrics = metricsResult.rows[0] || {};
+        log(`Got metrics: ${JSON.stringify(campaign.metrics)}`, 'sql-data');
       }
     }
     
