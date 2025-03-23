@@ -83,6 +83,7 @@ export function ChatSidebar({
             onClick={onNewConversation}
             className="w-full justify-start"
             variant="outline"
+            aria-label="New Chat"
           >
             <PlusCircle className="mr-2 h-4 w-4" />
             New Chat
