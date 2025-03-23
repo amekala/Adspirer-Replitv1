@@ -75,14 +75,27 @@ async function handleDataQuery(
       // We have data - log it for debugging
       console.log("SQL result data:", JSON.stringify(sqlResult.data, null, 2));
       
-      // Check for potentially fake or hallucinated data
-      // Look for obvious signs like small result set with suspiciously round numbers
-      let hasRealData = true;
+      // Process data to fix formatting issues
       if (sqlResult.data.length > 0) {
-        // Add validation logic to check the data quality
-        // For example, very round numbers might indicate fake data
-        const dataStr = JSON.stringify(sqlResult.data);
-        console.log(`Data validation check - data string: ${dataStr}`);
+        // Round floating point values to 1 decimal place for better presentation
+        sqlResult.data = sqlResult.data.map(row => {
+          const processedRow = {...row};
+          
+          // Format CTR to 1 decimal place if it exists
+          if (row.ctr !== undefined) {
+            processedRow.ctr = parseFloat(row.ctr).toFixed(1);
+          }
+          
+          // Format any other metrics that need rounding/formatting
+          if (row.conversion_rate !== undefined) {
+            processedRow.conversion_rate = parseFloat(row.conversion_rate).toFixed(1);
+          }
+          
+          return processedRow;
+        });
+        
+        // Log the processed data
+        console.log("Processed SQL result data:", JSON.stringify(sqlResult.data, null, 2));
       }
       
       // Use OpenAI to format the data, with stronger instructions against hallucination
