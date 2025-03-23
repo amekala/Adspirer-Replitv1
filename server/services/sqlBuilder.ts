@@ -298,14 +298,24 @@ async function generateSQL(
   });
   
   // Use Chat API instead of Responses API
+  type ChatCompletionRole = "system" | "user" | "assistant";
+  
+  // Create properly typed messages for the OpenAI API
   const chatMessages = input.map(msg => {
+    let role: ChatCompletionRole;
+    
     if (msg.role === "developer") {
-      return { role: "system" as const, content: msg.content };
+      role = "system";
     } else if (msg.role === "user") {
-      return { role: "user" as const, content: msg.content };
+      role = "user";
     } else {
-      return { role: "assistant" as const, content: msg.content };
+      role = "assistant";
     }
+    
+    return { 
+      role, 
+      content: msg.content 
+    };
   });
   
   const response = await openai.chat.completions.create({

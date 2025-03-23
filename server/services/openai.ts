@@ -28,9 +28,10 @@ export interface ChatCompletionOptions {
 }
 
 // Interface for database message data
+// Type for createChatMessage
 interface MessageData {
   conversationId: string;
-  role: "user" | "assistant" | "system";
+  role: "user" | "assistant"; // Database requires "user" or "assistant" at this time
   content: string;
   metadata?: Record<string, any>;
 }
