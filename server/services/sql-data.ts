@@ -52,17 +52,18 @@ export async function fetchCampaignData(campaignIds: string[], userId: string): 
     log(`Found ${amazonCampaigns.length} Amazon campaigns`, 'sql-data');
     
     // Fetch Google campaigns
+    // We construct a more robust query that avoids any column name issues
     const googleQuery = `
       SELECT 
-        ga.id, 
-        ga.customer_id AS campaign_id,
-        ga.account_name AS name,
-        ga.account_type,
+        id, 
+        customer_id AS campaign_id,
+        account_name AS name,
+        status,
         'google' AS platform,
-        ga.created_at
-      FROM google_advertiser_accounts ga
-      WHERE ga.user_id = $1 
-      AND ga.customer_id IN (${placeholders})
+        created_at
+      FROM google_advertiser_accounts
+      WHERE user_id = $1 
+      AND customer_id IN (${placeholders})
     `;
     
     log(`Executing Google query with user ID: ${userId}`, 'sql-data');
