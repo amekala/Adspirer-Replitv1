@@ -11,6 +11,7 @@ import { OpenAI } from 'openai';
 import { Response } from 'express';
 import { storage } from '../storage';
 import { processSQLQuery, isDataQuery } from './sqlBuilder';
+import type { Stream } from 'openai/streaming';
 
 // Define interfaces for strongly typed parameters
 export interface ChatCompletionOptions {
@@ -43,43 +44,77 @@ function convertToResponsesFormat(params: any): any {
   // Start with a new params object for the Responses API
   const responsesParams: any = {
     model: params.model,
-    stream: params.stream || false,
   };
 
+  // Handle streaming (only set if true to avoid sending false)
+  if (params.stream) {
+    responsesParams.stream = true;
+  }
+
   // Convert messages array to input format
-  if (params.messages) {
-    // For simple cases with just messages
+  if (params.messages && Array.isArray(params.messages)) {
+    // For cases with messages array
     if (params.messages.length > 0) {
-      responsesParams.input = params.messages;
+      // Extract system message if present (common pattern in our app)
+      const systemMessage = params.messages.find((msg: any) => msg.role === 'system');
+      
+      if (systemMessage) {
+        // Set system message as a separate parameter
+        responsesParams.system = systemMessage.content;
+        
+        // Remove system message from input
+        responsesParams.input = params.messages
+          .filter((msg: any) => msg.role !== 'system')
+          .map((msg: any) => ({
+            role: msg.role,
+            content: msg.content
+          }));
+      } else {
+        // No system message, use the entire array
+        responsesParams.input = params.messages;
+      }
     }
-  }
-
-  // Handle system message specially (common in our app)
-  const systemMessage = params.messages?.find((msg: any) => msg.role === 'system');
-  if (systemMessage) {
-    responsesParams.system = systemMessage.content;
-    // Remove system message from input array if it exists
-    if (responsesParams.input) {
-      responsesParams.input = responsesParams.input.filter((msg: any) => msg.role !== 'system');
-    }
-  }
-
-  // Handle temperature
-  if (params.temperature !== undefined) {
-    responsesParams.temperature = params.temperature;
-  }
-
-  // Handle max_tokens
-  if (params.max_tokens !== undefined) {
-    responsesParams.max_tokens = params.max_tokens;
-  }
-
-  // For simple text input (used in some places)
-  if (typeof params.input === 'string') {
+  } else if (params.input) {
+    // If input is already provided (single string or structured format)
     responsesParams.input = params.input;
   }
 
-  // Add more parameter mappings as needed
+  // Handle optional parameters (only set if defined)
+  if (params.temperature !== undefined) {
+    responsesParams.temperature = params.temperature;
+  }
+  
+  if (params.max_tokens !== undefined) {
+    responsesParams.max_tokens = params.max_tokens;
+  }
+  
+  if (params.tools) {
+    responsesParams.tools = params.tools;
+  }
+  
+  if (params.tool_choice) {
+    responsesParams.tool_choice = params.tool_choice;
+  }
+  
+  if (params.response_format) {
+    responsesParams.response_format = params.response_format;
+  }
+  
+  if (params.frequency_penalty !== undefined) {
+    responsesParams.frequency_penalty = params.frequency_penalty;
+  }
+  
+  if (params.presence_penalty !== undefined) {
+    responsesParams.presence_penalty = params.presence_penalty;
+  }
+  
+  if (params.top_p !== undefined) {
+    responsesParams.top_p = params.top_p;
+  }
+  
+  if (params.seed !== undefined) {
+    responsesParams.seed = params.seed;
+  }
   
   return responsesParams;
 }
@@ -552,7 +587,7 @@ When interacting with users:
     const stream = await openaiClient.responses.create({
       ...responsesParams,
       stream: true
-    });
+    }) as Stream<any>;
     
     // Track the complete assistant message for saving to the database
     let fullAssistantMessage = '';
@@ -560,19 +595,21 @@ When interacting with users:
     console.log('Stream created, sending chunks to client...');
     
     // Process stream chunks
-    for await (const event of stream) {
-      // Extract content from the event
-      // In the Responses API, text chunks come with output_text property
-      const content = event.output_text || '';
-      
-      if (content) {
-        // Only save the content to our full message if it's new (delta) content
-        // If this is a full text replacement, get the difference and add that
-        const newContent = content.substring(fullAssistantMessage.length);
-        fullAssistantMessage = content;
+    for await (const chunk of stream) {
+      // Ensure we handle the chunk as a Responses API chunk with type checking
+      if ('output_text' in chunk) {
+        // Extract content from the chunk
+        const content = chunk.output_text || '';
         
-        // Send each chunk to the client
-        res!.write(`data: ${JSON.stringify({ content: newContent })}\n\n`);
+        if (content) {
+          // Only save the content to our full message if it's new (delta) content
+          // If this is a full text replacement, get the difference and add that
+          const newContent = content.substring(fullAssistantMessage.length);
+          fullAssistantMessage = content;
+          
+          // Send each chunk to the client
+          res!.write(`data: ${JSON.stringify({ content: newContent })}\n\n`);
+        }
       }
     }
     
