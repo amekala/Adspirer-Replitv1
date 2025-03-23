@@ -136,14 +136,14 @@ export default function ChatPage() {
 
   // Handle sending a message
   const handleSendMessage = async () => {
+    // Check if there's a message and conversation ID
+    if (!message.trim() || !currentConversationId) return;
+    
+    // Save the message content before clearing input
+    const messageContent = message;
+    setMessage(""); // Clear input immediately for better UX
+    
     try {
-      // Check if there's a message and conversation ID
-      if (!message.trim() || !currentConversationId) return;
-      
-      // Save the message content before clearing input
-      const messageContent = message;
-      setMessage(""); // Clear input immediately for better UX
-      
       // First, create and display the user's message with optimistic update
       const userMessage = {
         id: `temp-user-${Date.now()}`,
@@ -162,11 +162,10 @@ export default function ChatPage() {
       
       // Create a temporary conversation with user message and typing indicator
       if (currentConversation) {
-        let formatted;
         try {
           // Import chatService to use the formatting function
           const { formatConversationResponse } = await import("@/lib/chatService");
-          formatted = formatConversationResponse(currentConversation);
+          const formatted = formatConversationResponse(currentConversation);
           
           // Add both user message and typing indicator
           const updatedMessages = [...formatted.messages, userMessage, typingIndicatorMessage];
@@ -181,145 +180,81 @@ export default function ChatPage() {
           );
         } catch (err) {
           console.error("Error formatting conversation for optimistic update:", err);
+          // Continue despite formatting error - we can still try to send the message
         }
       }
       
-      // Use direct fetch and handle streaming ourselves for greater control
-      try {
-        // Step 1: Send the user message to the server
-        await apiRequest("POST", `/api/chat/conversations/${currentConversationId}/messages`, {
-          role: "user",
-          content: messageContent,
-        });
+      // Step 1: Send the user message to the server
+      await apiRequest("POST", `/api/chat/conversations/${currentConversationId}/messages`, {
+        role: "user",
+        content: messageContent,
+      });
+      
+      // Step 2: Use the chatService to handle the message and streaming response
+      // This will automatically use the selected architecture (one or two-LLM)
+      const chatComponent = document.querySelector('.chat-component');
+      const useTwoLlm = chatComponent?.getAttribute('data-llm-mode') === 'two-llm';
+      
+      console.log(`Calling ${useTwoLlm ? 'Two-LLM' : 'Standard'} RAG query endpoint...`);
+      
+      // Get streaming content handler
+      const updateStreamingContent = (streamedContent: string) => {
+        // Get latest conversation data
+        const latestConversation = queryClient.getQueryData([
+          "/api/chat/conversations", 
+          currentConversationId, 
+          "specific"
+        ]) || {
+          conversation: currentConversation.conversation,
+          messages: currentConversation.messages || []
+        };
         
-        // Step 2: Call the RAG query endpoint for data-aware responses
-        console.log('Calling RAG query endpoint...');
-        const completionResponse = await fetch('/api/rag/query', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            conversationId: currentConversationId,
-            query: messageContent
-          }),
-          credentials: 'include' // Include credentials for session authentication
-        });
-
-        if (!completionResponse.ok) {
-          const errorText = await completionResponse.text();
-          console.error('RAG query error:', errorText);
-          throw new Error(`HTTP error! status: ${completionResponse.status}`);
-        }
-
-        // Process the streaming response
-        console.log('Processing streaming response...');
-        const reader = completionResponse.body?.getReader();
-        if (!reader) {
-          throw new Error('No reader available from response');
-        }
-        
-        const decoder = new TextDecoder();
-        let streamedContent = '';
-        
-        // Start reading the stream
-        try {
-          let done = false;
+        // Create a copy of the messages array
+        let messages = Array.isArray((latestConversation as any).messages) 
+          ? [...(latestConversation as any).messages] 
+          : [];
           
-          while (!done) {
-            const { value, done: doneReading } = await reader.read();
-            done = doneReading;
-            
-            if (value) {
-              // Decode the chunk and parse it
-              const chunk = decoder.decode(value, { stream: true });
-              console.log('Received chunk:', chunk);
-              
-              // Process each line (could be multiple SSE events in one chunk)
-              const lines = chunk.split('\n\n');
-              for (const line of lines) {
-                if (line.startsWith('data: ')) {
-                  const data = line.substring(6); // Remove 'data: ' prefix
-                  
-                  if (data === '[DONE]') {
-                    console.log('Stream completed');
-                    done = true;
-                    break;
-                  }
-                  
-                  if (data === '[ERROR]') {
-                    console.error('Server reported an error');
-                    done = true;
-                    break;
-                  }
-                  
-                  try {
-                    // Parse the JSON data
-                    const parsedData = JSON.parse(data);
-                    if (parsedData.content) {
-                      streamedContent += parsedData.content;
-                      
-                      // Create an updated conversation object with streamed content
-                      if (currentConversation) {
-                        // Get latest conversation data
-                        const latestConversation = queryClient.getQueryData([
-                          "/api/chat/conversations", 
-                          currentConversationId, 
-                          "specific"
-                        ]) || {
-                          conversation: currentConversation.conversation,
-                          messages: currentConversation.messages || []
-                        };
-                        
-                        // Create a copy of the messages array
-                        let messages = Array.isArray((latestConversation as any).messages) 
-                          ? [...(latestConversation as any).messages] 
-                          : [];
-                          
-                        // Find if we have a typing indicator already
-                        const typingIndex = messages.findIndex(m => 
-                          m.id === 'typing-indicator' || m.id.startsWith('streaming-'));
-                        
-                        if (typingIndex >= 0) {
-                          // Update the existing typing indicator with content
-                          messages[typingIndex] = {
-                            ...messages[typingIndex],
-                            id: 'streaming-' + Date.now(),
-                            content: streamedContent
-                          };
-                        } else {
-                          // Add new assistant message
-                          messages.push({
-                            id: 'streaming-' + Date.now(),
-                            role: 'assistant',
-                            content: streamedContent,
-                            createdAt: new Date().toISOString()
-                          });
-                        }
-                        
-                        // Update the query cache
-                        queryClient.setQueryData(
-                          ['/api/chat/conversations', currentConversationId, 'specific'],
-                          {
-                            conversation: (latestConversation as any).conversation,
-                            messages
-                          }
-                        );
-                      }
-                    }
-                  } catch (parseError) {
-                    console.error('Error parsing streaming data:', parseError);
-                  }
-                }
-              }
-            }
-          }
-        } finally {
-          reader.releaseLock();
+        // Find if we have a typing indicator already
+        const typingIndex = messages.findIndex(m => 
+          m.id === 'typing-indicator' || m.id.startsWith('streaming-'));
+        
+        if (typingIndex >= 0) {
+          // Update the existing typing indicator with content
+          messages[typingIndex] = {
+            ...messages[typingIndex],
+            id: 'streaming-' + Date.now(),
+            content: streamedContent
+          };
+        } else {
+          // Add new assistant message
+          messages.push({
+            id: 'streaming-' + Date.now(),
+            role: 'assistant',
+            content: streamedContent,
+            createdAt: new Date().toISOString()
+          });
         }
-      } catch (error) {
-        console.error("Error handling streaming response:", error);
-      }
+        
+        // Update the query cache
+        queryClient.setQueryData(
+          ['/api/chat/conversations', currentConversationId, 'specific'],
+          {
+            conversation: (latestConversation as any).conversation,
+            messages
+          }
+        );
+      };
+      
+      // Use the sendMessage function from chatService instead of direct fetch
+      await sendMessage(
+        currentConversationId,
+        messageContent,
+        updateStreamingContent,
+        useTwoLlm
+      );
+      
+      // Message was sent via the chatService, so we don't need to process the response here
+      // The streaming content is handled by the updateStreamingContent callback
       
       // Final refresh to ensure we have the server's latest state
       queryClient.invalidateQueries({ 

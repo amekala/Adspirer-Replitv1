@@ -97,7 +97,7 @@ export function Chat({ conversation, isLoading }: ChatProps) {
   );
 
   return (
-    <div className="space-y-6 pb-4">
+    <div className="space-y-6 pb-4 chat-component" data-llm-mode={useTwoLlm ? 'two-llm' : 'standard'}>
       {/* Two-LLM Architecture Toggle */}
       <div className="flex items-center justify-end gap-2 mb-2 px-2">
         <TooltipProvider>
