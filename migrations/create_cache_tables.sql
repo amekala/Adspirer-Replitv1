@@ -16,6 +16,7 @@ CREATE TABLE IF NOT EXISTS query_cache_entries (
 CREATE TABLE IF NOT EXISTS campaign_metrics_summary (
   id SERIAL PRIMARY KEY,
   user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  profile_id TEXT,
   campaign_id TEXT NOT NULL,
   time_frame TEXT NOT NULL,
   start_date DATE NOT NULL,
@@ -32,6 +33,7 @@ CREATE TABLE IF NOT EXISTS campaign_metrics_summary (
 CREATE TABLE IF NOT EXISTS google_campaign_metrics_summary (
   id SERIAL PRIMARY KEY,
   user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  customer_id TEXT,
   campaign_id TEXT NOT NULL,
   time_frame TEXT NOT NULL,
   start_date DATE NOT NULL,

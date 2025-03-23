@@ -331,9 +331,9 @@ export function generateInsights(summaries: any[]): string[] {
     
     if (campaigns.length > 1) {
       // Compare campaigns if there are multiple
-      const highestCTR = campaigns.reduce((max, current) => {
-        const ctrMetric = current.metrics.find(m => m.type === 'ctr');
-        const currentCTR = ctrMetric ? ctrMetric.value : 0;
+      const highestCTR = campaigns.reduce((max: {id: string, ctr: number}, current: any) => {
+        const ctrMetric = current.metrics.find((m: any) => m.type === 'ctr');
+        const currentCTR = ctrMetric ? Number(ctrMetric.value) : 0;
         
         return currentCTR > max.ctr ? { id: current.id, ctr: currentCTR } : max;
       }, { id: '', ctr: 0 });

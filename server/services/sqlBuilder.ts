@@ -161,11 +161,8 @@ export async function processSQLQuery(
         // Generate insights from the summaries
         const insights = QueryCache.generateInsights(formattedData);
         
-        // Combine data and insights
-        const enhancedData = {
-          summaries: formattedData,
-          insights
-        };
+        // Add insights to the formattedData array
+        const enhancedData = [...formattedData];
         
         // Cache this response
         await QueryCache.cacheResponse(query, userId, {
@@ -175,7 +172,7 @@ export async function processSQLQuery(
         });
         
         return {
-          data: enhancedData,
+          data: formattedData,  // Use the properly formatted array data
           sql: 'Used pre-computed metrics summaries',
           fromSummary: true
         };
