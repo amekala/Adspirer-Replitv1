@@ -1021,7 +1021,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
     
     const { id: userId } = req.user;
-    const { query } = req.body;
+    const { query, includeDebugInfo = false } = req.body;
     
     if (!query) {
       return res.status(400).json({ message: "Query is required" });
@@ -1033,8 +1033,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Import the RAG service dynamically
       const { processRagQueryNonStreaming } = await import('./services/rag');
       
-      // Process the query and return the response
-      const result = await processRagQueryNonStreaming(query, userId);
+      // Process the query and return the response with optional debug info
+      const result = await processRagQueryNonStreaming(query, userId, { includeDebugInfo });
       return res.json(result);
     } catch (error) {
       console.error('Error processing RAG query:', error instanceof Error ? error.message : 'Unknown error');

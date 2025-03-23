@@ -28,7 +28,7 @@ export interface ChatCompletionOptions {
 /**
  * Initialize the OpenAI client with the API key
  */
-function getOpenAIClient(): OpenAI {
+export function getOpenAIClient(): OpenAI {
   const apiKey = process.env.OPENAI_API_KEY;
   
   if (!apiKey) {

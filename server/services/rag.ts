@@ -17,7 +17,8 @@ import { log } from '../vite';
 import { querySimilarCampaigns } from './pinecone';
 import { fetchCampaignData, extractCampaignInsights } from './sql-data';
 import { extractQueryParameters, assembleContext, generateSystemPrompt } from './context-assembly';
-import { streamChatCompletion } from './openai';
+import { streamChatCompletion, getOpenAIClient } from './openai';
+import { generateEmbedding } from './embedding';
 import type { Response } from 'express';
 
 // Define types for the API response
