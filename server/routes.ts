@@ -761,10 +761,33 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/chat/conversations", async (req: Request, res: Response) => {
     if (!req.isAuthenticated()) return res.sendStatus(401);
     
-    const { title = "New conversation" } = req.body;
+    const { title = "New conversation", generateWelcome = true } = req.body;
     
     try {
+      // Create new conversation
       const conversation = await storage.createChatConversation(req.user!.id, title);
+      
+      // Optionally generate a welcome message
+      if (generateWelcome) {
+        try {
+          // Import the service to avoid circular dependencies
+          const { generateWelcomeMessage } = await import('./services/openai');
+          
+          // Generate welcome message in the background
+          // We don't await this so the API can return immediately
+          generateWelcomeMessage(conversation.id, req.user!.id)
+            .then(() => {
+              console.log(`Welcome message generated for conversation ${conversation.id}`);
+            })
+            .catch(err => {
+              console.error(`Failed to generate welcome message for conversation ${conversation.id}:`, err);
+            });
+        } catch (welcomeError) {
+          console.error('Error importing OpenAI service for welcome message:', welcomeError);
+          // We still continue as this is not critical
+        }
+      }
+      
       return res.status(201).json(conversation);
     } catch (error) {
       console.error('Error creating conversation:', error);

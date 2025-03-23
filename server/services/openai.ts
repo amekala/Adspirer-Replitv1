@@ -37,10 +37,13 @@ function getOpenAIClient(): OpenAI {
 export async function streamChatCompletion(
   conversationId: string,
   userId: string,
-  res: Response,
+  res: Response | null,
   messages: any[],
   systemPrompt = 'You are an AI assistant for Adspirer, a platform that helps manage retail media advertising campaigns. You have knowledge about Amazon Advertising and Google Ads APIs, campaign metrics, and advertising strategies. Provide helpful, concise responses about advertising, analytics, and campaign management.'
 ): Promise<void> {
+  // Determine if this is a streaming response (with res object) or non-streaming (welcome message)
+  const isStreaming = !!res;
+  
   try {
     // Create a proper system message if not already included
     if (!messages.some(msg => msg.role === 'system')) {
@@ -53,15 +56,49 @@ export async function streamChatCompletion(
     // Initialize OpenAI client
     const openaiClient = getOpenAIClient();
     
-    // Set headers for SSE
-    res.setHeader('Content-Type', 'text/event-stream');
-    res.setHeader('Cache-Control', 'no-cache');
-    res.setHeader('Connection', 'keep-alive');
+    // Configure SSE headers for streaming
+    if (isStreaming) {
+      res!.setHeader('Content-Type', 'text/event-stream');
+      res!.setHeader('Cache-Control', 'no-cache');
+      res!.setHeader('Connection', 'keep-alive');
+    }
     
-    console.log('Creating chat completion stream with OpenAI GPT-4o...');
+    console.log('Creating chat completion with OpenAI GPT-4o...');
+    console.log(`Mode: ${isStreaming ? 'Streaming' : 'Non-streaming welcome message'}`);
     console.log('Messages being sent to OpenAI:', JSON.stringify(messages, null, 2));
     
-    // Create streaming completion
+    // For welcome messages we can use non-streaming for simplicity
+    if (!isStreaming) {
+      // Non-streaming completion for welcome messages
+      const completion = await openaiClient.chat.completions.create({
+        model: 'gpt-4o',
+        messages,
+        temperature: 0.7,
+        max_tokens: 500, // Welcome messages can be shorter
+      });
+      
+      const fullAssistantMessage = completion.choices[0]?.message?.content || '';
+      
+      // Create metadata for the message
+      const messageData = {
+        role: "assistant" as const,
+        content: fullAssistantMessage,
+        conversationId,
+        metadata: {
+          model: 'gpt-4o',
+          timestamp: new Date().toISOString(),
+          processed: true,
+          isWelcomeMessage: true
+        }
+      };
+      
+      // Save welcome message to database
+      await storage.createChatMessage(messageData);
+      console.log('Welcome message saved successfully');
+      return;
+    }
+    
+    // Regular streaming mode for normal interactions
     const stream = await openaiClient.chat.completions.create({
       model: 'gpt-4o',
       messages,
@@ -83,7 +120,7 @@ export async function streamChatCompletion(
         fullAssistantMessage += content;
         
         // Send each chunk to the client
-        res.write(`data: ${JSON.stringify({ content })}\n\n`);
+        res!.write(`data: ${JSON.stringify({ content })}\n\n`);
       }
     }
     
@@ -108,21 +145,25 @@ export async function streamChatCompletion(
       console.log('AI response saved successfully with ID:', savedMessage.id);
       
       // End the stream
-      res.write('data: [DONE]\n\n');
-      res.end();
+      res!.write('data: [DONE]\n\n');
+      res!.end();
       
     } catch (err) {
       console.error('Error saving assistant message:', err);
-      res.write('data: [ERROR]\n\n');
-      res.end();
+      if (isStreaming) {
+        res!.write('data: [ERROR]\n\n');
+        res!.end();
+      }
     }
   } catch (error) {
     console.error('Error in OpenAI service:', error);
     
-    // Send error to client and end response
-    res.write(`data: ${JSON.stringify({ error: 'An error occurred with the OpenAI service.' })}\n\n`);
-    res.write('data: [ERROR]\n\n');
-    res.end();
+    // Send error to client and end response if streaming
+    if (isStreaming) {
+      res!.write(`data: ${JSON.stringify({ error: 'An error occurred with the OpenAI service.' })}\n\n`);
+      res!.write('data: [ERROR]\n\n');
+      res!.end();
+    }
   }
 }
 
@@ -152,4 +193,34 @@ export async function getConversationHistory(conversationId: string, maxTokens =
     console.error('Error getting conversation history:', error);
     throw error;
   }
+}
+
+/**
+ * Generate a welcome message for a new conversation
+ * This is used when a new chat is started and no user message is provided yet
+ * @param conversationId The ID of the new conversation
+ * @param userId The user ID of the conversation owner
+ */
+export async function generateWelcomeMessage(
+  conversationId: string,
+  userId: string
+): Promise<void> {
+  // System message with conversation starting instructions
+  const welcomeSystemPrompt = 'You are an AI assistant for Adspirer, a platform that helps manage retail media advertising campaigns. This is a brand new conversation with a user. Start by introducing yourself briefly, explaining how you can help with advertising campaign management, and ask what the user would like help with today. Your response should be friendly, concise (under 150 words), and welcoming.';
+  
+  // Create an initial message array with only the system prompt
+  const messages = [
+    { role: 'system', content: welcomeSystemPrompt }
+  ];
+  
+  // Return a welcome message using the regular streaming function
+  return streamChatCompletion(
+    conversationId,
+    userId,
+    // We don't need the response object here as this function will be called by our routes
+    // and will handle the response directly
+    null as any, // This is a temp solution, we'll modify the route to handle this case
+    messages,
+    welcomeSystemPrompt
+  );
 }
