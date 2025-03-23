@@ -354,7 +354,7 @@ export async function findRelevantContext(
       .filter(item => item.similarity >= minSimilarity)
       .slice(0, limit)
       .map(item => ({
-        text: item.embedding.text,
+        text: item.embedding.textContent,
         metadata: item.embedding.metadata,
         similarity: item.similarity
       }));

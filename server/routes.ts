@@ -1332,7 +1332,6 @@ Metrics (Last 30 Days):
           // Store embedding in our database
           const insertEmbeddingQuery = `
             INSERT INTO embeddings_store (
-              id, 
               user_id, 
               type, 
               source_id, 
@@ -1341,24 +1340,18 @@ Metrics (Last 30 Days):
               metadata
             )
             VALUES (
-              $1, $2, $3, $4, $5, $6, $7
+              $1, $2, $3, $4, $5, $6
             )
-            ON CONFLICT (id) 
-            DO UPDATE SET
-              text_content = $5,
-              embedding_vector = $6,
-              metadata = $7,
-              updated_at = NOW()
             RETURNING id
           `;
           
-          const embeddingId = `camp_amazon_${campaign.profile_id}`;
           const embeddingType = 'campaign';
           const metadata = {
             platform: 'amazon',
             campaignName: campaignData.campaign_name,
             campaignType: campaignData.campaign_type,
             status: campaignData.status,
+            sourceId: `camp_amazon_${campaign.profile_id}`,
             metrics: {
               impressions: metrics.total_impressions || 0,
               clicks: metrics.total_clicks || 0,
@@ -1370,7 +1363,6 @@ Metrics (Last 30 Days):
           const insertResult = await pool.query(
             insertEmbeddingQuery, 
             [
-              embeddingId,
               userId,
               embeddingType,
               campaign.profile_id,
@@ -1451,7 +1443,6 @@ Metrics (Last 30 Days):
           // Store embedding in our database
           const insertEmbeddingQuery = `
             INSERT INTO embeddings_store (
-              id, 
               user_id, 
               type, 
               source_id, 
@@ -1460,23 +1451,17 @@ Metrics (Last 30 Days):
               metadata
             )
             VALUES (
-              $1, $2, $3, $4, $5, $6, $7
+              $1, $2, $3, $4, $5, $6
             )
-            ON CONFLICT (id) 
-            DO UPDATE SET
-              text_content = $5,
-              embedding_vector = $6,
-              metadata = $7,
-              updated_at = NOW()
             RETURNING id
           `;
           
-          const embeddingId = `camp_google_${campaign.campaign_id}`;
           const embeddingType = 'campaign';
           const metadata = {
             platform: 'google',
             campaignName: campaignData.campaign_name,
             customerId: campaignData.customer_id,
+            sourceId: `camp_google_${campaign.campaign_id}`,
             metrics: {
               impressions: metrics.total_impressions || 0,
               clicks: metrics.total_clicks || 0,
@@ -1488,7 +1473,6 @@ Metrics (Last 30 Days):
           const insertResult = await pool.query(
             insertEmbeddingQuery, 
             [
-              embeddingId,
               userId,
               embeddingType,
               campaign.campaign_id,
