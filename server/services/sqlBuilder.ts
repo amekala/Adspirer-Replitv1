@@ -30,41 +30,30 @@ const DB_SCHEMA = `
 -- Campaign metrics for Amazon
 CREATE TABLE campaign_metrics (
   id SERIAL PRIMARY KEY,
-  userId TEXT NOT NULL,
-  profileId TEXT NOT NULL,
-  campaignId TEXT NOT NULL,
-  campaignName TEXT NOT NULL,
-  campaignStatus TEXT,
-  campaignType TEXT,
+  user_id UUID NOT NULL,
+  profile_id TEXT NOT NULL,
+  campaign_id TEXT NOT NULL,
+  ad_group_id TEXT,
   date DATE NOT NULL,
   impressions INTEGER,
   clicks INTEGER,
   cost NUMERIC,
-  orders INTEGER,
-  sales NUMERIC,
-  acos NUMERIC,
-  roas NUMERIC,
-  createdAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
 -- Google campaign metrics
 CREATE TABLE google_campaign_metrics (
   id SERIAL PRIMARY KEY,
-  userId TEXT NOT NULL,
-  customerId TEXT NOT NULL,
-  campaignId TEXT NOT NULL,
-  campaignName TEXT NOT NULL,
-  campaignStatus TEXT,
-  campaignType TEXT,
+  user_id UUID NOT NULL,
+  customer_id TEXT NOT NULL,
+  campaign_id TEXT NOT NULL,
+  ad_group_id TEXT,
   date DATE NOT NULL,
   impressions INTEGER,
   clicks INTEGER,
   cost NUMERIC,
-  conversions NUMERIC,
-  conversionValue NUMERIC,
-  ctr NUMERIC,
-  cpc NUMERIC,
-  createdAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+  conversions INTEGER,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 `;
 
@@ -199,12 +188,13 @@ async function generateSQL(userId: string, query: string): Promise<string> {
                  
                  Guidelines:
                  1. Return ONLY the SQL query without any explanation or markdown
-                 2. Always include "userId = '${userId}'" in WHERE clauses for security
+                 2. Always include "user_id = '${userId}'" in WHERE clauses for security
                  3. Only write SELECT statements (no INSERT, UPDATE, DELETE)
                  4. Join tables when necessary but keep queries efficient
                  5. Handle time periods intelligently (e.g., last 7 days, last month)
                  6. Format dates properly for PostgreSQL (use CURRENT_DATE for today)
-                 7. Use appropriate aggregations (SUM, AVG, COUNT) as needed`
+                 7. Use appropriate aggregations (SUM, AVG, COUNT) as needed
+                 8. Use snake_case for all column names (user_id, campaign_id, etc.)`
       },
       {
         role: "user",
@@ -220,37 +210,37 @@ async function generateSQL(userId: string, query: string): Promise<string> {
 }
 
 /**
- * Ensures the SQL query has a userId filter for security
+ * Ensures the SQL query has a user_id filter for security
  * This function adds appropriate WHERE conditions if not present.
  */
 function ensureUserFilter(query: string, userId: string): string {
   const lowerQuery = query.toLowerCase();
   
-  // If query already contains userId filter, return as-is
-  if (lowerQuery.includes(`userid = '${userId.toLowerCase()}'`) || 
-      lowerQuery.includes(`userid='${userId.toLowerCase()}'`)) {
+  // If query already contains user_id filter, return as-is
+  if (lowerQuery.includes(`user_id = '${userId.toLowerCase()}'`) || 
+      lowerQuery.includes(`user_id='${userId.toLowerCase()}'`)) {
     return query;
   }
   
-  // Add userId filter based on query structure
+  // Add user_id filter based on query structure
   if (lowerQuery.includes('where')) {
     // Add to existing WHERE clause
-    return query.replace(/where\s+/i, `WHERE userId = '${userId}' AND `);
+    return query.replace(/where\s+/i, `WHERE user_id = '${userId}' AND `);
   } else if (lowerQuery.includes('group by')) {
     // Add WHERE before GROUP BY
-    return query.replace(/group by/i, `WHERE userId = '${userId}' GROUP BY`);
+    return query.replace(/group by/i, `WHERE user_id = '${userId}' GROUP BY`);
   } else if (lowerQuery.includes('order by')) {
     // Add WHERE before ORDER BY
-    return query.replace(/order by/i, `WHERE userId = '${userId}' ORDER BY`);
+    return query.replace(/order by/i, `WHERE user_id = '${userId}' ORDER BY`);
   } else if (lowerQuery.includes('limit')) {
     // Add WHERE before LIMIT
-    return query.replace(/limit/i, `WHERE userId = '${userId}' LIMIT`);
+    return query.replace(/limit/i, `WHERE user_id = '${userId}' LIMIT`);
   } else {
     // No obvious place, add before end of query
     if (query.endsWith(';')) {
-      return query.replace(/;$/, ` WHERE userId = '${userId}';`);
+      return query.replace(/;$/, ` WHERE user_id = '${userId}';`);
     } else {
-      return `${query} WHERE userId = '${userId}'`;
+      return `${query} WHERE user_id = '${userId}'`;
     }
   }
 }
