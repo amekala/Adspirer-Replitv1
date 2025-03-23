@@ -80,12 +80,43 @@ export async function processTwoLlmRagQuery(
         'Connection': 'keep-alive'
       });
 
+      // Create a consistent streaming ID that will be used by both frontend and database
+      const streamingId = `streaming-${Date.now()}`;
+      // Send the streamingId to the frontend so it knows what to look for
+      res.write(`data: {"streamingId":"${streamingId}"}\n\n`);
+      
+      // Collect the full response while streaming
+      let fullResponse = '';
+      
       // Stream the response
       for await (const chunk of stream) {
         const content = chunk.choices[0]?.delta?.content || '';
         if (content) {
+          fullResponse += content; // Collect the response
           res.write(`data: {"content":"${content.replace(/\n/g, '\\n')}"}\n\n`);
         }
+      }
+      
+      // Save the assistant's response to the database WITH THE SAME ID
+      try {
+        await storage.createChatMessage({
+          id: streamingId, // Use the same ID as the frontend is using
+          conversationId: conversationId,
+          role: 'assistant',
+          content: fullResponse,
+          metadata: {
+            model: 'gpt-4o',
+            processed: true,
+            timestamp: new Date().toISOString(),
+            fallback: true
+          }
+        });
+        log(`Saved fallback assistant message with ID ${streamingId} to database for conversation ${conversationId}`, 'two-llm-rag');
+        
+        // Confirm to the frontend that message was saved with this ID
+        res.write(`data: {"savedMessageId":"${streamingId}"}\n\n`);
+      } catch (saveError) {
+        log(`Error saving fallback assistant message: ${saveError}`, 'two-llm-rag');
       }
 
       res.write('data: [DONE]\n\n');
@@ -201,6 +232,11 @@ Use a friendly, helpful tone appropriate for a chat interface.
       'Connection': 'keep-alive'
     });
 
+    // Create a consistent streaming ID that will be used by both frontend and database
+    const streamingId = `streaming-${Date.now()}`;
+    // Send the streamingId to the frontend so it knows what to look for
+    res.write(`data: {"streamingId":"${streamingId}"}\n\n`);
+    
     // Collect the full response while streaming
     let fullResponse = '';
     
@@ -213,9 +249,10 @@ Use a friendly, helpful tone appropriate for a chat interface.
       }
     }
 
-    // Save the assistant's response to the database
+    // Save the assistant's response to the database WITH THE SAME ID
     try {
       await storage.createChatMessage({
+        id: streamingId, // Use the same ID as the frontend is using
         conversationId: conversationId,
         role: 'assistant',
         content: fullResponse,
@@ -226,7 +263,10 @@ Use a friendly, helpful tone appropriate for a chat interface.
           campaignIds: campaignIds.length > 0 ? campaignIds : undefined
         }
       });
-      log(`Saved assistant message to database for conversation ${conversationId}`, 'two-llm-rag');
+      log(`Saved assistant message with ID ${streamingId} to database for conversation ${conversationId}`, 'two-llm-rag');
+      
+      // Confirm to the frontend that message was saved with this ID
+      res.write(`data: {"savedMessageId":"${streamingId}"}\n\n`);
     } catch (saveError) {
       log(`Error saving assistant message: ${saveError}`, 'two-llm-rag');
       // We don't want to fail the response if saving fails

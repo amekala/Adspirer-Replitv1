@@ -212,14 +212,63 @@ export async function sendMessage(
       reader.releaseLock();
     }
     
-    // Make sure we get the final state from the server AFTER a slight delay
-    // This delay ensures that the server has time to persist the message to the database
-    // before we invalidate the query cache
-    await new Promise(resolve => setTimeout(resolve, 500));
+    // Instead of invalidating the cache immediately, delay it significantly
+    // This ensures that:
+    // 1. The streaming is complete and the message is shown to the user
+    // 2. The server has time to persist the message to the database
+    // 3. The UI doesn't flicker or lose the message during refresh
     
-    queryClient.invalidateQueries({ 
-      queryKey: ["/api/chat/conversations", conversationId] 
-    });
+    // Store the final content to compare after refresh
+    const finalContent = streamedContent;
+    
+    // Delay cache invalidation much longer to prevent race conditions 
+    await new Promise(resolve => setTimeout(resolve, 2000));
+    
+    // Use refetchQueries instead of invalidateQueries to have more control
+    // This ensures we replace the existing data properly
+    try {
+      const result = await queryClient.fetchQuery({
+        queryKey: ["/api/chat/conversations", conversationId, "specific"],
+        staleTime: 0
+      });
+      
+      // If the fetched result doesn't contain our streamed content, keep the local version
+      // This prevents message disappearing during cache refresh
+      if (result) {
+        const messages = result.messages || [];
+        const hasStreamedMessage = messages.some(m => 
+          m.role === 'assistant' && m.content === finalContent
+        );
+        
+        if (!hasStreamedMessage && finalContent) {
+          console.log('Fetched data missing assistant message, keeping local version');
+          
+          // Keep our local version by adding it to the fetched result
+          result.messages = [
+            ...messages,
+            {
+              id: `permanent-${Date.now()}`,
+              role: 'assistant',
+              content: finalContent,
+              createdAt: new Date().toISOString()
+            }
+          ];
+          
+          // Update the cache with our modified version
+          queryClient.setQueryData(
+            ["/api/chat/conversations", conversationId, "specific"],
+            result
+          );
+        }
+      }
+    } catch (refetchError) {
+      console.error('Error refetching conversation:', refetchError);
+      // If refetch fails, invalidate as a fallback, but with even longer delay
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      queryClient.invalidateQueries({ 
+        queryKey: ["/api/chat/conversations", conversationId] 
+      });
+    }
     
   } catch (error) {
     console.error("Error in message send process:", error);
