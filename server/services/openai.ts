@@ -39,6 +39,11 @@ function getOpenAIClient(): OpenAI {
  * This function maintains a complete separation of concerns - the user never sees
  * the SQL or knows that a second LLM is involved.
  * 
+ * Major enhancements:
+ * 1. Uses query cache to avoid redundant processing
+ * 2. Leverages pre-computed summaries for common metrics
+ * 3. Better data visualization formatting
+ * 
  * @param conversationId - The ID of the conversation
  * @param userId - The user ID making the query
  * @param res - Express response object for streaming
@@ -61,22 +66,72 @@ async function handleDataQuery(
     })}\n\n`);
     
     // Process the query with SQL Builder, passing conversation context if available
+    // The SQL Builder now checks cache & summaries before executing SQL
     const sqlResult = await processSQLQuery(userId, query, conversationContext);
     
     let responseContent = '';
+    let messageData: any;
     
     if (sqlResult.error) {
       // If there was an error processing the SQL query
       responseContent = `I encountered an issue while analyzing your campaign data: ${sqlResult.error}`;
-    } else if (!sqlResult.data || sqlResult.data.length === 0) {
+    } else if (!sqlResult.data || (Array.isArray(sqlResult.data) && sqlResult.data.length === 0)) {
       // No data found
       responseContent = "I searched our database but couldn't find any campaign data matching your request. This could be because you don't have any campaigns yet, or the specific data you're looking for isn't available.";
     } else {
-      // We have data - log it for debugging
-      console.log("SQL result data:", JSON.stringify(sqlResult.data, null, 2));
+      // Special handling for pre-computed summary data (which has a different structure)
+      if (sqlResult.fromSummary) {
+        // Data from summaries is already pre-formatted
+        console.log("Using pre-computed summary data");
+        
+        // If the data has insights, include them in the response
+        const summaryData = sqlResult.data as any;
+        if (summaryData.insights && summaryData.insights.length > 0) {
+          const insights = summaryData.insights.map((insight: string) => `• ${insight}`).join('\n');
+          
+          responseContent = `Based on your campaign data, here are some insights:\n\n${insights}\n\n`;
+          
+          // Include metadata for rendering in enhanced UI components
+          messageData = {
+            role: "assistant" as const,
+            content: responseContent,
+            conversationId,
+            metadata: {
+              model: 'gpt-4o',
+              timestamp: new Date().toISOString(),
+              processed: true,
+              isDataQuery: true,
+              fromSummary: true,
+              summaryData: summaryData,
+              sqlQuery: sqlResult.sql,
+            }
+          };
+          
+          await storage.createChatMessage(messageData);
+          
+          // Send the response with metadata for UI rendering
+          res.write(`data: ${JSON.stringify({ 
+            content: responseContent,
+            metadata: {
+              fromSummary: true,
+              data: summaryData
+            }
+          })}\n\n`);
+          
+          // End the stream
+          res.write('data: [DONE]\n\n');
+          res.end();
+          return;
+        }
+      } else if (sqlResult.fromCache) {
+        // Using cached data
+        console.log("Using cached query results");
+      }
       
-      // Process data to fix formatting issues
-      if (sqlResult.data.length > 0) {
+      // Process regular SQL result data
+      if (Array.isArray(sqlResult.data) && sqlResult.data.length > 0) {
+        console.log("SQL result data:", JSON.stringify(sqlResult.data, null, 2));
+        
         // Round floating point values to 1 decimal place for better presentation
         sqlResult.data = sqlResult.data.map(row => {
           const processedRow = {...row};
@@ -115,6 +170,7 @@ async function handleDataQuery(
                      3. Use the exact campaign IDs and numeric values from the data - never round numbers.
                      4. If values appear unusual (e.g., very high or low), note this but do not change them.
                      5. Do not invent explanations for patterns unless clearly evident in the data.
+                     6. CTR values should be shown with % symbol and exactly one decimal place.
                      
                      Formatting guidelines:
                      1. Present the data in a clear, easy-to-understand format
@@ -142,27 +198,36 @@ async function handleDataQuery(
         "I've analyzed your campaign data but am having trouble formatting the results. Please try asking in a different way.";
     }
     
-    // Send the formatted response to the client
-    res.write(`data: ${JSON.stringify({ content: responseContent })}\n\n`);
+    // Prepare message metadata with information about data source
+    if (!messageData) {
+      messageData = {
+        role: "assistant" as const,
+        content: responseContent,
+        conversationId,
+        metadata: {
+          model: 'gpt-4o',
+          timestamp: new Date().toISOString(),
+          processed: true,
+          isDataQuery: true,
+          // Store SQL info for debugging but not visible to user
+          sqlQuery: sqlResult.sql,
+          rowCount: Array.isArray(sqlResult.data) ? sqlResult.data.length : 0,
+          fromCache: sqlResult.fromCache
+        }
+      };
+    }
     
-    // Save the response to the database with metadata indicating it was from SQL Builder
-    const messageData = {
-      role: "assistant" as const,
-      content: responseContent,
-      conversationId,
-      metadata: {
-        model: 'gpt-4o',
-        timestamp: new Date().toISOString(),
-        processed: true,
-        isDataQuery: true,
-        // Store SQL info for debugging but not visible to user
-        sqlQuery: sqlResult.sql,
-        rowCount: sqlResult.data?.length || 0
-      }
-    };
-    
+    // Save the response to the database
     await storage.createChatMessage(messageData);
     console.log('Data query response saved successfully');
+    
+    // Send the formatted response to the client
+    res.write(`data: ${JSON.stringify({ 
+      content: responseContent, 
+      metadata: {
+        fromCache: sqlResult.fromCache
+      }
+    })}\n\n`);
     
     // End the stream
     res.write('data: [DONE]\n\n');
