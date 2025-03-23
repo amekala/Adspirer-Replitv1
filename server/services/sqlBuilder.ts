@@ -302,14 +302,35 @@ async function generateSQL(
     content: query
   });
   
-  const response = await openai.chat.completions.create({
+  // Create the original parameters for generating SQL
+  const sqlParams = {
     model: "gpt-4o",
     messages,
     temperature: 0.1, // Lower temperature for more deterministic SQL generation
     max_tokens: 500,
-  });
+  };
+
+  // Convert to Responses API format
+  const responsesParams: any = {
+    model: sqlParams.model,
+    input: sqlParams.messages,
+    temperature: sqlParams.temperature,
+    max_tokens: sqlParams.max_tokens
+  };
   
-  const generatedSql = response.choices[0]?.message?.content?.trim() || '';
+  // Extract system message if present and handle it specially for Responses API
+  const systemMessage = sqlParams.messages.find((msg: any) => msg.role === 'system');
+  if (systemMessage) {
+    responsesParams.system = systemMessage.content;
+    // Remove system message from input array
+    responsesParams.input = responsesParams.input.filter((msg: any) => msg.role !== 'system');
+  }
+  
+  // Use Responses API
+  const response = await openai.responses.create(responsesParams);
+  
+  // Extract SQL from the response
+  const generatedSql = response.output_text?.trim() || '';
   return generatedSql;
 }
 

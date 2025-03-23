@@ -429,15 +429,24 @@ When interacting with users:
     
     // For welcome messages we can use non-streaming for simplicity
     if (!isStreaming) {
-      // Non-streaming completion for welcome messages
-      const completion = await openaiClient.chat.completions.create({
+      // Non-streaming completion for welcome messages using Responses API
+      
+      // Create parameters for welcome message
+      const welcomeParams = {
         model: 'gpt-4o',
         messages,
         temperature: 0.7,
         max_tokens: 500, // Welcome messages can be shorter
-      });
+      };
       
-      const fullAssistantMessage = completion.choices[0]?.message?.content || '';
+      // Convert parameters to Responses API format
+      const responsesParams = convertToResponsesFormat(welcomeParams);
+      
+      // Use the Responses API
+      const completion = await openaiClient.responses.create(responsesParams);
+      
+      // Extract text from response
+      const fullAssistantMessage = completion.output_text || '';
       
       // Create metadata for the message
       const messageData = {
@@ -473,7 +482,9 @@ When interacting with users:
     if (isStreaming) {
       // First, ask the main LLM if this should be handled as a data query
       const openaiClient = getOpenAIClient();
-      const routingDecision = await openaiClient.chat.completions.create({
+      
+      // Create parameters for routing decision
+      const routingParams = {
         model: "gpt-4o",
         messages: [
           {
@@ -500,9 +511,16 @@ When interacting with users:
         ],
         temperature: 0.1,
         max_tokens: 10,
-      });
+      };
       
-      const decision = routingDecision.choices[0]?.message?.content?.trim().toUpperCase() || 'GENERAL';
+      // Convert parameters to Responses API format
+      const responsesParams = convertToResponsesFormat(routingParams);
+      
+      // Use Responses API for routing decision
+      const routingDecision = await openaiClient.responses.create(responsesParams);
+      
+      // Extract the decision from the response
+      const decision = routingDecision.output_text?.trim().toUpperCase() || 'GENERAL';
       console.log(`Routing decision for query: "${lastUserMessage}" → ${decision}`);
       
       if (decision === 'DATABASE') {
@@ -518,13 +536,22 @@ When interacting with users:
     // Log messages for regular chat completion
     console.log('Messages being sent to OpenAI:', JSON.stringify(messages, null, 2));
     
-    // Regular streaming mode for normal interactions
-    const stream = await openaiClient.chat.completions.create({
+    // Create parameters for streaming with the Responses API
+    const streamParams = {
       model: 'gpt-4o',
       messages,
       temperature: 0.7,
       max_tokens: 1000,
       stream: true,
+    };
+    
+    // Convert parameters to Responses API format
+    const responsesParams = convertToResponsesFormat(streamParams);
+    
+    // Use Responses API for streaming
+    const stream = await openaiClient.responses.create({
+      ...responsesParams,
+      stream: true
     });
     
     // Track the complete assistant message for saving to the database
@@ -533,14 +560,19 @@ When interacting with users:
     console.log('Stream created, sending chunks to client...');
     
     // Process stream chunks
-    for await (const chunk of stream) {
-      const content = chunk.choices[0]?.delta?.content || '';
+    for await (const event of stream) {
+      // Extract content from the event
+      // In the Responses API, text chunks come with output_text property
+      const content = event.output_text || '';
       
       if (content) {
-        fullAssistantMessage += content;
+        // Only save the content to our full message if it's new (delta) content
+        // If this is a full text replacement, get the difference and add that
+        const newContent = content.substring(fullAssistantMessage.length);
+        fullAssistantMessage = content;
         
         // Send each chunk to the client
-        res!.write(`data: ${JSON.stringify({ content })}\n\n`);
+        res!.write(`data: ${JSON.stringify({ content: newContent })}\n\n`);
       }
     }
     
