@@ -343,21 +343,21 @@ export function generateInsights(summaries: any[]): string[] {
       }
       
       // Find highest and lowest performing campaigns by clicks
-      const campaignsByClicks = [...campaigns].sort((a, b) => {
-        const aClicks = a.metrics.find(m => m.type === 'clicks')?.value || 0;
-        const bClicks = b.metrics.find(m => m.type === 'clicks')?.value || 0;
+      const campaignsByClicks = [...campaigns].sort((a: any, b: any) => {
+        const aClicks = a.metrics.find((m: any) => m.type === 'clicks')?.value || 0;
+        const bClicks = b.metrics.find((m: any) => m.type === 'clicks')?.value || 0;
         return Number(bClicks) - Number(aClicks);
       });
       
       if (campaignsByClicks.length > 0) {
         const topCampaign = campaignsByClicks[0];
-        const topCampaignClicks = topCampaign.metrics.find(m => m.type === 'clicks')?.value || 0;
+        const topCampaignClicks = topCampaign.metrics.find((m: any) => m.type === 'clicks')?.value || 0;
         
         insights.push(`Campaign ${topCampaign.id} has the highest number of clicks (${topCampaignClicks}).`);
         
         if (campaignsByClicks.length > 1) {
           const bottomCampaign = campaignsByClicks[campaignsByClicks.length - 1];
-          const bottomCampaignClicks = bottomCampaign.metrics.find(m => m.type === 'clicks')?.value || 0;
+          const bottomCampaignClicks = bottomCampaign.metrics.find((m: any) => m.type === 'clicks')?.value || 0;
           
           insights.push(`Campaign ${bottomCampaign.id} has the lowest number of clicks (${bottomCampaignClicks}).`);
         }
