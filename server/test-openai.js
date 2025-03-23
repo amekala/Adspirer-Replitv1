@@ -75,43 +75,34 @@ function convertToResponsesFormat(params) {
   return responsesParams;
 }
 
-// Test both APIs to verify functionality
+// Test the OpenAI Responses API
 async function testAPIs() {
   try {
-    console.log('--- Testing OpenAI API integration with both endpoints ---');
+    console.log('--- Testing OpenAI API integration with Responses API ---');
     const openaiClient = getOpenAIClient();
     
-    // Test messages
+    // Test messages - adapted for Responses API format
     const messages = [
-      { role: 'system', content: 'You are a helpful assistant for an advertising platform.' },
+      { role: 'developer', content: 'You are a helpful assistant for an advertising platform.' },
       { role: 'user', content: 'What are the most important metrics for Amazon advertising?' }
     ];
     
-    // Test ChatCompletion API (legacy)
-    console.log('\n=== Testing legacy ChatCompletion API ===');
+    // Test Responses API
+    console.log('\n=== Testing Responses API ===');
     try {
-      const chatResponse = await openaiClient.chat.completions.create({
+      const responsesParams = {
         model: 'gpt-3.5-turbo',
-        messages,
+        input: messages,
         temperature: 0.7,
-        max_tokens: 100
-      });
-      console.log('ChatCompletion API response:');
-      console.log('Content:', chatResponse.choices[0].message.content);
-      console.log('Success ✅');
-    } catch (error) {
-      console.error('ChatCompletion API error:', error.message);
-    }
-    
-    // Test Responses API (new)
-    console.log('\n=== Testing new Responses API ===');
-    try {
-      const responsesParams = convertToResponsesFormat({
-        model: 'gpt-3.5-turbo',
-        messages,
-        temperature: 0.7,
-        max_tokens: 100
-      });
+        max_output_tokens: 100,
+        text: {
+          format: {
+            type: "text"
+          }
+        },
+        reasoning: {},
+        store: true
+      };
       
       const responsesResponse = await openaiClient.responses.create(responsesParams);
       console.log('Responses API response:');

@@ -15,6 +15,23 @@ import { ChatConversation, ChatMessage as DbChatMessage } from "@shared/schema";
 
 // Types for message roles in the OpenAI API
 export type MessageRole = "user" | "assistant" | "developer" | "system";
+
+// Define the proper types for streaming response objects
+export interface ResponseTextDeltaEvent {
+  type: 'text_delta';
+  output_text: string;
+}
+
+export interface ResponseFinishEvent {
+  type: 'finish';
+  output_text: string;
+  usage: {
+    output_tokens: number;
+    prompt_tokens: number;
+  };
+}
+
+export type ResponseStreamEvent = ResponseTextDeltaEvent | ResponseFinishEvent;
 export interface OpenAIMessage {
   role: MessageRole;
   content: string;
@@ -497,7 +514,13 @@ When interacting with users:
 
       // Handle the streaming response
       for await (const chunk of stream) {
-        if ('output_text' in chunk && chunk.output_text) {
+        // Ensure we only process known event types with output_text
+        if (
+          ('type' in chunk) && 
+          (chunk.type === 'text_delta' || chunk.type === 'finish') && 
+          ('output_text' in chunk) && 
+          typeof chunk.output_text === 'string'
+        ) {
           // Get just the new text added since last chunk
           const newText = chunk.output_text.slice(contentAccumulator.length);
           if (newText) {
