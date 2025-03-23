@@ -133,43 +133,73 @@ export async function initializePinecone() {
  */
 export async function querySimilarCampaigns(query: string, userId: string, options: any = {}) {
   try {
-    // Ensure Pinecone is initialized
-    if (!isInitialized) {
-      await initializePinecone();
-    }
-    
     // Generate embedding for the query
     log(`Generating embedding for query: "${query.substring(0, 50)}..."`, 'pinecone');
     const queryEmbedding = await generateEmbedding(query);
     
-    // Build filter based on user ID and type
-    const filter = {
-      userId: userId,
-      type: 'campaign',
-      ...(options.filter || {})
-    };
-    
-    // Query Pinecone
-    log('Querying Pinecone for similar campaigns', 'pinecone');
-    const results = await pineconeIndex.query({
-      vector: queryEmbedding,
-      topK: options.limit || DEFAULT_TOP_K,
-      includeMetadata: true,
-      filter: filter
-    });
-    
-    // Extract and format results
-    const matches = results.matches || [];
-    log(`Found ${matches.length} similar campaigns`, 'pinecone');
-    
-    return matches.map((match: any) => ({
-      campaignId: match.metadata.campaignId,
-      score: match.score || 0,
-      platformType: match.metadata.platformType,
-      metadata: match.metadata
-    }));
+    try {
+      // Try to use Pinecone first
+      if (!isInitialized) {
+        await initializePinecone();
+      }
+      
+      // Build filter based on user ID and type
+      const filter = {
+        userId: userId,
+        type: 'campaign',
+        ...(options.filter || {})
+      };
+      
+      // Query Pinecone
+      log('Querying Pinecone for similar campaigns', 'pinecone');
+      const results = await pineconeIndex.query({
+        vector: queryEmbedding,
+        topK: options.limit || DEFAULT_TOP_K,
+        includeMetadata: true,
+        filter: filter
+      });
+      
+      // Extract and format results
+      const matches = results.matches || [];
+      log(`Found ${matches.length} similar campaigns in Pinecone`, 'pinecone');
+      
+      return matches.map((match: any) => ({
+        campaignId: match.metadata.campaignId,
+        score: match.score || 0,
+        platformType: match.metadata.platformType,
+        metadata: match.metadata
+      }));
+    } catch (pineconeError) {
+      // If Pinecone fails, use PostgreSQL as fallback
+      log(`Pinecone query failed: ${pineconeError}. Using PostgreSQL fallback`, 'pinecone');
+      
+      // Import storage dynamically to avoid circular dependencies
+      const { storage } = await import('../storage');
+      
+      // Search similar embeddings in PostgreSQL
+      const similarEmbeddings = await storage.searchSimilarEmbeddings(
+        queryEmbedding,
+        'campaign',
+        options.limit || DEFAULT_TOP_K
+      );
+      
+      log(`Found ${similarEmbeddings.length} similar campaigns in PostgreSQL`, 'pinecone');
+      
+      // Convert PostgreSQL results to the expected format
+      return similarEmbeddings
+        .filter(item => item.similarity >= SIMILARITY_THRESHOLD)
+        .map(item => {
+          const metadata = item.embedding.metadata || {};
+          return {
+            campaignId: item.embedding.sourceId || '',
+            score: item.similarity,
+            platformType: metadata.platformType || 'unknown',
+            metadata: metadata
+          };
+        });
+    }
   } catch (error) {
-    log(`Error querying similar campaigns: ${error}`, 'pinecone');
+    log(`Error in querySimilarCampaigns: ${error}`, 'pinecone');
     return [];
   }
 }
@@ -186,33 +216,63 @@ export async function storeCampaignEmbedding(
   campaign: any,
   userId: string
 ): Promise<string> {
+  // Generate ID
+  const id = `camp_${nanoid()}`;
+  
+  // Build metadata
+  const metadata: CampaignMetadata = {
+    userId,
+    type: 'campaign',
+    campaignId: campaign.id || campaign.campaignId || '',
+    campaignName: campaign.name || campaign.campaignName || '',
+    platformType: campaign.platformType || campaign.platform || 'amazon',
+    text: campaign.description || `Campaign: ${campaign.name || campaign.campaignName}`,
+    createdAt: new Date().toISOString()
+  };
+  
+  // Create the text representation
+  const text = metadata.text;
+  
   try {
-    // Ensure Pinecone is initialized
-    if (!isInitialized) {
-      await initializePinecone();
+    // Try to store in Pinecone
+    try {
+      // Ensure Pinecone is initialized
+      if (!isInitialized) {
+        await initializePinecone();
+      }
+      
+      // Create record in Pinecone
+      log(`Storing campaign embedding in Pinecone: ${metadata.campaignName}`, 'pinecone');
+      await pineconeIndex.upsert([{
+        id,
+        values: vector,
+        metadata
+      }]);
+    } catch (pineconeError) {
+      log(`Pinecone storage failed: ${pineconeError}. Will use PostgreSQL only.`, 'pinecone');
     }
     
-    // Build metadata
-    const metadata: CampaignMetadata = {
-      userId,
-      type: 'campaign',
-      campaignId: campaign.id || campaign.campaignId || '',
-      campaignName: campaign.name || campaign.campaignName || '',
-      platformType: campaign.platformType || campaign.platform || 'amazon',
-      text: campaign.description || `Campaign: ${campaign.name || campaign.campaignName}`,
-      createdAt: new Date().toISOString()
-    };
-    
-    // Generate ID
-    const id = `camp_${nanoid()}`;
-    
-    // Create record
-    log(`Storing campaign embedding for: ${metadata.campaignName}`, 'pinecone');
-    await pineconeIndex.upsert([{
-      id,
-      values: vector,
-      metadata
-    }]);
+    // Also store in PostgreSQL for redundancy
+    try {
+      const { storage } = await import('../storage');
+      log(`Storing campaign embedding in PostgreSQL: ${metadata.campaignName}`, 'pinecone');
+      await storage.createEmbedding({
+        id,
+        type: 'campaign',
+        sourceId: metadata.campaignId,
+        metadata,
+        vector,
+        text,
+        createdAt: new Date(),
+        updatedAt: new Date()
+      });
+    } catch (postgresError) {
+      log(`PostgreSQL storage failed: ${postgresError}`, 'pinecone');
+      // If both storages fail, we should throw an error
+      if (!isInitialized) {
+        throw postgresError;
+      }
+    }
     
     return id;
   } catch (error) {
@@ -233,33 +293,71 @@ export async function storeChatMessageEmbedding(
   message: any,
   userId: string
 ): Promise<string> {
+  // Generate ID
+  const id = `msg_${nanoid()}`;
+  
+  // Build metadata
+  const metadata: ChatMessageMetadata = {
+    userId,
+    type: 'chat_message',
+    messageId: message.id || '',
+    conversationId: message.conversationId || '',
+    role: message.role as 'user' | 'assistant' | 'system',
+    text: message.content || '',
+    createdAt: new Date().toISOString()
+  };
+  
+  // Create the text representation
+  const text = metadata.text;
+  
   try {
-    // Ensure Pinecone is initialized
-    if (!isInitialized) {
-      await initializePinecone();
+    // Try to store in Pinecone
+    try {
+      // Ensure Pinecone is initialized
+      if (!isInitialized) {
+        await initializePinecone();
+      }
+      
+      // Create record in Pinecone
+      log(`Storing chat message embedding in Pinecone, role: ${metadata.role}`, 'pinecone');
+      await pineconeIndex.upsert([{
+        id,
+        values: vector,
+        metadata
+      }]);
+    } catch (pineconeError) {
+      log(`Pinecone storage failed: ${pineconeError}. Will use PostgreSQL only.`, 'pinecone');
     }
     
-    // Build metadata
-    const metadata: ChatMessageMetadata = {
-      userId,
-      type: 'chat_message',
-      messageId: message.id || '',
-      conversationId: message.conversationId || '',
-      role: message.role as 'user' | 'assistant' | 'system',
-      text: message.content || '',
-      createdAt: new Date().toISOString()
-    };
-    
-    // Generate ID
-    const id = `msg_${nanoid()}`;
-    
-    // Create record
-    log(`Storing chat message embedding, role: ${metadata.role}`, 'pinecone');
-    await pineconeIndex.upsert([{
-      id,
-      values: vector,
-      metadata
-    }]);
+    // Also store in PostgreSQL for redundancy
+    try {
+      const { storage } = await import('../storage');
+      log(`Storing chat message embedding in PostgreSQL, role: ${metadata.role}`, 'pinecone');
+      await storage.createEmbedding({
+        id,
+        type: 'chat_message',
+        sourceId: metadata.messageId,
+        metadata,
+        vector,
+        text,
+        createdAt: new Date(),
+        updatedAt: new Date()
+      });
+      
+      // Also create the chat-embedding relationship
+      await storage.createChatEmbedding({
+        embeddingId: id,
+        conversationId: metadata.conversationId,
+        messageId: metadata.messageId,
+        createdAt: new Date()
+      });
+    } catch (postgresError) {
+      log(`PostgreSQL storage failed: ${postgresError}`, 'pinecone');
+      // If both storages fail, we should throw an error
+      if (!isInitialized) {
+        throw postgresError;
+      }
+    }
     
     return id;
   } catch (error) {
