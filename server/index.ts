@@ -125,5 +125,40 @@
           console.error(`Initial health check failed: ${error}`);
         }
       }, 1000);
+      
+      // Run auto-indexing for campaign data after server starts
+      setTimeout(() => {
+        log("Triggering auto-indexing for campaign data...");
+        try {
+          const autoIndexReq = request({
+            host: 'localhost',
+            port: port,
+            path: '/api/rag/auto-index',
+            method: 'GET'
+          }, (res: IncomingMessage) => {
+            let data = '';
+            
+            res.on('data', (chunk) => {
+              data += chunk;
+            });
+            
+            res.on('end', () => {
+              if (res.statusCode === 200) {
+                log(`Auto-indexing process started successfully`);
+              } else {
+                log(`Auto-indexing request failed with status: ${res.statusCode}`);
+              }
+            });
+          });
+          
+          autoIndexReq.on('error', (e: Error) => {
+            log(`Auto-indexing request error: ${e.message}`);
+          });
+          
+          autoIndexReq.end();
+        } catch (error) {
+          log(`Failed to trigger auto-indexing: ${error instanceof Error ? error.message : String(error)}`);
+        }
+      }, 3000);
     });
   })();
