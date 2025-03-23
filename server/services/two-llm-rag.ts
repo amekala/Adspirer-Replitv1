@@ -326,6 +326,7 @@ export async function processTwoLlmRagQueryNonStreaming(
   options: { 
     includeDebugInfo?: boolean;
     conversationId?: string;
+    streamingId?: string;  // Add streamingId parameter to the interface
   } = {}
 ): Promise<RAGResponse> {
   const processingStart = Date.now();

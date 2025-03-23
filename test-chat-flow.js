@@ -132,17 +132,21 @@ async function main() {
   console.log(`Generated streaming ID: ${streamingId}`);
   
   try {
+    // Log the request data
+    const requestBody = {
+      conversationId: conversationId,
+      query: testMessage,
+      streamingId: streamingId
+    };
+    console.log('Sending RAG request with data:', JSON.stringify(requestBody, null, 2));
+    
     const ragResponse = await fetch('http://localhost:5000/api/rag/query-two-llm/sync', {
       method: 'POST',
       headers: { 
         'Content-Type': 'application/json',
         'Cookie': sessionCookie
       },
-      body: JSON.stringify({
-        conversationId: conversationId,
-        query: testMessage,
-        streamingId: streamingId
-      })
+      body: JSON.stringify(requestBody)
     });
     
     if (!ragResponse.ok) {

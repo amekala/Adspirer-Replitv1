@@ -1106,7 +1106,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
     
     const { id: userId } = req.user;
-    const { query, includeDebugInfo = false, conversationId } = req.body;
+    const { query, includeDebugInfo = false, conversationId, streamingId } = req.body;
     
     if (!query) {
       return res.status(400).json({ message: "Query is required" });
@@ -1121,7 +1121,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Process the query and return the response with optional debug info
       const result = await processTwoLlmRagQueryNonStreaming(query, userId, { 
         includeDebugInfo,
-        conversationId  // Pass the conversation ID to save the message to database
+        conversationId,  // Pass the conversation ID to save the message to database
+        streamingId      // Pass the streaming ID for message consistency
       });
       return res.json(result);
     } catch (error) {
