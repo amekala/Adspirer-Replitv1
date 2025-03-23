@@ -284,12 +284,25 @@ export async function processRagQueryNonStreaming(
     log(`Retrieving real campaign IDs to ensure we can find data`, 'rag-service');
     try {
       // Try to fetch some real campaign IDs from the database
-      const realIdsResult = await pool.query(
-        `SELECT profile_id FROM advertiser_accounts WHERE user_id = $1 LIMIT 3 
-         UNION ALL 
-         SELECT customer_id FROM google_advertiser_accounts WHERE user_id = $1 LIMIT 3`,
+      // First query Amazon campaign IDs
+      const amazonResult = await pool.query(
+        `SELECT profile_id FROM advertiser_accounts WHERE user_id = $1 LIMIT 3`,
         [userId]
       );
+      
+      // Then query Google campaign IDs separately
+      const googleResult = await pool.query(
+        `SELECT customer_id FROM google_advertiser_accounts WHERE user_id = $1 LIMIT 3`,
+        [userId]
+      );
+      
+      // Combine the results
+      const realIdsResult = {
+        rows: [
+          ...amazonResult.rows,
+          ...googleResult.rows
+        ]
+      };
         
         if (realIdsResult.rows.length > 0) {
           // Replace test IDs with real ones if available

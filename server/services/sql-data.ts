@@ -111,13 +111,13 @@ export async function fetchCampaignData(campaignIds: string[], userId: string): 
             SUM(gcm.cost) AS total_cost,
             AVG(gcm.conversions) AS avg_conversions,
             SUM(gcm.conversions) AS total_conversions,
-            AVG(gcm.value) AS avg_sales,
-            SUM(gcm.value) AS total_sales,
-            AVG(CASE WHEN gcm.cost > 0 THEN gcm.value / gcm.cost ELSE 0 END) AS avg_roas
+            0 AS avg_sales,
+            0 AS total_sales,
+            0 AS avg_roas
           FROM google_campaign_metrics gcm
-          WHERE gcm.customer_id = $1 
+          WHERE gcm.campaign_id = $1 
           AND gcm.user_id = $2
-          GROUP BY gcm.customer_id
+          GROUP BY gcm.campaign_id
         `;
         
         log(`Fetching metrics for Google campaign ${campaign.campaign_id}`, 'sql-data');
