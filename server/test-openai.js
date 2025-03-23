@@ -1,6 +1,6 @@
 // Simple test script for OpenAI API integration
 import { OpenAI } from 'openai';
-import * as dotenv from 'dotenv';
+import dotenv from 'dotenv';
 dotenv.config();
 
 // Initialize the OpenAI client with the API key

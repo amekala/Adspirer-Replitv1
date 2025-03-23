@@ -1,0 +1,11 @@
+{
+  "name": "openai-test",
+  "version": "1.0.0",
+  "description": "Test OpenAI API integration",
+  "main": "test-openai.js",
+  "type": "module",
+  "dependencies": {
+    "dotenv": "^16.3.1",
+    "openai": "^4.12.1"
+  }
+}
