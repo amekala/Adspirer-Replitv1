@@ -20,14 +20,6 @@ export interface ChatCompletionOptions {
 }
 
 /**
- * Get the configured OpenAI model from environment variables
- * Falls back to gpt-4o if not specified
- */
-function getConfiguredModel(): string {
-  return 'gpt-4o'; // Always use gpt-4o as requested by the user
-}
-
-/**
  * Initialize the OpenAI client with the API key
  */
 function getOpenAIClient(): OpenAI {
@@ -101,87 +93,8 @@ async function handleDataQuery(
       }
     }
     
-    // Check if this is a mathematical computation or code interpreter request rather than a database query
-    const isComplexMathComputationPattern = /(calculate|compute|what is|determine|evaluate|find the).*(average|mean|median|percentage|ratio|standard deviation|variance)/i;
-    const isSimpleMathPattern = /what is [0-9]+\s*[\+\-\*\/]\s*[0-9]+/i;
-    const isCodePattern = /(write|create|generate).*(code|script|program|function)/i;
-    
-    // If the query appears to be a request for calculations or code
-    if (isComplexMathComputationPattern.test(query) || isSimpleMathPattern.test(query) || isCodePattern.test(query)) {
-      console.log('Handling mathematical calculation or code generation with code interpreter');
-      
-      // Use OpenAI function calling for code interpreter
-      const openai = getOpenAIClient();
-      const modelName = getConfiguredModel();
-      const codeInterpreterParams: any = {
-        model: modelName,
-        messages: [
-          {
-            role: "system",
-            content: `You are an AI assistant with code interpreter capabilities for Adspirer, 
-                    a platform that helps manage retail media advertising campaigns. 
-                    When given mathematical questions or code requests, write and execute Python code.
-                    
-                    When calculating marketing metrics:
-                    - CTR (Click-Through Rate) = (Clicks / Impressions) * 100 (expressed as a percentage with % symbol)
-                    - CPC (Cost Per Click) = Cost / Clicks (expressed as a currency amount)
-                    - ROAS (Return On Ad Spend) = Revenue / Cost (expressed as a direct ratio with 'x' suffix, e.g., '3.5x')
-                    - Conversion Rate = (Conversions / Clicks) * 100 (expressed as a percentage with % symbol)
-                    
-                    Always show your work using Python code, followed by a clear explanation of the results.`
-          },
-          {
-            role: "user",
-            content: `${query}`
-          }
-        ]
-      };
-      
-      // Add model-specific parameters
-      if (modelName.includes('o3')) {
-        // o3 models don't support temperature
-        codeInterpreterParams.max_completion_tokens = 1000;
-      } else {
-        // Recommended higher temperature (0.5-0.7) for code generation
-        codeInterpreterParams.temperature = 0.7;
-        codeInterpreterParams.max_tokens = 1000;
-      }
-      
-      const response = await openai.chat.completions.create(codeInterpreterParams);
-      
-      const responseContent = response.choices[0]?.message?.content || "I couldn't process your calculation request.";
-      
-      // Extract code blocks from the response
-      const codeBlocks = responseContent.match(/```python([\s\S]*?)```/g);
-      const pythonCode = codeBlocks ? codeBlocks.map(block => block.replace(/```python|```/g, '').trim()).join("\n\n") : '';
-      
-      // Save this as a message with metadata
-      const messageData = {
-        role: "assistant" as const,
-        content: responseContent,
-        conversationId,
-        metadata: {
-          model: getConfiguredModel(),
-          timestamp: new Date().toISOString(),
-          processed: true,
-          isCodeInterpreter: true,
-          pythonCode: pythonCode
-        }
-      };
-      
-      // Save to database
-      await storage.createChatMessage(messageData);
-      
-      // Send the response to the client
-      res.write(`data: ${JSON.stringify({ content: responseContent })}\n\n`);
-      res.write('data: [DONE]\n\n');
-      res.end();
-      
-      return; // Exit the function early since we've handled the response
-    }
-    
-    // If it's not a code/math request, process the query with SQL Builder
-    // The SQL Builder checks cache & summaries before executing SQL
+    // Process the query with SQL Builder, passing conversation context if available
+    // The SQL Builder now checks cache & summaries before executing SQL
     const sqlResult = await processSQLQuery(userId, query, conversationContext);
     
     let responseContent = '';
@@ -212,7 +125,7 @@ async function handleDataQuery(
             content: responseContent,
             conversationId,
             metadata: {
-              model: getConfiguredModel(),
+              model: 'gpt-4o',
               timestamp: new Date().toISOString(),
               processed: true,
               isDataQuery: true,
@@ -301,9 +214,8 @@ async function handleDataQuery(
       // Use OpenAI to format the data, with stronger instructions against hallucination
       const openaiClient = getOpenAIClient();
       
-      const modelName = getConfiguredModel();
-      const formatParams: any = {
-        model: modelName,
+      const formatResponse = await openaiClient.chat.completions.create({
+        model: "gpt-4o",
         messages: [
           {
             role: "system",
@@ -343,16 +255,7 @@ async function handleDataQuery(
           }
         ],
         temperature: 0.3, // Lower temperature for more factual responses
-      };
-      
-      // Use correct parameter based on model
-      if (modelName.includes('o3')) {
-        formatParams.max_completion_tokens = 1000;
-      } else {
-        formatParams.max_tokens = 1000;
-      }
-      
-      const formatResponse = await openaiClient.chat.completions.create(formatParams);
+      });
       
       responseContent = formatResponse.choices[0]?.message?.content || 
         "I've analyzed your campaign data but am having trouble formatting the results. Please try asking in a different way.";
@@ -365,7 +268,7 @@ async function handleDataQuery(
         content: responseContent,
         conversationId,
         metadata: {
-          model: getConfiguredModel(),
+          model: 'gpt-4o',
           timestamp: new Date().toISOString(),
           processed: true,
           isDataQuery: true,
@@ -461,29 +364,18 @@ When interacting with users:
       res!.setHeader('Connection', 'keep-alive');
     }
     
-    console.log(`Creating chat completion with OpenAI ${getConfiguredModel()}...`);
+    console.log('Creating chat completion with OpenAI GPT-4o...');
     console.log(`Mode: ${isStreaming ? 'Streaming' : 'Non-streaming welcome message'}`);
     
     // For welcome messages we can use non-streaming for simplicity
     if (!isStreaming) {
       // Non-streaming completion for welcome messages
-      const modelName = getConfiguredModel();
-      const completionParams: any = {
-        model: modelName,
-        messages
-      };
-      
-      // Add model-specific parameters
-      if (modelName.includes('o3')) {
-        // o3 models don't support temperature
-        completionParams.max_completion_tokens = 500; // Welcome messages can be shorter
-      } else {
-        // Other models like gpt-4o
-        completionParams.temperature = 0.7;
-        completionParams.max_tokens = 500; // Welcome messages can be shorter
-      }
-      
-      const completion = await openaiClient.chat.completions.create(completionParams);
+      const completion = await openaiClient.chat.completions.create({
+        model: 'gpt-4o',
+        messages,
+        temperature: 0.7,
+        max_tokens: 500, // Welcome messages can be shorter
+      });
       
       const fullAssistantMessage = completion.choices[0]?.message?.content || '';
       
@@ -493,7 +385,7 @@ When interacting with users:
         content: fullAssistantMessage,
         conversationId,
         metadata: {
-          model: getConfiguredModel(),
+          model: 'gpt-4o',
           timestamp: new Date().toISOString(),
           processed: true,
           isWelcomeMessage: true
@@ -521,9 +413,8 @@ When interacting with users:
     if (isStreaming) {
       // First, ask the main LLM if this should be handled as a data query
       const openaiClient = getOpenAIClient();
-      const modelName = getConfiguredModel();
-      const routingParams: any = {
-        model: modelName,
+      const routingDecision = await openaiClient.chat.completions.create({
+        model: "gpt-4o",
         messages: [
           {
             role: "system",
@@ -546,20 +437,10 @@ When interacting with users:
             role: "user",
             content: `Here is the conversation so far:\n${conversationContext}\n\nBased on this context and the latest message, should I route to the database or handle it as a general knowledge query? Reply with only "DATABASE" or "GENERAL".`
           }
-        ]
-      };
-      
-      // Add model-specific parameters
-      if (modelName.includes('o3')) {
-        // o3 models don't support temperature
-        routingParams.max_completion_tokens = 10;
-      } else {
-        // Other models like gpt-4o
-        routingParams.temperature = 0.1;
-        routingParams.max_tokens = 10;
-      }
-      
-      const routingDecision = await openaiClient.chat.completions.create(routingParams);
+        ],
+        temperature: 0.1,
+        max_tokens: 10,
+      });
       
       const decision = routingDecision.choices[0]?.message?.content?.trim().toUpperCase() || 'GENERAL';
       console.log(`Routing decision for query: "${lastUserMessage}" → ${decision}`);
@@ -578,58 +459,29 @@ When interacting with users:
     console.log('Messages being sent to OpenAI:', JSON.stringify(messages, null, 2));
     
     // Regular streaming mode for normal interactions
-    const modelName = getConfiguredModel();
-    const streamParams: any = {
-      model: modelName,
+    const stream = await openaiClient.chat.completions.create({
+      model: 'gpt-4o',
       messages,
-      stream: true
-    };
-    
-    // Add model-specific parameters
-    if (modelName.includes('o3')) {
-      // o3 models don't support temperature
-      streamParams.max_completion_tokens = 1000;
-    } else {
-      // Other models like gpt-4o
-      streamParams.temperature = 0.7;
-      streamParams.max_tokens = 1000;
-    }
-    
-    const stream = await openaiClient.chat.completions.create(streamParams);
+      temperature: 0.7,
+      max_tokens: 1000,
+      stream: true,
+    });
     
     // Track the complete assistant message for saving to the database
     let fullAssistantMessage = '';
     
     console.log('Stream created, sending chunks to client...');
     
-    // Process the response (either streaming or non-streaming)
-    try {
-      // First check if it's a non-streaming response
-      const nonStreamResponse = stream as any;
-      if (nonStreamResponse && nonStreamResponse.choices && Array.isArray(nonStreamResponse.choices)) {
-        // Handle as a single non-streaming response
-        const message = nonStreamResponse.choices[0]?.message?.content;
-        if (message) {
-          fullAssistantMessage = message;
-          res!.write(`data: ${JSON.stringify({ content: message })}\n\n`);
-        }
-      } else {
-        // Handle as a streaming response
-        const streamResponse = stream as AsyncIterable<any>;
-        for await (const chunk of streamResponse) {
-          const content = chunk.choices[0]?.delta?.content || '';
-          
-          if (content) {
-            fullAssistantMessage += content;
-            
-            // Send each chunk to the client
-            res!.write(`data: ${JSON.stringify({ content })}\n\n`);
-          }
-        }
+    // Process stream chunks
+    for await (const chunk of stream) {
+      const content = chunk.choices[0]?.delta?.content || '';
+      
+      if (content) {
+        fullAssistantMessage += content;
+        
+        // Send each chunk to the client
+        res!.write(`data: ${JSON.stringify({ content })}\n\n`);
       }
-    } catch (streamError) {
-      console.error('Error processing stream response:', streamError);
-      res!.write(`data: ${JSON.stringify({ content: 'Error processing response' })}\n\n`);
     }
     
     console.log('Stream completed, saving response to database...');
@@ -642,7 +494,7 @@ When interacting with users:
         content: fullAssistantMessage,
         conversationId,
         metadata: {
-          model: getConfiguredModel(),
+          model: 'gpt-4o',
           timestamp: new Date().toISOString(),
           processed: true
         }

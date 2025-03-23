@@ -17,14 +17,6 @@ import { sql } from 'drizzle-orm';
 import { QueryResult } from 'pg';
 import * as QueryCache from './queryCache';
 
-/**
- * Get the configured OpenAI model from environment variables
- * Falls back to gpt-4o if not specified
- */
-function getConfiguredModel(): string {
-  return process.env.OPENAI_MODEL || 'gpt-4o';
-}
-
 // Initialize OpenAI client
 function getOpenAIClient(): OpenAI {
   const apiKey = process.env.OPENAI_API_KEY;
@@ -311,7 +303,7 @@ async function generateSQL(
   });
   
   const response = await openai.chat.completions.create({
-    model: getConfiguredModel(),
+    model: "gpt-4o",
     messages,
     temperature: 0.1, // Lower temperature for more deterministic SQL generation
     max_tokens: 500,
