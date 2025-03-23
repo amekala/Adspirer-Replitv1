@@ -7,17 +7,32 @@
  * database queries for campaign data.
  */
 
-import { OpenAI } from "openai";
+import OpenAI from "openai";
 import { Response } from "express";
 import { storage } from "../storage";
-import { processSQLQuery, isDataQuery } from "./sqlBuilder";
-import type { Stream } from "openai/streaming";
+import * as SQLBuilder from "./sqlBuilder";
+import { ChatConversation, ChatMessage as DbChatMessage } from "@shared/schema";
 
-// Define interfaces for strongly typed parameters
+// Types for message roles in the OpenAI API
+export type MessageRole = "user" | "assistant" | "developer";
+export interface OpenAIMessage {
+  role: MessageRole;
+  content: string;
+}
+
+// Options for chat completion
 export interface ChatCompletionOptions {
   conversationId: string;
   userId: string;
   systemPrompt?: string;
+}
+
+// Interface for database message data
+interface MessageData {
+  conversationId: string;
+  role: "user" | "assistant" | "system";
+  content: string;
+  metadata?: Record<string, any>;
 }
 
 /**
@@ -25,126 +40,13 @@ export interface ChatCompletionOptions {
  */
 function getOpenAIClient(): OpenAI {
   const apiKey = process.env.OPENAI_API_KEY;
-
   if (!apiKey) {
-    throw new Error(
-      "OpenAI API key is missing. Please set the OPENAI_API_KEY environment variable.",
-    );
-  }
-
-  return new OpenAI({ apiKey });
-}
-
-/**
- * Convert chat completion parameters to responses API format
- * This helper function maintains backward compatibility while migrating to the new API
- *
- * @param params - The original chat completions parameters
- * @returns Parameters formatted for the responses API
- */
-function convertToResponsesFormat(params: any): any {
-  // Start with a new params object for the Responses API
-  const responsesParams: any = {
-    model: params.model,
-  };
-
-  // Handle streaming (only set if true to avoid sending false)
-  if (params.stream) {
-    responsesParams.stream = true;
-  }
-
-  // Convert messages array to input format
-  if (params.messages && Array.isArray(params.messages)) {
-    // For cases with messages array
-    if (params.messages.length > 0) {
-      // In the new Responses API format, messages should be in the input array
-      responsesParams.input = params.messages;
-      
-      // Add text format configuration
-      responsesParams.text = {
-        format: {
-          type: "text"
-        }
-      };
-      
-      // Add reasoning field (used by the model for step-by-step thinking)
-      responsesParams.reasoning = {};
-    }
-  } else if (params.input) {
-    // If input is already provided (single string or structured format)
-    responsesParams.input = params.input;
-    
-    // Ensure text format is set
-    if (!params.text) {
-      responsesParams.text = {
-        format: {
-          type: "text"
-        }
-      };
-    } else {
-      responsesParams.text = params.text;
-    }
-    
-    // Add reasoning if not already included
-    if (!params.reasoning) {
-      responsesParams.reasoning = {};
-    } else {
-      responsesParams.reasoning = params.reasoning;
-    }
-  }
-
-  // Handle optional parameters (only set if defined)
-  if (params.temperature !== undefined) {
-    responsesParams.temperature = params.temperature;
-  }
-
-  // Convert max_tokens to max_output_tokens for Responses API compatibility
-  if (params.max_tokens !== undefined) {
-    responsesParams.max_output_tokens = params.max_tokens;
+    throw new Error("OpenAI API key not found");
   }
   
-  // Set max_output_tokens directly if it exists in the original params
-  if (params.max_output_tokens !== undefined) {
-    responsesParams.max_output_tokens = params.max_output_tokens;
-  }
-
-  if (params.tools) {
-    responsesParams.tools = params.tools;
-  }
-
-  if (params.tool_choice) {
-    responsesParams.tool_choice = params.tool_choice;
-  }
-
-  if (params.response_format) {
-    responsesParams.response_format = params.response_format;
-  }
-  
-  // Set store parameter for response storage if needed
-  if (params.store !== undefined) {
-    responsesParams.store = params.store;
-  } else {
-    // Default to true as per OpenAI's recommendation
-    responsesParams.store = true;
-  }
-
-  if (params.frequency_penalty !== undefined) {
-    responsesParams.frequency_penalty = params.frequency_penalty;
-  }
-
-  if (params.presence_penalty !== undefined) {
-    responsesParams.presence_penalty = params.presence_penalty;
-  }
-
-  if (params.top_p !== undefined) {
-    responsesParams.top_p = params.top_p;
-  }
-
-  if (params.seed !== undefined) {
-    responsesParams.seed = params.seed;
-  }
-
-  return responsesParams;
+  return new OpenAI({
+    apiKey
+  });
 }
 
 /**
@@ -153,11 +55,6 @@ function convertToResponsesFormat(params: any): any {
  *
  * This function maintains a complete separation of concerns - the user never sees
  * the SQL or knows that a second LLM is involved.
- *
- * Major enhancements:
- * 1. Uses query cache to avoid redundant processing
- * 2. Leverages pre-computed summaries for common metrics
- * 3. Better data visualization formatting
  *
  * @param conversationId - The ID of the conversation
  * @param userId - The user ID making the query
@@ -215,11 +112,11 @@ async function handleDataQuery(
     }
 
     // Process the query with SQL Builder, passing conversation context if available
-    // The SQL Builder now checks cache & summaries before executing SQL
-    const sqlResult = await processSQLQuery(userId, query, conversationContext);
+    // The SQL Builder checks cache & summaries before executing SQL
+    const sqlResult = await SQLBuilder.processSQLQuery(userId, query, conversationContext);
 
     let responseContent = "";
-    let messageData: any;
+    let messageData: MessageData;
 
     if (sqlResult.error) {
       // If there was an error processing the SQL query
@@ -228,140 +125,41 @@ async function handleDataQuery(
       !sqlResult.data ||
       (Array.isArray(sqlResult.data) && sqlResult.data.length === 0)
     ) {
-      // No data found
-      responseContent =
-        "I searched our database but couldn't find any campaign data matching your request. This could be because you don't have any campaigns yet, or the specific data you're looking for isn't available.";
+      // If no data was found
+      responseContent = "I couldn't find any campaign data matching your query. Could you please try rephrasing or specifying a different time period?";
     } else {
-      // Special handling for pre-computed summary data (which has a different structure)
-      if (sqlResult.fromSummary) {
-        // Data from summaries is already pre-formatted
-        console.log("Using pre-computed summary data");
+      // If we have data, process it
 
-        // If the data has insights, include them in the response
-        const summaryData = sqlResult.data as any;
-        if (summaryData.insights && summaryData.insights.length > 0) {
-          const insights = summaryData.insights
-            .map((insight: string) => `• ${insight}`)
-            .join("\n");
-
-          responseContent = `Based on your campaign data, here are some insights:\n\n${insights}\n\n`;
-
-          // Include metadata for rendering in enhanced UI components
-          messageData = {
-            role: "assistant" as const,
-            content: responseContent,
-            conversationId,
-            metadata: {
-              model: "gpt-4o",
-              timestamp: new Date().toISOString(),
-              processed: true,
-              isDataQuery: true,
-              fromSummary: true,
-              summaryData: summaryData,
-              sqlQuery: sqlResult.sql,
-            },
-          };
-
-          await storage.createChatMessage(messageData);
-
-          // Send the response with metadata for UI rendering
-          res.write(
-            `data: ${JSON.stringify({
-              content: responseContent,
-              metadata: {
-                fromSummary: true,
-                data: summaryData,
-              },
-            })}\n\n`,
-          );
-
-          // End the stream
-          res.write("data: [DONE]\n\n");
-          res.end();
-          return;
-        }
-      } else if (sqlResult.fromCache) {
-        // Using cached data
-        console.log("Using cached query results");
-      }
-
-      // Process regular SQL result data
-      if (Array.isArray(sqlResult.data) && sqlResult.data.length > 0) {
-        console.log(
-          "SQL result data:",
-          JSON.stringify(sqlResult.data, null, 2),
-        );
-
-        // Round floating point values to 1 decimal place for better presentation
-        sqlResult.data = sqlResult.data.map((row) => {
-          const processedRow = { ...row };
-
-          // Format CTR to 1 decimal place if it exists
-          if (row.ctr !== undefined) {
-            processedRow.ctr = parseFloat(row.ctr).toFixed(1);
+      // Enhance data with revenue information if available
+      if (revenueInfo && sqlResult.data) {
+        // Assume sqlResult.data is an array of objects
+        const processedData = sqlResult.data.map((item: any) => {
+          // Only add revenue to items with campaignId that matches ones in context
+          if (
+            item.campaign_id &&
+            (!campaignIds.length || campaignIds.includes(item.campaign_id))
+          ) {
+            return {
+              ...item,
+              revenue: revenueInfo.value,
+              revenue_currency: revenueInfo.currency,
+            };
           }
-
-          // Format any other metrics that need rounding/formatting
-          if (row.conversion_rate !== undefined) {
-            processedRow.conversion_rate = parseFloat(
-              row.conversion_rate,
-            ).toFixed(1);
-          }
-
-          return processedRow;
+          return item;
         });
 
-        // Log the processed data
-        console.log(
-          "Processed SQL result data:",
-          JSON.stringify(sqlResult.data, null, 2),
-        );
-      }
-
-      // Process the data if we have revenue information from the context
-      if (revenueInfo && campaignIds.length > 0) {
-        console.log(
-          `Applying revenue ${revenueInfo.value} to campaigns: ${campaignIds.join(", ")}`,
-        );
-
-        // Find the campaign data in the SQL results that matches our campaign IDs
-        if (Array.isArray(sqlResult.data)) {
-          // Calculate ROAS for each campaign mentioned in the context
-          const processedData = sqlResult.data.map((row) => {
-            // Deep clone to avoid modifying the original
-            const newRow = { ...row };
-
-            // If this is a campaign mentioned in the context and we have cost data
-            const campaignId =
-              row.campaign_id?.toString() || row.id?.toString();
-            if (campaignId && campaignIds.includes(campaignId) && row.cost) {
-              // Calculate ROAS as revenue / cost
-              const cost = parseFloat(row.cost);
-              if (cost > 0) {
-                newRow.roas = (revenueInfo.value / cost).toFixed(2);
-                console.log(
-                  `Calculated ROAS for campaign ${campaignId}: ${newRow.roas}`,
-                );
-              }
-            }
-
-            return newRow;
-          });
-
-          // Replace the data with our processed version
-          sqlResult.data = processedData;
-        }
+        // Replace the data with our processed version
+        sqlResult.data = processedData;
       }
 
       // Use OpenAI to format the data, with stronger instructions against hallucination
       const openaiClient = getOpenAIClient();
 
-      // Create parameters for chat completions
-      const completionParams = {
+      const response = await openaiClient.responses.create({
         model: "gpt-4o",
-        messages: [
+        input: [
           {
-            role: "system",
+            role: "developer",
             content: `You are an advertising campaign analyst skilled at clearly presenting data insights.
                      Format the following campaign data results into a helpful, concise response.
                      
@@ -381,7 +179,7 @@ async function handleDataQuery(
                      3. Highlight any insights visible in the actual data
                      4. Do NOT mention SQL or databases - present as if you analyzed the data yourself
                      5. Keep the tone professional, helpful, and concise
-                     6. Make sure monetary values are formatted appropriately (with currency symbols)`,
+                     6. Make sure monetary values are formatted appropriately (with currency symbols)`
           },
           {
             role: "user",
@@ -394,82 +192,84 @@ async function handleDataQuery(
                      ${campaignIds.length > 0 ? `The conversation mentioned these campaign IDs: ${campaignIds.join(", ")}` : ""}
                      
                      Format this data into a helpful response using ONLY the actual values provided.
-                     If the data seems incomplete or suspicious, acknowledge this in your response.`,
-          },
+                     If the data seems incomplete or suspicious, acknowledge this in your response.`
+          }
         ],
+        max_output_tokens: 1000,
         temperature: 0.3, // Lower temperature for more factual responses
-      };
-
-      // Convert the parameters to the Responses API format
-      const responsesParams = convertToResponsesFormat(completionParams);
-
-      // Use the Responses API
-      const formatResponse =
-        await openaiClient.responses.create(responsesParams);
-
-      // Extract content from the responses API result
-      responseContent =
-        formatResponse.output_text ||
-        "I've analyzed your campaign data but am having trouble formatting the results. Please try asking in a different way.";
-    }
-
-    // Prepare message metadata with information about data source
-    if (!messageData) {
-      messageData = {
-        role: "assistant" as const,
-        content: responseContent,
-        conversationId,
-        metadata: {
-          model: "gpt-4o",
-          timestamp: new Date().toISOString(),
-          processed: true,
-          isDataQuery: true,
-          // Store SQL info for debugging but not visible to user
-          sqlQuery: sqlResult.sql,
-          rowCount: Array.isArray(sqlResult.data) ? sqlResult.data.length : 0,
-          fromCache: sqlResult.fromCache,
+        text: {
+          format: {
+            type: "text"
+          }
         },
-      };
+        reasoning: {},
+        store: true
+      });
+
+      // Extract the response content
+      responseContent = response.output_text || "";
+      
+      // If we got a response, create a system message showing what SQL was used (for debugging)
+      console.log(`SQL used: ${sqlResult.sql}`);
+      console.log(`Data found: ${sqlResult.data.length} records`);
     }
 
-    // Save the response to the database
-    await storage.createChatMessage(messageData);
-    console.log("Data query response saved successfully");
-
-    // Send the formatted response to the client
+    // Stream back the response content to the client
     res.write(
       `data: ${JSON.stringify({
         content: responseContent,
-        metadata: {
-          fromCache: sqlResult.fromCache,
-        },
       })}\n\n`,
     );
 
-    // End the stream
+    // Stream completion signal
     res.write("data: [DONE]\n\n");
-    res.end();
+
+    // Save the assistant's response to the database
+    messageData = {
+      conversationId,
+      role: "assistant" as const,
+      content: responseContent,
+      metadata: {
+        isDataQuery: true,
+        sqlUsed: sqlResult.sql,
+        recordCount: sqlResult.data ? sqlResult.data.length : 0,
+        fromCache: sqlResult.fromCache || false,
+        fromSummary: sqlResult.fromSummary || false,
+        revenueApplied: revenueInfo !== null,
+      },
+    };
+
+    const assistantMessage = await storage.createChatMessage(messageData);
+    console.log("AI response saved successfully with ID:", assistantMessage.id);
   } catch (error) {
     console.error("Error handling data query:", error);
 
     // Send error message to client
-    const errorMessage =
-      "I'm sorry, I encountered an issue while processing your data request. Please try again or ask in a different way.";
-    res.write(`data: ${JSON.stringify({ content: errorMessage })}\n\n`);
+    res.write(
+      `data: ${JSON.stringify({
+        content:
+          "I'm sorry, I encountered an error while processing your data query. Please try again or contact support if the issue persists.",
+      })}\n\n`,
+    );
 
-    // Save error message
-    await storage.createChatMessage({
-      role: "assistant" as const,
-      content: errorMessage,
-      conversationId,
-      metadata: {
-        error: true,
-        errorMessage: (error as Error).message,
-      },
-    });
-
-    // End the stream
+    // Stream completion signal
     res.write("data: [DONE]\n\n");
+
+    // Save error message to database
+    const messageData: MessageData = {
+      conversationId,
+      role: "assistant" as const,
+      content:
+        "I'm sorry, I encountered an error while processing your data query. Please try again or contact support if the issue persists.",
+      metadata: {
+        isDataQuery: true,
+        error: error instanceof Error ? error.message : String(error),
+      },
+    };
+
+    await storage.createChatMessage(messageData);
+  } finally {
+    // End the response
     res.end();
   }
 }
@@ -479,13 +279,13 @@ async function handleDataQuery(
  * @param conversationId - The ID of the conversation
  * @param res - The Express response object for streaming
  * @param messages - The messages to send to OpenAI
+ * @param systemPrompt - Optional system prompt to override default
  */
 export async function streamChatCompletion(
   conversationId: string,
-  userId: string,
   res: Response | null,
-  messages: any[],
-  systemPrompt = `You are an AI assistant for Adspirer, a platform that helps manage retail media advertising campaigns. You have knowledge about Amazon Advertising and Google Ads APIs, campaign metrics, and advertising strategies.
+  messages: OpenAIMessage[],
+  systemPrompt: string = `You are an AI assistant for Adspirer, a platform that helps manage retail media advertising campaigns. You have knowledge about Amazon Advertising and Google Ads APIs, campaign metrics, and advertising strategies.
 
 When interacting with users:
 1. Always ask clarifying questions when the user's request is vague or could be interpreted in multiple ways
@@ -503,79 +303,15 @@ When interacting with users:
   const isStreaming = !!res;
 
   try {
-    // For the Responses API, we include system messages in the regular input messages array
-    // Check if there's already a system message
-    const hasSystemMessage = messages.some((msg) => msg.role === "system");
-
-    // If there's no system message, we add it to the beginning of the array
-    if (!hasSystemMessage) {
-      messages = [{ role: "system", content: systemPrompt }, ...messages];
+    // Find the user ID from the conversation
+    const conversation = await storage.getChatConversation(conversationId);
+    if (!conversation) {
+      throw new Error(`Conversation not found: ${conversationId}`);
     }
-    
-    // NOTE: The system message is now part of the messages array, which will be passed as "input"
-    // The Responses API doesn't accept a separate "system" parameter
+    const userId = conversation.userId;
 
-    // Initialize OpenAI client
-    const openaiClient = getOpenAIClient();
-
-    // Configure SSE headers for streaming
-    if (isStreaming) {
-      res!.setHeader("Content-Type", "text/event-stream");
-      res!.setHeader("Cache-Control", "no-cache");
-      res!.setHeader("Connection", "keep-alive");
-    }
-
-    console.log("Creating chat completion with OpenAI GPT-4o...");
-    console.log(
-      `Mode: ${isStreaming ? "Streaming" : "Non-streaming welcome message"}`,
-    );
-
-    // For welcome messages we can use non-streaming for simplicity
-    if (!isStreaming) {
-      // Non-streaming completion for welcome messages using Responses API
-
-      // Create parameters for welcome message
-      const welcomeParams = {
-        model: "gpt-4o",
-        messages,
-        temperature: 0.7,
-        max_output_tokens: 500, // Welcome messages can be shorter
-        text: {
-          format: {
-            type: "text"
-          }
-        },
-        reasoning: {},
-        store: true
-      };
-
-      // Convert parameters to Responses API format
-      const responsesParams = convertToResponsesFormat(welcomeParams);
-
-      // Use the Responses API
-      const completion = await openaiClient.responses.create(responsesParams);
-
-      // Extract text from response
-      const fullAssistantMessage = completion.output_text || "";
-
-      // Create metadata for the message
-      const messageData = {
-        role: "assistant" as const,
-        content: fullAssistantMessage,
-        conversationId,
-        metadata: {
-          model: "gpt-4o",
-          timestamp: new Date().toISOString(),
-          processed: true,
-          isWelcomeMessage: true,
-        },
-      };
-
-      // Save welcome message to database
-      await storage.createChatMessage(messageData);
-      console.log("Welcome message saved successfully");
-      return;
-    }
+    console.log("Generating chat completion for conversation:", conversationId);
+    console.log("Retrieved", messages.length, "messages for chat completion context");
 
     // ----- INTELLIGENT QUERY HANDLING -----
     // Get the most recent user message
@@ -587,7 +323,7 @@ When interacting with users:
 
     // Get conversation context (excluding system messages)
     const conversationContext = messages
-      .filter((msg) => msg.role !== "system")
+      .filter((msg) => msg.role !== "developer")
       .map((msg) => `${msg.role}: ${msg.content}`)
       .join("\n\n");
 
@@ -610,12 +346,12 @@ When interacting with users:
         // Proceed with LLM-based routing for more complex queries
         const openaiClient = getOpenAIClient();
 
-        // Create parameters for routing decision
-        const routingParams = {
+        // Use Responses API for routing decision
+        const routingResponse = await openaiClient.responses.create({
           model: "gpt-4o",
-          messages: [
+          input: [
             {
-              role: "system",
+              role: "developer",
               content: `You are a routing agent for an advertising platform assistant.
                        Your job is to determine if a user's message should be answered with:
                        1. Campaign data from the database (using SQL)
@@ -628,18 +364,25 @@ When interacting with users:
                        - "Show me my campaigns with the highest ROAS"
                        - "Which of my Google ads had the most impressions yesterday?"
                        
-                       If the user is asking general questions about advertising strategy, best practices,
-                       or how something works, do NOT route to the database.
+                       DO NOT route to the database for:
+                       - General questions about advertising concepts
+                       - How-to questions
+                       - Strategy advice
+                       - Simple greetings or casual conversation
+                       - Questions about industry benchmarks or trends
                        
-                       Simple greetings, acknowledgments, or very short messages should NEVER be routed to the database.`,
+                       Respond with just one word: either "DATA" or "GENERAL".`
             },
             {
               role: "user",
-              content: `Here is the conversation so far:\n${conversationContext}\n\nBased on this context and the latest message, should I route to the database or handle it as a general knowledge query? Reply with only "DATABASE" or "GENERAL".`,
-            },
+              content: `User message: "${lastUserMessage}"
+                       
+                       Previous conversation context (if any):
+                       ${conversationContext.length > 0 ? conversationContext : "No previous context"}`
+            }
           ],
-          temperature: 0.1,
-          max_output_tokens: 500,
+          max_output_tokens: 10, // Very short response needed
+          temperature: 0.0, // Zero temperature for deterministic response
           text: {
             format: {
               type: "text"
@@ -647,25 +390,14 @@ When interacting with users:
           },
           reasoning: {},
           store: true
-        };
+        });
 
-        // Convert parameters to Responses API format
-        const responsesParams = convertToResponsesFormat(routingParams);
+        // Get routing decision
+        const routingDecision = routingResponse.output_text?.trim().toUpperCase() || "";
+        console.log(`Routing decision for "${lastUserMessage}": ${routingDecision}`);
 
-        // Use Responses API for routing decision
-        const routingDecision =
-          await openaiClient.responses.create(responsesParams);
-
-        // Extract the decision from the response
-        const decision =
-          routingDecision.output_text?.trim().toUpperCase() || "GENERAL";
-        console.log(
-          `Routing decision for query: "${lastUserMessage}" → ${decision}`,
-        );
-
-        if (decision === "DATABASE") {
-          // If the main LLM thinks this is a data query, pass to SQL Builder with context
-          console.log(`Routing to SQL Builder with context`);
+        if (routingDecision === "DATA") {
+          // Handle as data query with SQL Builder
           await handleDataQuery(
             conversationId,
             userId,
@@ -673,121 +405,184 @@ When interacting with users:
             lastUserMessage,
             conversationContext,
           );
-          return;
+          return; // Exit early as response was handled in handleDataQuery
         }
-        // Otherwise fall through to regular completion
+        // If not a data query, continue with regular chat completion below
       }
     }
     // ----- END INTELLIGENT QUERY HANDLING -----
 
-    // Log messages for regular chat completion
-    console.log(
-      "Messages being sent to OpenAI:",
-      JSON.stringify(messages, null, 2),
-    );
+    // Initialize OpenAI client
+    const openaiClient = getOpenAIClient();
 
-    // Create parameters for streaming with the Responses API
-    const streamParams = {
-      model: "gpt-4o",
-      messages,
-      temperature: 0.7,
-      max_output_tokens: 1000,
-      stream: true,
-      text: {
-        format: {
-          type: "text"
-        }
-      },
-      reasoning: {},
-      store: true
-    };
-
-    // Convert parameters to Responses API format
-    const responsesParams = convertToResponsesFormat(streamParams);
-
-    // Use Responses API for streaming with explicit type casting to handle TypeScript
-    // Need to cast to 'any' to avoid TypeScript errors with streaming interface
-    // This is needed because the OpenAI SDK types don't fully align with TypeScript's
-    // expectations for AsyncIterable objects
-    const response = (await openaiClient.responses.create({
-      ...responsesParams,
-      stream: true,
-    })) as any;
-
-    // Track the complete assistant message for saving to the database
-    let fullAssistantMessage = "";
-
-    console.log("Stream created, sending chunks to client...");
-
-    try {
-      // Process stream chunks using for-await loop
-      for await (const chunk of response) {
-        // Ensure we handle the chunk as a Responses API chunk with type checking
-        if (chunk && "output_text" in chunk) {
-          // Extract content from the chunk
-          const content = chunk.output_text || "";
-
-          if (content) {
-            // Only save the content to our full message if it's new (delta) content
-            // If this is a full text replacement, get the difference and add that
-            const newContent = content.substring(fullAssistantMessage.length);
-            fullAssistantMessage = content;
-
-            // Send each chunk to the client
-            res!.write(`data: ${JSON.stringify({ content: newContent })}\n\n`);
-          }
-        }
-      }
-
-      console.log("Stream completed, saving response to database...");
-    } catch (streamError) {
-      console.error("Error processing stream:", streamError);
-      res!.write(
-        `data: ${JSON.stringify({ error: "Error processing stream" })}\n\n`,
-      );
-      res!.write("data: [ERROR]\n\n");
-      res!.end();
-      return;
+    // Configure SSE headers for streaming
+    if (isStreaming) {
+      res!.setHeader("Content-Type", "text/event-stream");
+      res!.setHeader("Cache-Control", "no-cache");
+      res!.setHeader("Connection", "keep-alive");
     }
 
-    // Save the complete response to the database
-    try {
-      // Create metadata for the message
-      const messageData = {
-        role: "assistant" as const,
-        content: fullAssistantMessage,
+    console.log("Creating chat completion with OpenAI GPT-4o...");
+    console.log(
+      `Mode: ${isStreaming ? "Streaming" : "Non-streaming welcome message"}`,
+    );
+
+    // Convert to the format expected by the Responses API
+    // System prompt goes into the developer role at the beginning of the array
+    const inputMessages = [
+      { role: "developer" as MessageRole, content: systemPrompt },
+      ...messages
+    ];
+
+    console.log("Messages being sent to OpenAI:", JSON.stringify(inputMessages, null, 2));
+
+    // For welcome messages we can use non-streaming for simplicity
+    if (!isStreaming) {
+      // Non-streaming completion for welcome messages
+      const welcomeResponse = await openaiClient.responses.create({
+        model: "gpt-4o",
+        input: inputMessages,
+        temperature: 0.7,
+        max_output_tokens: 500, // Welcome messages can be shorter
+        text: {
+          format: {
+            type: "text"
+          }
+        },
+        reasoning: {},
+        store: true
+      });
+
+      const welcomeMessage = welcomeResponse.output_text || "";
+
+      // Save welcome message to database
+      const messageData: MessageData = {
         conversationId,
+        role: "assistant" as const,
+        content: welcomeMessage,
         metadata: {
-          model: "gpt-4o",
-          timestamp: new Date().toISOString(),
-          processed: true,
+          isWelcomeMessage: true,
         },
       };
 
-      // Save to database
-      const savedMessage = await storage.createChatMessage(messageData);
-      console.log("AI response saved successfully with ID:", savedMessage.id);
+      // Save welcome message to database
+      await storage.createChatMessage(messageData);
+      console.log("Welcome message saved successfully");
+      return;
+    }
 
-      // End the stream
+    // For streaming responses
+    let contentAccumulator = "";
+
+    try {
+      // Use the stream API
+      const stream = await openaiClient.beta.chat.completions.stream({
+        model: "gpt-4o",
+        messages: inputMessages.map(msg => ({
+          role: msg.role === "developer" ? "system" : msg.role,
+          content: msg.content
+        })),
+        temperature: 0.7,
+        max_tokens: 1000,
+        stream: true
+      });
+
+      // Log the stream creation
+      console.log("Stream created, sending chunks to client...");
+
+      // Handle the streaming response
+      for await (const chunk of stream) {
+        // Get the delta content if available
+        if (chunk.choices[0]?.delta?.content) {
+          const chunkText = chunk.choices[0].delta.content;
+          contentAccumulator += chunkText;
+          
+          // Send chunk to client
+          res!.write(`data: ${JSON.stringify({ content: chunkText })}\n\n`);
+        }
+      }
+
+      // Send completion signal to client
       res!.write("data: [DONE]\n\n");
       res!.end();
-    } catch (err) {
-      console.error("Error saving assistant message:", err);
-      if (isStreaming) {
-        res!.write("data: [ERROR]\n\n");
-        res!.end();
-      }
+
+      // Log completion of stream
+      console.log("Stream completed, saving response to database...");
+
+      // Save the complete assistant response to database
+      const messageData: MessageData = {
+        conversationId,
+        role: "assistant" as const,
+        content: contentAccumulator,
+      };
+
+      const assistantMessage = await storage.createChatMessage(messageData);
+      console.log("AI response saved successfully with ID:", assistantMessage.id);
+    } catch (streamError) {
+      console.error("Error in streaming response:", streamError);
+      
+      // Try the non-streaming approach as a fallback
+      console.log("Falling back to non-streaming response");
+      const fallbackResponse = await openaiClient.responses.create({
+        model: "gpt-4o",
+        input: inputMessages,
+        temperature: 0.7,
+        max_output_tokens: 1000,
+        text: {
+          format: {
+            type: "text"
+          }
+        },
+        reasoning: {},
+        store: true
+      });
+
+      const responseContent = fallbackResponse.output_text || "I'm sorry, I couldn't generate a proper response.";
+      
+      // Send the full response to the client
+      res!.write(`data: ${JSON.stringify({ content: responseContent })}\n\n`);
+      res!.write("data: [DONE]\n\n");
+      res!.end();
+
+      // Save to database
+      const messageData: MessageData = {
+        conversationId,
+        role: "assistant" as const,
+        content: responseContent,
+        metadata: {
+          fallbackResponse: true
+        }
+      };
+
+      await storage.createChatMessage(messageData);
+      console.log("Fallback response saved successfully");
     }
   } catch (error) {
-    console.error("Error in OpenAI service:", error);
+    console.error("Error in streamChatCompletion:", error);
 
-    // Send error to client and end response if streaming
     if (isStreaming) {
+      // Send error message to client
       res!.write(
-        `data: ${JSON.stringify({ error: "An error occurred with the OpenAI service." })}\n\n`,
+        `data: ${JSON.stringify({
+          content:
+            "I'm sorry, I encountered an error while generating a response. Please try again or contact support if the issue persists.",
+        })}\n\n`,
       );
-      res!.write("data: [ERROR]\n\n");
+      res!.write("data: [DONE]\n\n");
       res!.end();
+
+      // Save error message to database
+      const messageData: MessageData = {
+        conversationId,
+        role: "assistant" as const,
+        content:
+          "I'm sorry, I encountered an error while generating a response. Please try again or contact support if the issue persists.",
+        metadata: {
+          error: error instanceof Error ? error.message : String(error),
+        },
+      };
+
+      await storage.createChatMessage(messageData);
     }
   }
 }
@@ -800,26 +595,24 @@ When interacting with users:
  */
 export async function getConversationHistory(
   conversationId: string,
-  maxTokens = 3000,
-): Promise<any[]> {
-  try {
-    // Get all messages for the conversation
-    const messages = await storage.getChatMessages(conversationId);
+  maxTokens?: number
+): Promise<OpenAIMessage[]> {
+  // Get messages for the conversation
+  const messages = await storage.getChatMessages(conversationId);
 
-    // Convert to OpenAI message format
-    return messages.map((msg) => ({
-      role: msg.role as "user" | "assistant" | "system",
-      content: msg.content,
-    }));
+  // Sort messages by createdAt to ensure proper order
+  messages.sort((a, b) => 
+    new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
+  );
 
-    // In a more advanced implementation, we could:
-    // - Count tokens and truncate older messages if needed
-    // - Implement windowing strategies for very long conversations
-    // - Add summarization for context
-  } catch (error) {
-    console.error("Error getting conversation history:", error);
-    throw error;
-  }
+  // Map database messages to OpenAI message format
+  // Note: 'system' role from database is mapped to 'developer' for Responses API
+  const formattedMessages: OpenAIMessage[] = messages.map((msg) => ({
+    role: msg.role === 'system' ? 'developer' as MessageRole : msg.role as MessageRole,
+    content: msg.content
+  }));
+
+  return formattedMessages;
 }
 
 /**
@@ -830,39 +623,12 @@ export async function getConversationHistory(
  */
 export async function generateWelcomeMessage(
   conversationId: string,
-  userId: string,
+  userId: string
 ): Promise<void> {
-  // System message with conversation starting instructions
-  const welcomeSystemPrompt = `You are an AI assistant for Adspirer, a platform that helps manage retail media advertising campaigns. This is a brand new conversation with a user.
-
-Start by:
-1. Introducing yourself briefly
-2. Explaining how you can help with advertising campaign management
-3. Ask specific questions about their advertising needs, such as:
-   - What platforms they're advertising on (Amazon, Google, etc.)
-   - What specific challenges they're facing with their campaigns
-   - Whether they're looking for performance analysis or strategy advice
-   - If they want to compare metrics across different campaigns
-
-Remember to:
-- Always ask clarifying questions when the user's request is vague
-- When providing metrics analysis, ask if they want to know why certain metrics are performing as they are
-- Calculate ROAS (Return on Ad Spend) as a direct ratio (e.g., "9.98x") rather than as a percentage
-- Apply revenue information to campaigns mentioned in the current context
-
-Your response should be friendly, concise (under 150 words), and encourage the user to provide specific details about what they need help with.`;
-
-  // Create an initial message array with only the system prompt
-  const messages = [{ role: "system", content: welcomeSystemPrompt }];
-
-  // Return a welcome message using the regular streaming function
-  return streamChatCompletion(
-    conversationId,
-    userId,
-    // We don't need the response object here as this function will be called by our routes
-    // and will handle the response directly
-    null as any, // This is a temp solution, we'll modify the route to handle this case
-    messages,
-    welcomeSystemPrompt,
-  );
+  // For welcome messages, we only send the system prompt
+  // No user messages are needed
+  const messages: OpenAIMessage[] = [];
+  
+  // Start the streaming process (with null for res because it's non-streaming)
+  await streamChatCompletion(conversationId, null, messages);
 }

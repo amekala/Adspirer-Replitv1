@@ -58,8 +58,7 @@ CREATE TABLE google_campaign_metrics (
   cost NUMERIC,
   conversions INTEGER,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
-`;
+);`;
 
 // Interface for SQL Builder results
 export interface SQLBuilderResult {
@@ -68,60 +67,6 @@ export interface SQLBuilderResult {
   error?: string;
   fromCache?: boolean;
   fromSummary?: boolean;
-  isGreeting?: boolean;
-}
-
-/**
- * Check if a message is a simple greeting
- * This function identifies common greeting patterns to avoid
- * processing them as data queries
- * 
- * @param message - The user's message
- * @returns boolean - Whether this is likely a simple greeting
- */
-export function isGreeting(message: string): boolean {
-  // Common greetings to check for
-  const greetings = [
-    'hi', 'hello', 'hey', 'howdy', 'hola', 'hai', 'yo',
-    'good morning', 'good afternoon', 'good evening', 'greetings'
-  ];
-  
-  // Normalize the message for better matching
-  const normalizedMessage = message.toLowerCase().trim();
-  
-  // Direct match for very short messages
-  if (normalizedMessage.length < 5) {
-    return true;
-  }
-  
-  // Check for exact greeting matches or greetings with simple additions
-  for (const greeting of greetings) {
-    if (normalizedMessage === greeting || 
-        normalizedMessage === greeting + '!' ||
-        normalizedMessage === greeting + '.' || 
-        normalizedMessage.startsWith(greeting + ' ') ||
-        normalizedMessage === greeting + ' there') {
-      return true;
-    }
-  }
-  
-  // Additional greeting patterns with simple variations
-  const greetingPatterns = [
-    /^hi\s+there.?$/i,
-    /^hello\s+there.?$/i,
-    /^hey\s+there.?$/i,
-    /^just\s+saying\s+(hi|hello|hey).?$/i,
-    /^good\s+(morning|afternoon|evening|day).?$/i,
-    /^(what\'s|whats)\s+up.?$/i
-  ];
-  
-  for (const pattern of greetingPatterns) {
-    if (pattern.test(normalizedMessage)) {
-      return true;
-    }
-  }
-  
-  return false;
 }
 
 /**
@@ -311,14 +256,10 @@ async function generateSQL(
 ): Promise<string> {
   const openai = getOpenAIClient();
   
-  // Properly type the messages array
-  type ChatRole = 'system' | 'user' | 'assistant';
-  type Message = { role: ChatRole; content: string };
-  
-  // Create properly typed messages array with optional context
-  const messages: Message[] = [
+  // Format the input for the Responses API
+  const input = [
     {
-      role: "system",
+      role: "developer",
       content: `You are an AI specialized in converting natural language questions about advertising campaign data into PostgreSQL SQL queries.
                
                You have access to the following database schema:
@@ -344,57 +285,31 @@ async function generateSQL(
   
   // Add conversation context if available
   if (conversationContext) {
-    messages.push({
-      role: "system",
+    input.push({
+      role: "developer",
       content: `Conversation context (for reference only):\n${conversationContext}`
     });
   }
   
   // Add the user's current query
-  messages.push({
+  input.push({
     role: "user",
     content: query
   });
   
-  // Create the original parameters for generating SQL
-  const sqlParams = {
+  // Use Chat API instead of Responses API
+  const response = await openai.chat.completions.create({
     model: "gpt-4o",
-    messages,
+    messages: input.map(msg => ({
+      role: msg.role === "developer" ? "system" : msg.role,
+      content: msg.content
+    })),
     temperature: 0.1, // Lower temperature for more deterministic SQL generation
-    max_output_tokens: 500,
-  };
-
-  // Format messages for the Responses API
-  // The Responses API expects either a string or an array of messages, with system prompts included in the messages
-  let formattedInput: any = sqlParams.messages;
-  
-  // If the input has a mix of user and system messages, make sure they're properly formatted
-  // unlike in chat completions API, system messages are just part of the input array
-  if (Array.isArray(formattedInput) && formattedInput.some((msg: any) => msg.role === 'system' || msg.role === 'user')) {
-    // Responses API accepts messages in this format already, no need to extract system message
-    formattedInput = sqlParams.messages;
-  }
-  
-  // Convert to Responses API format
-  const responsesParams: any = {
-    model: sqlParams.model,
-    input: formattedInput,
-    temperature: sqlParams.temperature,
-    max_output_tokens: sqlParams.max_output_tokens,
-    text: {
-      format: {
-        type: "text"
-      }
-    },
-    reasoning: {},
-    store: true
-  };
-  
-  // Use Responses API
-  const response = await openai.responses.create(responsesParams);
+    max_tokens: 500
+  });
   
   // Extract SQL from the response
-  const generatedSql = response.output_text?.trim() || '';
+  const generatedSql = response.choices[0]?.message?.content?.trim() || '';
   return generatedSql;
 }
 
