@@ -223,9 +223,13 @@ export async function streamChatCompletion(
     
     // ----- DATA QUERY DETECTION -----
     // Get the most recent user message to check if it's a data query
-    const userMessage = messages.find(msg => msg.role === 'user')?.content || '';
-    if (isDataQuery(userMessage) && isStreaming) {
-      await handleDataQuery(conversationId, userId, res!, userMessage);
+    // Make sure to get the LAST user message in the array, not just any user message
+    const userMessages = messages.filter(msg => msg.role === 'user');
+    const lastUserMessage = userMessages.length > 0 ? userMessages[userMessages.length - 1].content : '';
+    
+    if (isDataQuery(lastUserMessage) && isStreaming) {
+      console.log(`Detected data query in message: "${lastUserMessage}"`);
+      await handleDataQuery(conversationId, userId, res!, lastUserMessage);
       return;
     }
     // ----- END DATA QUERY DETECTION -----

@@ -1,0 +1,71 @@
+Retrieved 2 messages for chat completion context
+Creating chat completion with OpenAI GPT-4o...
+Mode: Streaming
+Handling data query: " tell me my avg RoAs for google campaigns ?
+"
+SQL Builder processing query from user 903243fa-a65e-4d38-8236-798559b81941: " tell me my avg RoAs for google campaigns ?
+"
+Generated SQL: SELECT AVG(conversions::NUMERIC / NULLIF(cost, 0)) AS avg_roas
+FROM google_campaign_metrics
+WHERE user_id = '903243fa-a65e-4d38-8236-798559b81941';
+Executing secure SQL: SELECT AVG(conversions::NUMERIC / NULLIF(cost, 0)) AS avg_roas
+FROM google_campaign_metrics
+WHERE user_id = '903243fa-a65e-4d38-8236-798559b81941';
+SQL query returned 1 results
+Data query response saved successfully
+6:33:16 PM [express] POST /api/chat/completions 200 in 2619ms
+6:33:17 PM [express] GET /api/chat/conversations/34fe843e-964e-40a6-a5c6-613920676ffb 200 in 225ms :…
+Creating user message with data: {
+  "conversationId": "34fe843e-964e-40a6-a5c6-613920676ffb",
+  "role": "user",
+  "content": "whats my best, avg and lowest CTRs for my google ad campaigns.."
+}
+User message saved with ID: f8d2d3d0-cbce-4625-afcb-e3686f6c4636
+6:33:58 PM [express] POST /api/chat/conversations/34fe843e-964e-40a6-a5c6-613920676ffb/messages 201 …
+6:33:58 PM [express] GET /api/chat/conversations/34fe843e-964e-40a6-a5c6-613920676ffb 200 in 225ms :…
+User authenticated: 903243fa-a65e-4d38-8236-798559b81941
+Generating chat completion for conversation: 34fe843e-964e-40a6-a5c6-613920676ffb
+Retrieved 4 messages for chat completion context
+Creating chat completion with OpenAI GPT-4o...
+Mode: Streaming
+Handling data query: " tell me my avg RoAs for google campaigns ?
+"
+SQL Builder processing query from user 903243fa-a65e-4d38-8236-798559b81941: " tell me my avg RoAs for google campaigns ?
+"
+Generated SQL: SELECT AVG(conversions::NUMERIC / NULLIF(cost, 0)) AS avg_roas
+FROM google_campaign_metrics
+WHERE user_id = '903243fa-a65e-4d38-8236-798559b81941';
+Executing secure SQL: SELECT AVG(conversions::NUMERIC / NULLIF(cost, 0)) AS avg_roas
+FROM google_campaign_metrics
+WHERE user_id = '903243fa-a65e-4d38-8236-798559b81941';
+SQL query returned 1 results
+Data query response saved successfully
+6:34:01 PM [express] POST /api/chat/completions 200 in 2923ms
+6:34:01 PM [express] GET /api/chat/conversations/34fe843e-964e-40a6-a5c6-613920676ffb 200 in 227ms :…
+Creating user message with data: {
+  "conversationId": "34fe843e-964e-40a6-a5c6-613920676ffb",
+  "role": "user",
+  "content": "continue"
+}
+User message saved with ID: caa3ad36-d52c-4985-8bb0-d71aa66a66c3
+6:34:59 PM [express] POST /api/chat/conversations/34fe843e-964e-40a6-a5c6-613920676ffb/messages 201 …
+6:34:59 PM [express] GET /api/chat/conversations/34fe843e-964e-40a6-a5c6-613920676ffb 200 in 223ms :…
+User authenticated: 903243fa-a65e-4d38-8236-798559b81941
+Generating chat completion for conversation: 34fe843e-964e-40a6-a5c6-613920676ffb
+Retrieved 6 messages for chat completion context
+Creating chat completion with OpenAI GPT-4o...
+Mode: Streaming
+Handling data query: " tell me my avg RoAs for google campaigns ?
+"
+SQL Builder processing query from user 903243fa-a65e-4d38-8236-798559b81941: " tell me my avg RoAs for google campaigns ?
+"
+Generated SQL: SELECT AVG(conversions::NUMERIC / NULLIF(cost, 0)) AS avg_roas
+FROM google_campaign_metrics
+WHERE user_id = '903243fa-a65e-4d38-8236-798559b81941';
+Executing secure SQL: SELECT AVG(conversions::NUMERIC / NULLIF(cost, 0)) AS avg_roas
+FROM google_campaign_metrics
+WHERE user_id = '903243fa-a65e-4d38-8236-798559b81941';
+SQL query returned 1 results
+Data query response saved successfully
+6:35:02 PM [express] POST /api/chat/completions 200 in 3011ms
+6:35:02 PM [express] GET /api/chat/conversations/34fe843e-964e-40a6-a5c6-613920676ffb 200 in 225ms :…
