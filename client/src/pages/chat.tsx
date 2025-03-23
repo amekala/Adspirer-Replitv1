@@ -191,11 +191,11 @@ export default function ChatPage() {
         content: messageContent,
       });
       
-      // Step 2: Use the chatService to handle the message and streaming response
-      console.log('Calling advanced RAG query endpoint...');
-      
       // Reset the streaming message ID for a new message
       streamingMessageIdRef.current = 'streaming-' + Date.now();
+      
+      // Use the chatService to handle AI response (not message sending)
+      console.log('Calling advanced RAG query endpoint...');
       
       // Get streaming content handler
       const updateStreamingContent = (streamedContent: string) => {

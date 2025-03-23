@@ -107,13 +107,8 @@ export async function sendMessage(
   if (!messageContent.trim() || !conversationId) return;
   
   try {  
-    // Step 1: Send the user message
-    await apiRequest("POST", `/api/chat/conversations/${conversationId}/messages`, {
-      role: "user",
-      content: messageContent,
-    });
-    
-    // Refresh to get the updated conversation with the new user message
+    // The message was already sent in the UI component, so we don't send it again here.
+    // Instead, we'll just query for the latest conversation state
     queryClient.invalidateQueries({ 
       queryKey: ["/api/chat/conversations", conversationId] 
     });
