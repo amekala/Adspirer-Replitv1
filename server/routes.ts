@@ -1104,6 +1104,285 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
     }
   });
+  
+  // Create sample campaign data for testing
+  app.post("/api/rag/create-sample-data", async (req: Request, res: Response) => {
+    if (!req.isAuthenticated() || !req.user) {
+      return res.status(401).send("Unauthorized");
+    }
+    
+    const { id: userId } = req.user;
+    
+    try {
+      // Generate some sample campaign metrics for Amazon
+      const amazonSampleCampaigns = [
+        {
+          campaignId: `amzn_${Date.now()}_1`,
+          campaignName: "Amazon Summer Products",
+          campaignType: "Sponsored Products",
+          dailyBudget: 50.00,
+          status: "ENABLED",
+          targetingType: "AUTO",
+          startDate: new Date(Date.now() - 60*24*60*60*1000),
+          endDate: null,
+          impressions: 42500,
+          clicks: 1205,
+          spend: 982.50,
+          sales: 4125.75,
+          profileId: "amazon_profile_1",
+          userId: userId,
+          syncDate: new Date()
+        },
+        {
+          campaignId: `amzn_${Date.now()}_2`,
+          campaignName: "Amazon Electronics",
+          campaignType: "Sponsored Brands",
+          dailyBudget: 75.00,
+          status: "ENABLED",
+          targetingType: "MANUAL",
+          startDate: new Date(Date.now() - 45*24*60*60*1000),
+          endDate: null,
+          impressions: 38200,
+          clicks: 980,
+          spend: 1250.25,
+          sales: 6850.50,
+          profileId: "amazon_profile_1",
+          userId: userId,
+          syncDate: new Date()
+        },
+        {
+          campaignId: `amzn_${Date.now()}_3`,
+          campaignName: "Amazon Home & Kitchen",
+          campaignType: "Sponsored Display",
+          dailyBudget: 35.00,
+          status: "ENABLED",
+          targetingType: "AUTO",
+          startDate: new Date(Date.now() - 30*24*60*60*1000),
+          endDate: null,
+          impressions: 28750,
+          clicks: 845,
+          spend: 750.80,
+          sales: 2950.25,
+          profileId: "amazon_profile_1",
+          userId: userId,
+          syncDate: new Date()
+        }
+      ];
+      
+      // Generate some sample campaign metrics for Google
+      const googleSampleCampaigns = [
+        {
+          campaignId: `goog_${Date.now()}_1`,
+          campaignName: "Google Search - Brand Terms",
+          campaignType: "Search",
+          dailyBudget: 65.00,
+          status: "ENABLED",
+          network: "Search",
+          startDate: new Date(Date.now() - 90*24*60*60*1000),
+          endDate: null,
+          impressions: 68500,
+          clicks: 3250,
+          cost: 1850.75,
+          conversions: 215,
+          conversionValue: 9850.50,
+          customerId: "google_customer_1",
+          userId: userId,
+          syncDate: new Date()
+        },
+        {
+          campaignId: `goog_${Date.now()}_2`,
+          campaignName: "Google Display - Remarketing",
+          campaignType: "Display",
+          dailyBudget: 40.00,
+          status: "ENABLED",
+          network: "Display",
+          startDate: new Date(Date.now() - 75*24*60*60*1000),
+          endDate: null,
+          impressions: 125800,
+          clicks: 1850,
+          cost: 925.40,
+          conversions: 68,
+          conversionValue: 4250.25,
+          customerId: "google_customer_1",
+          userId: userId,
+          syncDate: new Date()
+        }
+      ];
+      
+      // Save Amazon campaign metrics to database
+      const savedAmazonCampaigns = [];
+      for (const campaign of amazonSampleCampaigns) {
+        const savedCampaign = await storage.saveCampaignMetrics(campaign);
+        savedAmazonCampaigns.push(savedCampaign);
+      }
+      
+      // Save Google campaign metrics to database
+      const savedGoogleCampaigns = [];
+      for (const campaign of googleSampleCampaigns) {
+        const savedCampaign = await storage.saveGoogleCampaignMetrics(campaign);
+        savedGoogleCampaigns.push(savedCampaign);
+      }
+      
+      return res.json({
+        message: "Sample campaign data created successfully",
+        amazonCampaigns: savedAmazonCampaigns,
+        googleCampaigns: savedGoogleCampaigns
+      });
+    } catch (error) {
+      console.error('Error creating sample data:', error instanceof Error ? error.message : 'Unknown error');
+      return res.status(500).json({ 
+        message: "Failed to create sample data", 
+        error: error instanceof Error ? error.message : 'Unknown error' 
+      });
+    }
+  });
+  
+  // Endpoint to index campaign data for RAG
+  app.post("/api/rag/index-campaigns", async (req: Request, res: Response) => {
+    if (!req.isAuthenticated() || !req.user) {
+      return res.status(401).send("Unauthorized");
+    }
+    
+    const { id: userId } = req.user;
+    
+    try {
+      // Import services dynamically
+      const { generateEmbedding } = await import('./services/embedding');
+      const { storeCampaignEmbedding } = await import('./services/pinecone');
+      
+      // Get campaign metrics from the last 90 days
+      const today = new Date();
+      const ninetyDaysAgo = new Date();
+      ninetyDaysAgo.setDate(ninetyDaysAgo.getDate() - 90);
+      
+      // Fetch all campaign metrics
+      console.log(`Fetching campaign metrics for user ${userId} from the last 90 days`);
+      const amazonMetrics = await storage.getCampaignMetrics(userId, ninetyDaysAgo, today);
+      const googleMetrics = await storage.getGoogleCampaignMetrics(userId, ninetyDaysAgo, today);
+      
+      console.log(`Found ${amazonMetrics.length} Amazon campaigns and ${googleMetrics.length} Google campaigns`);
+      
+      // Process and index Amazon campaigns
+      const amazonResults = await Promise.all(amazonMetrics.map(async (campaign) => {
+        try {
+          // Format campaign data for embedding
+          const campaignText = `Campaign: ${campaign.campaignName}
+Platform: Amazon Ads
+ID: ${campaign.campaignId}
+Type: ${campaign.campaignType}
+Budget: ${campaign.dailyBudget}
+Status: ${campaign.status}
+Targeting: ${campaign.targetingType}
+Start Date: ${campaign.startDate.toISOString().split('T')[0]}
+Metrics (Last 30 Days):
+  Impressions: ${campaign.impressions}
+  Clicks: ${campaign.clicks}
+  CTR: ${(campaign.clicks / (campaign.impressions || 1) * 100).toFixed(2)}%
+  Spend: $${campaign.spend ? campaign.spend.toFixed(2) : '0.00'}
+  Sales: $${campaign.sales ? campaign.sales.toFixed(2) : '0.00'}
+  ACOS: ${(campaign.spend / (campaign.sales || 1) * 100).toFixed(2)}%
+  ROAS: ${(campaign.sales / (campaign.spend || 1)).toFixed(2)}`;
+          
+          // Generate embedding
+          const embedding = await generateEmbedding(campaignText);
+          
+          // Store in Pinecone and PostgreSQL
+          await storeCampaignEmbedding(embedding, {
+            id: campaign.campaignId,
+            name: campaign.campaignName,
+            platformType: 'amazon',
+            description: campaignText,
+            metrics: {
+              impressions: campaign.impressions,
+              clicks: campaign.clicks,
+              spend: campaign.spend,
+              sales: campaign.sales
+            }
+          }, userId);
+          
+          return {
+            campaignId: campaign.campaignId,
+            status: 'indexed'
+          };
+        } catch (error) {
+          console.error(`Error indexing Amazon campaign ${campaign.campaignId}:`, error);
+          return {
+            campaignId: campaign.campaignId,
+            status: 'failed',
+            error: error instanceof Error ? error.message : 'Unknown error'
+          };
+        }
+      }));
+      
+      // Process and index Google campaigns
+      const googleResults = await Promise.all(googleMetrics.map(async (campaign) => {
+        try {
+          // Format campaign data for embedding
+          const campaignText = `Campaign: ${campaign.campaignName}
+Platform: Google Ads
+ID: ${campaign.campaignId}
+Type: ${campaign.campaignType}
+Budget: ${campaign.dailyBudget}
+Status: ${campaign.status}
+Network: ${campaign.network || 'Unknown'}
+Start Date: ${campaign.startDate.toISOString().split('T')[0]}
+Metrics (Last 30 Days):
+  Impressions: ${campaign.impressions}
+  Clicks: ${campaign.clicks}
+  CTR: ${(campaign.clicks / (campaign.impressions || 1) * 100).toFixed(2)}%
+  Cost: $${campaign.cost ? campaign.cost.toFixed(2) : '0.00'}
+  Conversions: ${campaign.conversions || 0}
+  Conversion Value: $${campaign.conversionValue ? campaign.conversionValue.toFixed(2) : '0.00'}
+  CPA: $${campaign.conversions ? (campaign.cost / campaign.conversions).toFixed(2) : 'N/A'}
+  ROAS: ${campaign.conversionValue ? (campaign.conversionValue / (campaign.cost || 1)).toFixed(2) : 'N/A'}`;
+          
+          // Generate embedding
+          const embedding = await generateEmbedding(campaignText);
+          
+          // Store in Pinecone and PostgreSQL
+          await storeCampaignEmbedding(embedding, {
+            id: campaign.campaignId,
+            name: campaign.campaignName,
+            platformType: 'google',
+            description: campaignText,
+            metrics: {
+              impressions: campaign.impressions,
+              clicks: campaign.clicks,
+              cost: campaign.cost,
+              conversions: campaign.conversions,
+              conversionValue: campaign.conversionValue
+            }
+          }, userId);
+          
+          return {
+            campaignId: campaign.campaignId,
+            status: 'indexed'
+          };
+        } catch (error) {
+          console.error(`Error indexing Google campaign ${campaign.campaignId}:`, error);
+          return {
+            campaignId: campaign.campaignId,
+            status: 'failed',
+            error: error instanceof Error ? error.message : 'Unknown error'
+          };
+        }
+      }));
+      
+      // Return results
+      return res.json({
+        message: "Campaign indexing complete",
+        totalIndexed: amazonResults.length + googleResults.length,
+        amazonResults,
+        googleResults
+      });
+    } catch (error) {
+      console.error('Error indexing campaigns:', error instanceof Error ? error.message : 'Unknown error');
+      return res.status(500).json({ 
+        message: "Failed to index campaigns", 
+        error: error instanceof Error ? error.message : 'Unknown error' 
+      });
+    }
+  });
 
   // Admin endpoint to run database migrations
   // Temporarily allowing migration runs without authentication for development

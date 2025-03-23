@@ -100,11 +100,15 @@ export async function initializePinecone() {
 
     if (!indexExists) {
       log(`Creating new Pinecone index: ${PINECONE_INDEX_NAME}`, 'pinecone');
+      // Import region from constants
+      const { PINECONE_REGION } = await import('./pinecone-constants');
+      
+      // Use GCP instead of AWS for free plan compatibility
       await pineconeClient.createIndex({
         name: PINECONE_INDEX_NAME,
         dimension: VECTOR_DIMENSIONS,
         metric: PINECONE_METRIC,
-        spec: { serverless: { cloud: 'aws', region: 'us-west-2' } }
+        spec: { serverless: { cloud: 'gcp', region: PINECONE_REGION } }
       });
 
       // Wait for index to be created
