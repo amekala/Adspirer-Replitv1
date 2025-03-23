@@ -614,6 +614,10 @@ export class DatabaseStorage implements IStorage {
             const startDate = new Date(now);
             startDate.setDate(now.getDate() - timeFrame.days);
             
+            // Convert dates to ISO strings for database queries
+            const startDateStr = startDate.toISOString().split('T')[0];
+            const endDateStr = endDate.toISOString().split('T')[0];
+            
             // Calculate aggregate metrics
             const metrics = await db.select({
               totalImpressions: sql`SUM(${campaignMetrics.impressions})`,
@@ -626,8 +630,8 @@ export class DatabaseStorage implements IStorage {
                 eq(campaignMetrics.userId, userId),
                 eq(campaignMetrics.profileId, account.profileId),
                 eq(campaignMetrics.campaignId, campaign.campaignId),
-                gte(campaignMetrics.date, startDate),
-                lte(campaignMetrics.date, endDate)
+                gte(campaignMetrics.date, startDateStr),
+                lte(campaignMetrics.date, endDateStr)
               )
             );
             
@@ -648,8 +652,8 @@ export class DatabaseStorage implements IStorage {
                     eq(campaignMetricsSummary.profileId, account.profileId),
                     eq(campaignMetricsSummary.campaignId, campaign.campaignId),
                     eq(campaignMetricsSummary.timeFrame, timeFrame.name),
-                    gte(campaignMetricsSummary.startDate, startDate),
-                    lte(campaignMetricsSummary.endDate, endDate)
+                    gte(campaignMetricsSummary.startDate, startDateStr),
+                    lte(campaignMetricsSummary.endDate, endDateStr)
                   )
                 );
                 
@@ -666,8 +670,8 @@ export class DatabaseStorage implements IStorage {
                 await this.createCampaignMetricsSummary({
                   userId,
                   timeFrame: timeFrame.name,
-                  startDate,
-                  endDate,
+                  startDate: startDateStr,
+                  endDate: endDateStr,
                   profileId: account.profileId,
                   campaignId: campaign.campaignId,
                   totalImpressions: Number(totalImpressions),
@@ -787,6 +791,10 @@ export class DatabaseStorage implements IStorage {
             const startDate = new Date(now);
             startDate.setDate(now.getDate() - timeFrame.days);
             
+            // Convert dates to ISO strings for database queries
+            const startDateStr = startDate.toISOString().split('T')[0];
+            const endDateStr = endDate.toISOString().split('T')[0];
+            
             // Calculate aggregate metrics
             const metrics = await db.select({
               totalImpressions: sql`SUM(${googleCampaignMetrics.impressions})`,
@@ -800,8 +808,8 @@ export class DatabaseStorage implements IStorage {
                 eq(googleCampaignMetrics.userId, userId),
                 eq(googleCampaignMetrics.customerId, account.customerId),
                 eq(googleCampaignMetrics.campaignId, campaign.campaignId),
-                gte(googleCampaignMetrics.date, startDate),
-                lte(googleCampaignMetrics.date, endDate)
+                gte(googleCampaignMetrics.date, startDateStr),
+                lte(googleCampaignMetrics.date, endDateStr)
               )
             );
             
@@ -822,8 +830,8 @@ export class DatabaseStorage implements IStorage {
                     eq(googleCampaignMetricsSummary.customerId, account.customerId),
                     eq(googleCampaignMetricsSummary.campaignId, campaign.campaignId),
                     eq(googleCampaignMetricsSummary.timeFrame, timeFrame.name),
-                    gte(googleCampaignMetricsSummary.startDate, startDate),
-                    lte(googleCampaignMetricsSummary.endDate, endDate)
+                    gte(googleCampaignMetricsSummary.startDate, startDateStr),
+                    lte(googleCampaignMetricsSummary.endDate, endDateStr)
                   )
                 );
                 
@@ -841,8 +849,8 @@ export class DatabaseStorage implements IStorage {
                 await this.createGoogleCampaignMetricsSummary({
                   userId,
                   timeFrame: timeFrame.name,
-                  startDate,
-                  endDate,
+                  startDate: startDateStr,
+                  endDate: endDateStr,
                   customerId: account.customerId,
                   campaignId: campaign.campaignId,
                   totalImpressions: Number(totalImpressions),
