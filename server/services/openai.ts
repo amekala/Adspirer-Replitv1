@@ -603,7 +603,9 @@ When interacting with users:
       if (lastUserMessage && 
           (simpleGreetings.includes(lastUserMessage.toLowerCase()) || 
            lastUserMessage.length < 10)) {
+        // Simple greeting detected, skip SQL routing and proceed with general chat
         console.log(`Simple greeting detected: "${lastUserMessage}" → GENERAL (bypassed routing)`);
+        // Continue to regular chat completion after this if block (don't enter the else block)
       } else {
         // Proceed with LLM-based routing for more complex queries
         const openaiClient = getOpenAIClient();
