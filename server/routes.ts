@@ -1052,7 +1052,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
     
     const { id: userId } = req.user;
-    const { query, conversationId } = req.body;
+    // Add streamingId to capture client-side temporary ID
+    const { query, conversationId, streamingId } = req.body;
     
     if (!query) {
       return res.status(400).json({ message: "Query is required" });
@@ -1073,8 +1074,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Import the two-LLM RAG service dynamically
       const { processTwoLlmRagQuery } = await import('./services/two-llm-rag');
       
-      // Process the query and stream the response
-      await processTwoLlmRagQuery(query, userId, conversationId, res);
+      // Process the query and stream the response with optional streamingId
+      await processTwoLlmRagQuery(query, userId, conversationId, res, { streamingId });
       
       // Response is handled by the service (streaming)
     } catch (error) {
