@@ -338,7 +338,9 @@ export async function sendMessage(
     const finalContent = streamedContent;
     
     // Delay cache invalidation much longer to prevent race conditions 
-    await new Promise(resolve => setTimeout(resolve, 2000));
+    // Increase delay to 3000ms (3 seconds) to ensure server has processed and saved the message
+    // The previous 2000ms was not enough time for the server to save the message
+    await new Promise(resolve => setTimeout(resolve, 3000));
     
     // Use refetchQueries instead of invalidateQueries to have more control
     // This ensures we replace the existing data properly
@@ -346,9 +348,12 @@ export async function sendMessage(
       // CRITICAL DEBUG: Log the streaming message we expect to see
       console.log(`Looking for message with ID ${window.persistedMessageId || currentStreamingId} and content ${finalContent.substring(0, 30)}...`);
       
+      // Forcefully bypass cache by setting fetchPolicy to 'network-only'
       const result = await queryClient.fetchQuery({
         queryKey: ["/api/chat/conversations", conversationId, "specific"],
-        staleTime: 0
+        staleTime: 0,
+        refetchOnMount: true,
+        networkMode: 'always' // Force a network request instead of using cache
       });
       
       // CRITICAL DEBUG: Log detailed info about the server response 
@@ -382,14 +387,22 @@ export async function sendMessage(
       if (!hasStreamedMessage && finalContent) {
         console.log(`CRITICAL: Message with ID ${persistedId} not found in server response, adding it manually`);
         
-        // Create our complete message object to add
+        // Log detailed information for debugging
+        console.log(`Recovery details - Messages in response: ${messages.length}, Expected ID: ${persistedId}, Content length: ${finalContent.length}`);
+        
+        // Create our complete message object to add with enhanced metadata for tracking
         const messageToAdd = {
           id: persistedId, // Use the same ID we generated earlier or received from server
           conversationId: conversationId,
           role: 'assistant' as const,
           content: finalContent,
           createdAt: new Date().toISOString(),
-          metadata: {}
+          metadata: {
+            recoveryTimestamp: Date.now(),
+            recovered: true,
+            originalStreamingId: currentStreamingId,
+            persistedId: window.persistedMessageId
+          }
         };
         
         // Add the message to formatted response
