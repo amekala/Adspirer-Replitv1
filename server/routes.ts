@@ -1312,11 +1312,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Process Amazon campaigns
       const amazonResults = await Promise.all(amazonCampaigns.rows.map(async (campaign) => {
         try {
-          // Get the most recent campaign data
+          // Get the campaign data with account information
           const campaignDataQuery = `
-            SELECT * FROM campaign_metrics 
-            WHERE profile_id = $1 AND user_id = $2
-            ORDER BY date DESC
+            SELECT 
+              cm.*, 
+              aa.account_name, 
+              aa.marketplace, 
+              aa.account_type, 
+              aa.status
+            FROM campaign_metrics cm
+            JOIN advertiser_accounts aa ON cm.profile_id = aa.profile_id
+            WHERE cm.profile_id = $1 AND cm.user_id = $2
+            ORDER BY cm.date DESC
             LIMIT 1
           `;
           
@@ -1337,7 +1344,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
               SUM(impressions) as total_impressions,
               SUM(clicks) as total_clicks,
               SUM(cost) as total_spend,
-              SUM(sales) as total_sales
+              COALESCE(SUM(sales), 0) as total_sales
             FROM campaign_metrics 
             WHERE profile_id = $1 AND user_id = $2
             AND date >= CURRENT_DATE - INTERVAL '30 days'
@@ -1347,13 +1354,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
           const metrics = metricsResult.rows[0];
           
           // Format campaign data with metrics for embedding
-          const campaignText = `Campaign: ${campaignData.campaign_name || 'Unnamed Campaign'}
+          const campaignText = `Campaign: ${campaignData.campaign_id || 'Unnamed Campaign'}
 Platform: Amazon Ads
-ID: ${campaignData.profile_id}
-Type: ${campaignData.campaign_type || 'Unknown'}
-Budget: ${campaignData.daily_budget || 'Unknown'}
+Profile ID: ${campaignData.profile_id}
+Account Name: ${campaignData.account_name || 'Unknown'}
+Marketplace: ${campaignData.marketplace || 'US'}
+Account Type: ${campaignData.account_type || 'Unknown'}
 Status: ${campaignData.status || 'Unknown'}
-Targeting: ${campaignData.targeting_type || 'Unknown'}
 Metrics (Last 30 Days):
   Impressions: ${metrics.total_impressions || 0}
   Clicks: ${metrics.total_clicks || 0}
@@ -1385,9 +1392,11 @@ Metrics (Last 30 Days):
           const embeddingType = 'campaign';
           const metadata = {
             platform: 'amazon',
-            campaignName: campaignData.campaign_name,
-            campaignType: campaignData.campaign_type,
-            status: campaignData.status,
+            campaignName: campaignData.campaign_id || 'Unnamed Campaign',
+            accountName: campaignData.account_name || 'Unknown Account',
+            marketplace: campaignData.marketplace || 'US',
+            accountType: campaignData.account_type || 'Unknown',
+            status: campaignData.status || 'Unknown',
             sourceId: `camp_amazon_${campaign.profile_id}`,
             metrics: {
               impressions: metrics.total_impressions || 0,
