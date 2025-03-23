@@ -298,12 +298,19 @@ async function generateSQL(
   });
   
   // Use Chat API instead of Responses API
+  const chatMessages = input.map(msg => {
+    if (msg.role === "developer") {
+      return { role: "system" as const, content: msg.content };
+    } else if (msg.role === "user") {
+      return { role: "user" as const, content: msg.content };
+    } else {
+      return { role: "assistant" as const, content: msg.content };
+    }
+  });
+  
   const response = await openai.chat.completions.create({
     model: "gpt-4o",
-    messages: input.map(msg => ({
-      role: msg.role === "developer" ? "system" : msg.role,
-      content: msg.content
-    })),
+    messages: chatMessages,
     temperature: 0.1, // Lower temperature for more deterministic SQL generation
     max_tokens: 500
   });

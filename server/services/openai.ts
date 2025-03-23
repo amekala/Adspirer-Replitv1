@@ -14,7 +14,7 @@ import * as SQLBuilder from "./sqlBuilder";
 import { ChatConversation, ChatMessage as DbChatMessage } from "@shared/schema";
 
 // Types for message roles in the OpenAI API
-export type MessageRole = "user" | "assistant" | "developer";
+export type MessageRole = "user" | "assistant" | "developer" | "system";
 export interface OpenAIMessage {
   role: MessageRole;
   content: string;

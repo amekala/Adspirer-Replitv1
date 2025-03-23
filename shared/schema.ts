@@ -213,7 +213,7 @@ export const chatConversations = pgTable("chat_conversations", {
 export const chatMessages = pgTable("chat_messages", {
   id: uuid("id").defaultRandom().primaryKey(),
   conversationId: uuid("conversation_id").notNull().references(() => chatConversations.id),
-  role: text("role").notNull(), // 'user' or 'assistant'
+  role: text("role").notNull(), // 'user', 'assistant', or 'system'
   content: text("content").notNull(),
   metadata: json("metadata").default({}).notNull(), // Store additional message data in JSON format
   createdAt: timestamp("created_at").notNull().defaultNow(),
@@ -225,7 +225,7 @@ export const insertChatConversationSchema = createInsertSchema(chatConversations
 }).omit({ id: true, createdAt: true, updatedAt: true });
 
 export const insertChatMessageSchema = createInsertSchema(chatMessages, {
-  role: z.enum(["user", "assistant"]),
+  role: z.enum(["user", "assistant", "system"]),
   content: z.string().min(1, "Message content is required"),
   conversationId: z.string().uuid(),
   metadata: z.record(z.any()).optional(),
