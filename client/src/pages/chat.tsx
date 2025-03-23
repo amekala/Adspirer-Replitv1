@@ -399,22 +399,7 @@ export default function ChatPage() {
           >
             {currentConversationId ? (
               <>
-                {/* Index Campaigns button for RAG (only visible in active conversation) */}
-                <div className="flex justify-end mb-4">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => indexCampaignsForRAGMutation.mutate()}
-                    disabled={indexCampaignsForRAGMutation.isPending}
-                  >
-                    {indexCampaignsForRAGMutation.isPending ? 
-                      "Indexing Campaigns..." : 
-                      "Index Campaigns for AI"
-                    }
-                  </Button>
-                </div>
-                
-                {/* Adding debug info */}
+                {/* Debug info hidden */}
                 <div className="hidden">
                   <pre>{JSON.stringify(currentConversation, null, 2)}</pre>
                 </div>

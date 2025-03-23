@@ -90,18 +90,20 @@ export function formatConversationResponse(data: any): {
 /**
  * Send a message and handle the streaming response
  * 
- * This implementation uses the advanced RAG (Retrieval-Augmented Generation) 
- * endpoint for advertising-related queries, which provides context-aware,
- * data-driven responses based on campaign metrics using a two-LLM architecture
+ * This implementation can use either:
+ * 1. Advanced RAG (Retrieval-Augmented Generation) with campaign data (default)
+ * 2. Regular chat completions API for general queries
  * 
  * @param conversationId - ID of the conversation to send the message to
  * @param messageContent - The message content to send
  * @param onStreamUpdate - Callback function that receives streamed content updates
+ * @param useRag - Whether to use RAG processing (true) or regular chat completions (false)
  */
 export async function sendMessage(
   conversationId: string, 
   messageContent: string,
-  onStreamUpdate: (content: string) => void
+  onStreamUpdate: (content: string) => void,
+  useRag: boolean = true
 ): Promise<void> {
   // Don't send empty messages
   if (!messageContent.trim() || !conversationId) return;
@@ -113,19 +115,36 @@ export async function sendMessage(
       queryKey: ["/api/chat/conversations", conversationId] 
     });
     
-    // Step 2: Use the advanced RAG endpoint with Two-LLM architecture
-    const endpoint = '/api/rag/query-two-llm';
-    console.log('Calling Two-LLM RAG query endpoint...');
+    // Determine which endpoint to use based on the useRag parameter
+    const endpoint = useRag 
+      ? '/api/rag/query-two-llm'  // Advanced RAG with campaign data
+      : '/api/chat/completions';  // Regular chat completions
     
-    const completionResponse = await fetch(endpoint, {
+    console.log(`Using ${useRag ? 'RAG' : 'regular chat completions'} endpoint...`);
+    
+    // Add timestamp to avoid caching issues with the SSE stream
+    const timestamp = Date.now();
+    const completionResponse = await fetch(`${endpoint}?t=${timestamp}`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
+        'Cache-Control': 'no-cache, no-store, must-revalidate',
+        'Pragma': 'no-cache',
+        'Expires': '0'
       },
-      body: JSON.stringify({
-        conversationId: conversationId,
-        query: messageContent
-      }),
+      body: JSON.stringify(useRag 
+        ? {
+            // RAG endpoint expects this format
+            conversationId: conversationId,
+            query: messageContent
+          }
+        : {
+            // Regular chat completions endpoint expects this format
+            conversationId: conversationId,
+            message: messageContent,
+            useContextAwarePrompt: false // Don't use RAG for regular chat completions
+          }
+      ),
       credentials: 'include' // Include credentials for session authentication
     });
 
@@ -201,7 +220,11 @@ export async function sendMessage(
       reader.releaseLock();
     }
     
-    // Make sure we get the final state from the server
+    // Make sure we get the final state from the server AFTER a slight delay
+    // This delay ensures that the server has time to persist the message to the database
+    // before we invalidate the query cache
+    await new Promise(resolve => setTimeout(resolve, 500));
+    
     queryClient.invalidateQueries({ 
       queryKey: ["/api/chat/conversations", conversationId] 
     });
