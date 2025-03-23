@@ -326,7 +326,14 @@ async function generateSQL(
     model: sqlParams.model,
     input: formattedInput,
     temperature: sqlParams.temperature,
-    max_output_tokens: sqlParams.max_output_tokens
+    max_output_tokens: sqlParams.max_output_tokens,
+    text: {
+      format: {
+        type: "text"
+      }
+    },
+    reasoning: {},
+    store: true
   };
   
   // Use Responses API

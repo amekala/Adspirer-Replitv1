@@ -14,23 +14,65 @@ function getOpenAIClient() {
 
 // Simple conversion function to test migration logic
 function convertToResponsesFormat(params) {
-  // Copy original params
-  const newParams = { ...params };
+  // Start with a new params object for the Responses API
+  const responsesParams = {
+    model: params.model,
+  };
+
+  // Handle streaming (only set if true to avoid sending false)
+  if (params.stream) {
+    responsesParams.stream = true;
+  }
+
+  // Convert messages array to input format
+  if (params.messages && Array.isArray(params.messages)) {
+    // For cases with messages array
+    responsesParams.input = params.messages;
+  } else if (params.input) {
+    // If input is already provided
+    responsesParams.input = params.input;
+  }
+
+  // Add required format parameters for Responses API
+  responsesParams.text = {
+    format: {
+      type: "text"
+    }
+  };
   
-  // Remove stream property if present as it's handled differently
-  const isStream = newParams.stream;
-  delete newParams.stream;
+  // Add reasoning field (used by the model for step-by-step thinking)
+  responsesParams.reasoning = {};
   
-  // Set endpoint to /v1/chat/completions for compatibility
-  newParams.endpoint = '/v1/chat/completions';
-  
-  // Add back stream property if it was present
-  if (isStream !== undefined) {
-    newParams.stream = isStream;
+  // Set default storage parameter
+  responsesParams.store = true;
+
+  // Handle optional parameters
+  if (params.temperature !== undefined) {
+    responsesParams.temperature = params.temperature;
+  }
+
+  // Convert max_tokens to max_output_tokens
+  if (params.max_tokens !== undefined) {
+    responsesParams.max_output_tokens = params.max_tokens;
   }
   
-  console.log('Converted params:', JSON.stringify(newParams, null, 2));
-  return newParams;
+  // Use max_output_tokens directly if provided
+  if (params.max_output_tokens !== undefined) {
+    responsesParams.max_output_tokens = params.max_output_tokens;
+  }
+
+  // Add any tools if provided
+  if (params.tools) {
+    responsesParams.tools = params.tools;
+  }
+
+  // Add other optional parameters
+  if (params.top_p !== undefined) {
+    responsesParams.top_p = params.top_p;
+  }
+  
+  console.log('Converted params:', JSON.stringify(responsesParams, null, 2));
+  return responsesParams;
 }
 
 // Test both APIs to verify functionality
