@@ -343,48 +343,80 @@ export async function sendMessage(
     // Use refetchQueries instead of invalidateQueries to have more control
     // This ensures we replace the existing data properly
     try {
+      // CRITICAL DEBUG: Log the streaming message we expect to see
+      console.log(`Looking for message with ID ${window.persistedMessageId || currentStreamingId} and content ${finalContent.substring(0, 30)}...`);
+      
       const result = await queryClient.fetchQuery({
         queryKey: ["/api/chat/conversations", conversationId, "specific"],
         staleTime: 0
       });
       
-      // If the fetched result doesn't contain our streamed content, keep the local version
-      // This prevents message disappearing during cache refresh
+      // CRITICAL DEBUG: Log detailed info about the server response 
+      console.log(`Server returned ${result ? 'data' : 'null'} for conversation ${conversationId}`);
       if (result) {
-        const messages = result.messages || [];
-        
-        // First check for the precise streaming ID we saved
-        let persistedId = window.persistedMessageId || currentStreamingId;
-        let hasStreamedMessage = messages.some(m => m.id === persistedId);
-        
-        // If we don't find the message by ID, then fall back to content matching
-        if (!hasStreamedMessage && finalContent) {
-          hasStreamedMessage = messages.some(m => 
-            m.role === 'assistant' && m.content === finalContent
-          );
+        console.log(`Response structure:`, Object.keys(result));
+        if (result.messages) {
+          console.log(`Found ${result.messages.length} messages in result.messages`);
+        } else if (Array.isArray(result) && result.messages) {
+          console.log(`Found ${result.messages.length} messages in array.messages`);
+        } else if (Array.isArray(result)) {
+          console.log(`Result is array with ${result.length} items`);
         }
+      }
+      
+      // Format the result to ensure consistent structure no matter what the server returns
+      const formatted = formatConversationResponse(result);
+      const messages = formatted.messages || [];
+      
+      // First check for the precise streaming ID we saved
+      let persistedId = window.persistedMessageId || currentStreamingId;
+      let hasStreamedMessage = messages.some(m => m.id === persistedId);
+      
+      // If we don't find the message by ID, then fall back to content matching
+      if (!hasStreamedMessage && finalContent) {
+        hasStreamedMessage = messages.some(m => 
+          m.role === 'assistant' && m.content === finalContent
+        );
+      }
+      
+      if (!hasStreamedMessage && finalContent) {
+        console.log(`CRITICAL: Message with ID ${persistedId} not found in server response, adding it manually`);
         
-        if (!hasStreamedMessage && finalContent) {
-          console.log(`Fetched data missing assistant message with ID ${persistedId}, keeping local version`);
-          
-          // Keep our local version by adding it to the fetched result
-          // Use the known streaming ID instead of creating a new one
-          result.messages = [
-            ...messages,
-            {
-              id: persistedId, // Use the same ID we generated earlier or received from server
-              role: 'assistant',
-              content: finalContent,
-              createdAt: new Date().toISOString()
-            }
-          ];
-          
-          // Update the cache with our modified version
-          queryClient.setQueryData(
-            ["/api/chat/conversations", conversationId, "specific"],
-            result
-          );
-        }
+        // Create our complete message object to add
+        const messageToAdd = {
+          id: persistedId, // Use the same ID we generated earlier or received from server
+          conversationId: conversationId,
+          role: 'assistant' as const,
+          content: finalContent,
+          createdAt: new Date().toISOString(),
+          metadata: {}
+        };
+        
+        // Add the message to formatted response
+        formatted.messages = [...messages, messageToAdd];
+        
+        // Update the cache with the properly formatted data
+        queryClient.setQueryData(
+          ["/api/chat/conversations", conversationId, "specific"],
+          formatted
+        );
+        
+        // CRITICAL FIX: Also ensure subsequent cache lookups find this message
+        // The issue may be that different query keys are used in different places
+        queryClient.setQueryData(
+          ["/api/chat/conversations", conversationId],
+          formatted
+        );
+      } else {
+        // Even if the message was found, ensure consistent formatting
+        queryClient.setQueryData(
+          ["/api/chat/conversations", conversationId, "specific"],
+          formatted
+        );
+        queryClient.setQueryData(
+          ["/api/chat/conversations", conversationId],
+          formatted
+        );
       }
     } catch (refetchError) {
       console.error('Error refetching conversation:', refetchError);

@@ -251,13 +251,25 @@ export default function ChatPage() {
           });
         }
         
-        // Update the query cache with consistent reference
+        // Create properly formatted data object
+        const formattedData = {
+          conversation: (latestConversation as any).conversation,
+          messages
+        };
+        
+        // CRITICAL FIX: Update ALL query cache keys that might be used for lookups
+        // This ensures consistent data no matter which key is used
+        
+        // Update specific key (chat page with one conversation)
         queryClient.setQueryData(
           ['/api/chat/conversations', currentConversationId, 'specific'],
-          {
-            conversation: (latestConversation as any).conversation,
-            messages
-          }
+          formattedData
+        );
+        
+        // Update general key (might be used elsewhere)
+        queryClient.setQueryData(
+          ['/api/chat/conversations', currentConversationId],
+          formattedData
         );
       };
       
