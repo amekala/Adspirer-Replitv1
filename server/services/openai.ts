@@ -112,8 +112,9 @@ async function handleDataQuery(
       
       // Use OpenAI function calling for code interpreter
       const openai = getOpenAIClient();
-      const response = await openai.chat.completions.create({
-        model: getConfiguredModel(),
+      const modelName = getConfiguredModel();
+      const codeInterpreterParams: any = {
+        model: modelName,
         messages: [
           {
             role: "system",
@@ -133,10 +134,20 @@ async function handleDataQuery(
             role: "user",
             content: `${query}`
           }
-        ],
-        temperature: 0.5,
-        max_tokens: 1000
-      });
+        ]
+      };
+      
+      // Add model-specific parameters
+      if (modelName.includes('o3')) {
+        // o3 models don't support temperature
+        codeInterpreterParams.max_completion_tokens = 1000;
+      } else {
+        // Recommended higher temperature (0.5-0.7) for code generation
+        codeInterpreterParams.temperature = 0.7;
+        codeInterpreterParams.max_tokens = 1000;
+      }
+      
+      const response = await openai.chat.completions.create(codeInterpreterParams);
       
       const responseContent = response.choices[0]?.message?.content || "I couldn't process your calculation request.";
       
