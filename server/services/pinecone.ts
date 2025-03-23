@@ -257,14 +257,11 @@ export async function storeCampaignEmbedding(
       const { storage } = await import('../storage');
       log(`Storing campaign embedding in PostgreSQL: ${metadata.campaignName}`, 'pinecone');
       await storage.createEmbedding({
-        id,
         type: 'campaign',
         sourceId: metadata.campaignId,
         metadata,
         vector,
-        text,
-        createdAt: new Date(),
-        updatedAt: new Date()
+        text
       });
     } catch (postgresError) {
       log(`PostgreSQL storage failed: ${postgresError}`, 'pinecone');
@@ -334,14 +331,11 @@ export async function storeChatMessageEmbedding(
       const { storage } = await import('../storage');
       log(`Storing chat message embedding in PostgreSQL, role: ${metadata.role}`, 'pinecone');
       await storage.createEmbedding({
-        id,
         type: 'chat_message',
         sourceId: metadata.messageId,
         metadata,
         vector,
-        text,
-        createdAt: new Date(),
-        updatedAt: new Date()
+        text
       });
       
       // Also create the chat-embedding relationship
