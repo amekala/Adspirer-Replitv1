@@ -1,0 +1,307 @@
+I'll provide instructions for creating a Puppeteer headless UI testing script for your application. This will allow you to automate testing of core user flows like login, chat functionality, and navigation.
+Setting Up a Puppeteer Test Framework
+First, create a new project and install dependencies:
+bashCopymkdir adspirer-ui-tests
+cd adspirer-ui-tests
+npm init -y
+npm install puppeteer jest jest-puppeteer
+Create the following files structure:
+Copyadspirer-ui-tests/
+├── jest.config.js
+├── package.json
+├── tests/
+│   ├── config.js
+│   ├── helpers.js
+│   └── user-flows.test.js
+Configuration Files
+jest.config.js:
+javascriptCopymodule.exports = {
+  preset: 'jest-puppeteer',
+  testTimeout: 30000
+};
+tests/config.js:
+javascriptCopymodule.exports = {
+  baseUrl: 'http://localhost:5000', // Change to your app URL
+  testUser: {
+    email: 'testuser@example.com',
+    password: 'testpass'
+  },
+  selectors: {
+    // Login page
+    emailInput: 'input[type="email"]',
+    passwordInput: 'input[type="password"]',
+    loginButton: 'button[type="submit"]',
+    
+    // Navigation
+    dashboardLink: 'a[href="/dashboard"]',
+    chatLink: 'a[href="/chat"]',
+    homeLink: 'a[href="/"]',
+    
+    // Chat page
+    newConversationButton: 'button:has(svg[data-testid="plus-circle"])',
+    chatInput: 'textarea[placeholder*="Ask about"]',
+    sendButton: 'button:has(svg[data-testid="send"])',
+    messageContainer: '.overflow-y-auto',
+    aiResponse: '[role="assistant"]',
+    
+    // Logout (assuming a user menu)
+    userMenu: '.user-menu', // Update based on your app structure
+    logoutButton: 'button:contains("Logout")'
+  },
+  timeouts: {
+    short: 2000,
+    medium: 5000,
+    long: 10000
+  }
+};
+tests/helpers.js:
+javascriptCopyconst { selectors, timeouts } = require('./config');
+
+/**
+ * Helper functions for UI testing
+ */
+module.exports = {
+  /**
+   * Login to the application
+   * @param {Page} page - Puppeteer page object
+   * @param {Object} credentials - User credentials
+   */
+  async login(page, credentials) {
+    await page.waitForSelector(selectors.emailInput);
+    await page.type(selectors.emailInput, credentials.email);
+    await page.type(selectors.passwordInput, credentials.password);
+    await Promise.all([
+      page.waitForNavigation({ waitUntil: 'networkidle0' }),
+      page.click(selectors.loginButton)
+    ]);
+  },
+  
+  /**
+   * Navigate to specified route
+   * @param {Page} page - Puppeteer page object
+   * @param {string} route - Route to navigate to
+   */
+  async navigateTo(page, route) {
+    let selector;
+    switch (route) {
+      case 'dashboard':
+        selector = selectors.dashboardLink;
+        break;
+      case 'chat':
+        selector = selectors.chatLink;
+        break;
+      case 'home':
+        selector = selectors.homeLink;
+        break;
+      default:
+        throw new Error(`Unknown route: ${route}`);
+    }
+    
+    await Promise.all([
+      page.waitForNavigation({ waitUntil: 'networkidle0' }),
+      page.click(selector)
+    ]);
+  },
+  
+  /**
+   * Create a new chat conversation
+   * @param {Page} page - Puppeteer page object
+   */
+  async createNewConversation(page) {
+    await page.waitForSelector(selectors.newConversationButton);
+    await page.click(selectors.newConversationButton);
+    await page.waitForTimeout(timeouts.short);
+  },
+  
+  /**
+   * Send a message in chat and wait for response
+   * @param {Page} page - Puppeteer page object
+   * @param {string} message - Message to send
+   * @returns {boolean} Whether an AI response was received
+   */
+  async sendMessageAndWaitForResponse(page, message) {
+    await page.waitForSelector(selectors.chatInput);
+    await page.type(selectors.chatInput, message);
+    
+    await page.click(selectors.sendButton);
+    
+    try {
+      // Wait for AI response with timeout
+      await page.waitForSelector(selectors.aiResponse, { 
+        timeout: timeouts.long 
+      });
+      
+      // Wait a bit more for streaming to complete
+      await page.waitForTimeout(timeouts.medium);
+      
+      // Check if we got a non-empty response
+      const responseText = await page.$eval(selectors.aiResponse, el => el.textContent);
+      return responseText.length > 0 && responseText !== '...';
+    } catch (error) {
+      console.error('Error waiting for AI response:', error);
+      return false;
+    }
+  },
+  
+  /**
+   * Logout from the application
+   * @param {Page} page - Puppeteer page object
+   */
+  async logout(page) {
+    // Update this based on your app's logout flow
+    await page.waitForSelector(selectors.userMenu);
+    await page.click(selectors.userMenu);
+    await page.waitForSelector(selectors.logoutButton);
+    
+    await Promise.all([
+      page.waitForNavigation({ waitUntil: 'networkidle0' }),
+      page.click(selectors.logoutButton)
+    ]);
+  },
+  
+  /**
+   * Take a screenshot (useful for debugging)
+   * @param {Page} page - Puppeteer page object 
+   * @param {string} name - Screenshot name
+   */
+  async takeScreenshot(page, name) {
+    await page.screenshot({ 
+      path: `./screenshots/${name}-${Date.now()}.png`,
+      fullPage: true 
+    });
+  }
+};
+Main Test File
+tests/user-flows.test.js:
+javascriptCopyconst { baseUrl, testUser, timeouts } = require('./config');
+const helpers = require('./helpers');
+
+describe('Adspirer UI Tests', () => {
+  beforeAll(async () => {
+    // Set default navigation timeout
+    await page.setDefaultNavigationTimeout(30000);
+    
+    // Create screenshots directory if it doesn't exist
+    const fs = require('fs');
+    if (!fs.existsSync('./screenshots')) {
+      fs.mkdirSync('./screenshots');
+    }
+  });
+
+  beforeEach(async () => {
+    await page.goto(baseUrl);
+  });
+
+  test('Full user flow: Login -> Chat -> New Conversation -> Send Message -> Logout', async () => {
+    // Step 1: Login
+    await helpers.login(page, testUser);
+    
+    // Take screenshot after login (helpful for debugging)
+    await helpers.takeScreenshot(page, 'after-login');
+    
+    // Verify login was successful (look for dashboard element)
+    const isLoggedIn = await page.$eval('body', el => 
+      el.textContent.includes('Dashboard') || 
+      el.textContent.includes('Welcome') || 
+      el.textContent.includes(testUser.email)
+    );
+    expect(isLoggedIn).toBe(true);
+    
+    // Step 2: Navigate to Chat
+    await helpers.navigateTo(page, 'chat');
+    
+    // Verify on chat page
+    const isChatPage = await page.$eval('body', el => 
+      el.textContent.includes('New Conversation') || 
+      el.textContent.includes('Chat')
+    );
+    expect(isChatPage).toBe(true);
+    
+    // Step 3: Create a new conversation
+    await helpers.createNewConversation(page);
+    
+    // Step 4: Send a message and verify response
+    const testMessage = "Hello, this is a test message";
+    const gotResponse = await helpers.sendMessageAndWaitForResponse(page, testMessage);
+    
+    await helpers.takeScreenshot(page, 'after-message');
+    
+    // Verify we got a response
+    expect(gotResponse).toBe(true);
+    
+    // Step 5: Navigate back to home
+    await helpers.navigateTo(page, 'home');
+    
+    // Verify we're on home page
+    const isHomePage = await page.$eval('body', el => 
+      el.textContent.includes('Welcome to Adspirer') || 
+      el.textContent.includes('Transform Your Retail Media Strategy')
+    );
+    expect(isHomePage).toBe(true);
+    
+    // Step 6: Logout
+    await helpers.logout(page);
+    
+    // Verify logout was successful (login form is visible)
+    const isLoggedOut = await page.$(selectors.emailInput) !== null;
+    expect(isLoggedOut).toBe(true);
+  });
+  
+  // Add more specialized tests
+  test('Login with invalid credentials fails', async () => {
+    // Try to login with wrong password
+    await helpers.login(page, {
+      email: testUser.email,
+      password: 'wrongpassword'
+    });
+    
+    // Verify we're still on login page
+    const isStillOnLoginPage = await page.$(selectors.emailInput) !== null;
+    expect(isStillOnLoginPage).toBe(true);
+    
+    // Check for error message
+    const hasErrorMessage = await page.$eval('body', el => 
+      el.textContent.includes('Invalid') || 
+      el.textContent.includes('failed') || 
+      el.textContent.includes('incorrect')
+    );
+    expect(hasErrorMessage).toBe(true);
+  });
+  
+  test('Chat interaction', async () => {
+    // Login
+    await helpers.login(page, testUser);
+    
+    // Navigate to chat
+    await helpers.navigateTo(page, 'chat');
+    
+    // Create new conversation
+    await helpers.createNewConversation(page);
+    
+    // Test a sequence of messages
+    const messages = [
+      "What can you help me with?",
+      "Show me my top performing campaigns",
+      "Compare Amazon and Google performance"
+    ];
+    
+    for (const message of messages) {
+      const gotResponse = await helpers.sendMessageAndWaitForResponse(page, message);
+      expect(gotResponse).toBe(true);
+      
+      // Take a screenshot after each response
+      await helpers.takeScreenshot(page, `chat-${message.slice(0, 10)}`);
+      
+      // Allow time for any animations to complete
+      await page.waitForTimeout(timeouts.short);
+    }
+  });
+});
+Running Tests
+Add this to your package.json:
+jsonCopy"scripts": {
+  "test": "jest",
+  "test:debug": "DEBUG=true jest"
+}
+Run tests with:
+bashCopynpm test
