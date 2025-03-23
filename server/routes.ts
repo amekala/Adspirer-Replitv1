@@ -1105,7 +1105,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
     
     const { id: userId } = req.user;
-    const { query, includeDebugInfo = false } = req.body;
+    const { query, includeDebugInfo = false, conversationId } = req.body;
     
     if (!query) {
       return res.status(400).json({ message: "Query is required" });
@@ -1118,7 +1118,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { processTwoLlmRagQueryNonStreaming } = await import('./services/two-llm-rag');
       
       // Process the query and return the response with optional debug info
-      const result = await processTwoLlmRagQueryNonStreaming(query, userId, { includeDebugInfo });
+      const result = await processTwoLlmRagQueryNonStreaming(query, userId, { 
+        includeDebugInfo,
+        conversationId  // Pass the conversation ID to save the message to database
+      });
       return res.json(result);
     } catch (error) {
       console.error('Error processing Two-LLM RAG query:', error instanceof Error ? error.message : 'Unknown error');
@@ -1206,7 +1209,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         // Use the two-LLM architecture
         const { processTwoLlmRagQueryNonStreaming } = await import('./services/two-llm-rag');
         result = await processTwoLlmRagQueryNonStreaming(query, demoUserId, {
-          includeDebugInfo: true
+          includeDebugInfo: true,
+          conversationId: req.query.conversationId as string // Optional conversation ID for testing
         });
       } else {
         // Use the standard RAG architecture

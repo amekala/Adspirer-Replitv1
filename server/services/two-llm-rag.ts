@@ -241,7 +241,28 @@ Use a friendly, helpful tone appropriate for a chat interface.
     
     // Handle errors gracefully
     const errorMessage = error instanceof Error ? error.message : String(error);
-    res.write(`data: {"error":"I encountered an error while retrieving campaign data: ${errorMessage}. Please try again or rephrase your question."}\n\n`);
+    const formattedErrorMessage = `I encountered an error while retrieving campaign data: ${errorMessage}. Please try again or rephrase your question.`;
+    
+    res.write(`data: {"error":"${formattedErrorMessage}"}\n\n`);
+    
+    // Still save the error response to the database
+    try {
+      await storage.createChatMessage({
+        conversationId: conversationId,
+        role: 'assistant',
+        content: formattedErrorMessage,
+        metadata: {
+          model: 'gpt-4o',
+          processed: true,
+          timestamp: new Date().toISOString(),
+          error: true
+        }
+      });
+      log(`Saved error message to database for conversation ${conversationId}`, 'two-llm-rag');
+    } catch (saveError) {
+      log(`Error saving error message: ${saveError}`, 'two-llm-rag');
+    }
+    
     res.write('data: [DONE]\n\n');
     res.end();
   }
@@ -258,7 +279,10 @@ Use a friendly, helpful tone appropriate for a chat interface.
 export async function processTwoLlmRagQueryNonStreaming(
   query: string,
   userId: string,
-  options: { includeDebugInfo?: boolean } = {}
+  options: { 
+    includeDebugInfo?: boolean;
+    conversationId?: string;
+  } = {}
 ): Promise<RAGResponse> {
   const processingStart = Date.now();
   log(`Processing non-streaming Two-LLM RAG query: "${query}"`, 'two-llm-rag');
@@ -406,6 +430,26 @@ Use a friendly, helpful tone appropriate for a chat interface.
 
     const answer = responseCompletion.choices[0].message.content || '';
     log(`Generated answer with ${answer.length} characters`, 'two-llm-rag');
+    
+    // Save to database if we have a conversation ID
+    if (options.conversationId) {
+      try {
+        await storage.createChatMessage({
+          conversationId: options.conversationId,
+          role: 'assistant',
+          content: answer,
+          metadata: {
+            model: 'gpt-4o',
+            processed: true,
+            timestamp: new Date().toISOString(),
+            campaignIds: campaignIds.length > 0 ? campaignIds : undefined
+          }
+        });
+        log(`Saved assistant message to database for conversation ${options.conversationId}`, 'two-llm-rag');
+      } catch (saveError) {
+        log(`Error saving assistant message: ${saveError}`, 'two-llm-rag');
+      }
+    }
 
     // Create response object
     const response: RAGResponse = {

@@ -223,7 +223,10 @@ async function processRagQueryWithIds(
 export async function processRagQueryNonStreaming(
   query: string,
   userId: string,
-  options: { includeDebugInfo?: boolean } = {}
+  options: { 
+    includeDebugInfo?: boolean;
+    conversationId?: string; 
+  } = {}
 ): Promise<RAGResponse> {
   const processingStart = Date.now();
   log(`Starting non-streaming RAG process for query: "${query}"`, 'rag-service');
