@@ -2,8 +2,11 @@ import { useState, useEffect, useRef } from "react";
 import { Avatar } from "@/components/ui/avatar";
 import { Card } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Bot, User } from "lucide-react";
+import { Bot, User, BrainCircuit, Zap } from "lucide-react";
 import { Message, Conversation, formatConversationResponse } from "@/lib/chatService";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 interface ChatProps {
   conversation: any; // This will be processed into the correct format
@@ -13,6 +16,7 @@ interface ChatProps {
 export function Chat({ conversation, isLoading }: ChatProps) {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const [isTyping, setIsTyping] = useState(false);
+  const [useTwoLlm, setUseTwoLlm] = useState(true); // Default to two-LLM architecture
   const [processed, setProcessed] = useState<{
     conversation: Conversation | null;
     messages: Message[];

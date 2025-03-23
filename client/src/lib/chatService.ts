@@ -93,11 +93,17 @@ export function formatConversationResponse(data: any): {
  * This implementation prioritizes using the RAG (Retrieval-Augmented Generation) 
  * endpoint for advertising-related queries, which provides context-aware,
  * data-driven responses based on campaign metrics
+ * 
+ * @param conversationId - ID of the conversation to send the message to
+ * @param messageContent - The message content to send
+ * @param onStreamUpdate - Callback function that receives streamed content updates
+ * @param useTwoLlm - Whether to use the two-LLM architecture (default: true)
  */
 export async function sendMessage(
   conversationId: string, 
   messageContent: string,
-  onStreamUpdate: (content: string) => void
+  onStreamUpdate: (content: string) => void,
+  useTwoLlm: boolean = true
 ): Promise<void> {
   // Don't send empty messages
   if (!messageContent.trim() || !conversationId) return;
@@ -114,9 +120,11 @@ export async function sendMessage(
       queryKey: ["/api/chat/conversations", conversationId] 
     });
     
-    // Step 2: Use RAG endpoint by default for advertising-focused context-aware responses
-    console.log('Calling RAG query endpoint...');
-    const completionResponse = await fetch('/api/rag/query', {
+    // Step 2: Determine which RAG endpoint to use
+    const endpoint = useTwoLlm ? '/api/rag/query-two-llm' : '/api/rag/query';
+    console.log(`Calling ${useTwoLlm ? 'Two-LLM' : 'Standard'} RAG query endpoint...`);
+    
+    const completionResponse = await fetch(endpoint, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -181,6 +189,13 @@ export async function sendMessage(
                 if (parsedData.content) {
                   streamedContent += parsedData.content;
                   onStreamUpdate(streamedContent);
+                } else if (parsedData.error) {
+                  // Handle error in the stream
+                  console.error('Error from server:', parsedData.error);
+                  streamedContent += `\n\nError: ${parsedData.error}`;
+                  onStreamUpdate(streamedContent);
+                  done = true;
+                  break;
                 }
               } catch (parseError) {
                 console.error('Error parsing streaming data:', parseError);

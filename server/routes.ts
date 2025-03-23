@@ -1195,17 +1195,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Use the demo user ID for testing
       const demoUserId = "903243fa-a65e-4d38-8236-798559b81941";
       const query = req.query.query as string || "How are my campaigns performing?";
+      const mode = req.query.mode as string || "standard"; // 'standard' or 'two-llm'
       
-      console.log(`[DEV TEST] Testing RAG with query: ${query}`);
+      console.log(`[DEV TEST] Testing RAG with query: ${query}, mode: ${mode}`);
       
-      // Import the RAG service
-      const { processRagQueryNonStreaming } = await import('./services/rag');
-      
-      // Process the RAG query without streaming
+      let result;
       const startTime = Date.now();
-      const result = await processRagQueryNonStreaming(query, demoUserId, {
-        includeDebugInfo: true
-      });
+      
+      if (mode === 'two-llm') {
+        // Use the two-LLM architecture
+        const { processTwoLlmRagQueryNonStreaming } = await import('./services/two-llm-rag');
+        result = await processTwoLlmRagQueryNonStreaming(query, demoUserId, {
+          includeDebugInfo: true
+        });
+      } else {
+        // Use the standard RAG architecture
+        const { processRagQueryNonStreaming } = await import('./services/rag');
+        result = await processRagQueryNonStreaming(query, demoUserId, {
+          includeDebugInfo: true
+        });
+      }
+      
       const processingTime = Date.now() - startTime;
       
       // Add processing time to debug info
@@ -1213,7 +1223,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         result.debugInfo.processingTimeMs = processingTime;
       }
       
-      console.log(`[DEV TEST] RAG query completed in ${processingTime}ms with ${result.campaigns?.length || 0} campaigns`);
+      console.log(`[DEV TEST] RAG query (${mode}) completed in ${processingTime}ms with ${result.campaigns?.length || 0} campaigns`);
       
       return res.json(result);
     } catch (error) {
