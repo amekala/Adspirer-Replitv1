@@ -4,8 +4,8 @@
  */
 
 // Test credentials - should be environment variables in production
-const TEST_EMAIL = 'test@example.com';
-const TEST_PASSWORD = 'password123';
+const TEST_EMAIL = 'abhilashreddi@gmail.com';
+const TEST_PASSWORD = 'T1l1icron!';
 
 // Selectors for important UI elements
 const SELECTORS = {

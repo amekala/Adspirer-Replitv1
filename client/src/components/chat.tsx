@@ -136,7 +136,7 @@ function MessageBubble({ message, isStreaming = false }: { message: Message; isS
   const isUser = message.role === "user";
   
   return (
-    <div className={`flex ${isUser ? "justify-end" : "justify-start"} group py-2`}>
+    <div className={`flex ${isUser ? "justify-end" : "justify-start"} group py-2 chat-message ${isUser ? 'user' : 'assistant'}`}>
       <div className={`flex ${isUser ? "flex-row-reverse" : "flex-row"} gap-3 max-w-[80%] md:max-w-[70%]`}>
         <div className={`flex-shrink-0 ${isUser ? "ml-2" : "mr-2"}`}>
           <Avatar className={`h-9 w-9 ${isUser ? "bg-blue-600" : "bg-zinc-800"} self-start mt-0.5 overflow-hidden ring-2 ring-background`}>

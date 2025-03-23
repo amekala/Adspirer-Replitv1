@@ -103,7 +103,7 @@ export function ChatSidebar({
         </div>
 
         <ScrollArea className="flex-1">
-          <div className="p-3 space-y-1">
+          <div className="p-3 space-y-1" data-testid="conversation-list">
             {isLoading ? (
               // Loading skeletons
               Array(5)
@@ -127,6 +127,7 @@ export function ChatSidebar({
                 return (
                   <div
                     key={conversation.id}
+                    data-testid="conversation-item"
                     className={`group flex items-center justify-between rounded-md p-2 ${
                       isActive ? "bg-muted" : "hover:bg-muted/50"
                     } cursor-pointer`}
@@ -201,6 +202,7 @@ export function ChatSidebar({
                                 e.stopPropagation();
                                 onDeleteConversation(conversation.id);
                               }}
+                              aria-label="Delete conversation"
                             >
                               <Trash2 className="h-4 w-4 mr-2" />
                               Delete
