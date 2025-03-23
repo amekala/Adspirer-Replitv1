@@ -1,5 +1,5 @@
-const puppeteer = require('puppeteer');
-const colors = require('colors');
+import puppeteer from 'puppeteer';
+import colors from 'colors';
 
 /**
  * Test script to validate that user messages are showing in the chat UI
@@ -18,8 +18,8 @@ const colors = require('colors');
 const config = {
   baseUrl: 'http://localhost:5000',
   loginCredentials: {
-    email: 'test@example.com', 
-    password: 'password123'
+    email: 'abhilashreddi@gmail.com', 
+    password: 'T1l1icron!'
   },
   testMessage: 'This is a test message ' + new Date().toISOString()
 };
@@ -38,9 +38,17 @@ async function runTest() {
   console.log('==================='.green);
   
   const browser = await puppeteer.launch({ 
-    headless: false,  // Set to true for production use
-    defaultViewport: null,
-    args: ['--window-size=1280,800']
+    headless: 'new',  // Use the new headless mode
+    defaultViewport: { width: 1280, height: 800 },
+    args: [
+      '--no-sandbox',
+      '--disable-setuid-sandbox',
+      '--disable-dev-shm-usage',
+      '--disable-accelerated-2d-canvas',
+      '--no-first-run',
+      '--no-zygote',
+      '--disable-gpu'
+    ]
   });
   
   try {
@@ -237,7 +245,7 @@ async function validateMessageVisible(page, message) {
     
     // Alternative approach - also check for the message in a more general way
     const messageText = await page.evaluate(() => {
-      const messages = Array.from(document.querySelectorAll('.message-bubble, .chat-bubble, .message'));
+      const messages = Array.from(document.querySelectorAll('.message-bubble, .chat-bubble, .message, [class*="message"], [class*="Message"], [class*="bubble"], [class*="Bubble"]'));
       return messages.map(el => el.textContent).join(' ');
     });
     
