@@ -1105,6 +1105,43 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
   
+  // Unauthenticated test endpoint for RAG development and testing
+  app.get("/api/rag/dev-test", async (req: Request, res: Response) => {
+    try {
+      // Use the demo user ID for testing
+      const demoUserId = "903243fa-a65e-4d38-8236-798559b81941";
+      const query = req.query.query as string || "How are my campaigns performing?";
+      
+      console.log(`[DEV TEST] Testing RAG with query: ${query}`);
+      
+      // Import the RAG service
+      const { processRagQueryNonStreaming } = await import('./services/rag');
+      
+      // Process the RAG query without streaming
+      const startTime = Date.now();
+      const result = await processRagQueryNonStreaming(query, demoUserId, {
+        includeDebugInfo: true
+      });
+      const processingTime = Date.now() - startTime;
+      
+      // Add processing time to debug info
+      if (result.debugInfo) {
+        result.debugInfo.processingTimeMs = processingTime;
+      }
+      
+      console.log(`[DEV TEST] RAG query completed in ${processingTime}ms with ${result.campaigns?.length || 0} campaigns`);
+      
+      return res.json(result);
+    } catch (error) {
+      console.error('Error in RAG dev test:', error instanceof Error ? error.message : 'Unknown error');
+      return res.status(500).json({ 
+        message: "Failed to process RAG query", 
+        error: error instanceof Error ? error.message : 'Unknown error',
+        retrievalSuccess: false
+      });
+    }
+  });
+  
   // Create sample campaign data for testing
   app.post("/api/rag/create-sample-data", async (req: Request, res: Response) => {
     if (!req.isAuthenticated() || !req.user) {

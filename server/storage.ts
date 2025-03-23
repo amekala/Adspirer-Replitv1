@@ -595,14 +595,14 @@ export class DatabaseStorage implements IStorage {
             type, 
             source_id as "sourceId", 
             metadata, 
-            vector,
-            text,
+            embedding_vector as vector,
+            text_content as text,
             created_at as "createdAt",
             updated_at as "updatedAt",
-            (vector <=> $1::jsonb) as similarity
+            1 - (embedding_vector::text::float[] <-> $1::text::float[]) as similarity
           FROM embeddings_store
           WHERE type = $3
-          ORDER BY similarity ASC
+          ORDER BY similarity DESC
           LIMIT $2
         `;
         params = [vectorString, limit, type];
@@ -613,13 +613,13 @@ export class DatabaseStorage implements IStorage {
             type, 
             source_id as "sourceId", 
             metadata, 
-            vector,
-            text,
+            embedding_vector as vector,
+            text_content as text,
             created_at as "createdAt",
             updated_at as "updatedAt",
-            (vector <=> $1::jsonb) as similarity
+            1 - (embedding_vector::text::float[] <-> $1::text::float[]) as similarity
           FROM embeddings_store
-          ORDER BY similarity ASC
+          ORDER BY similarity DESC
           LIMIT $2
         `;
         params = [vectorString, limit];
@@ -681,10 +681,27 @@ export class DatabaseStorage implements IStorage {
       // Manual similarity calculation (cosine similarity) since we're using JSON storage
       const results = embeddings.map(embedding => {
         // Parse vector from JSON storage if necessary
-        const vectorData = 
-          Array.isArray(embedding.vector) 
-            ? embedding.vector 
-            : JSON.parse(embedding.vector as unknown as string);
+        let vectorData;
+        
+        try {
+          // Handle the renamed field from vector to embeddingVector
+          const vectorField = embedding.embeddingVector || embedding.vector;
+          
+          if (Array.isArray(vectorField)) {
+            vectorData = vectorField;
+          } else if (typeof vectorField === 'string') {
+            vectorData = JSON.parse(vectorField);
+          } else if (vectorField && typeof vectorField === 'object') {
+            // It might already be a parsed object
+            vectorData = vectorField;
+          } else {
+            console.warn('Invalid vector data format:', typeof vectorField);
+            vectorData = [];
+          }
+        } catch (e) {
+          console.error('Error parsing vector data:', e);
+          vectorData = [];
+        }
             
         // Calculate dot product
         let dotProduct = 0;

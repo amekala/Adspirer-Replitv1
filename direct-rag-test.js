@@ -30,7 +30,7 @@ async function testRagDirect() {
       
       // Call the test endpoint that doesn't require authentication
       console.log('Calling RAG test endpoint...');
-      const testResponse = await fetch(`${BASE_URL}/api/rag/test-fallback?query=${encodeURIComponent(query)}`);
+      const testResponse = await fetch(`${BASE_URL}/api/rag/dev-test?query=${encodeURIComponent(query)}`);
       
       if (!testResponse.ok) {
         console.error(`Test failed: ${testResponse.status} ${testResponse.statusText}`);
