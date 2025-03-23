@@ -407,7 +407,7 @@ When interacting with users:
                        ${conversationContext.length > 0 ? conversationContext : "No previous context"}`
             }
           ],
-          max_output_tokens: 10, // Very short response needed
+          max_output_tokens: 1000, // Very short response needed
           temperature: 0.0, // Zero temperature for deterministic response
           text: {
             format: {
