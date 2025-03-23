@@ -201,7 +201,7 @@ async function handleDataQuery(
             content: responseContent,
             conversationId,
             metadata: {
-              model: 'gpt-4o',
+              model: getConfiguredModel(),
               timestamp: new Date().toISOString(),
               processed: true,
               isDataQuery: true,
@@ -440,7 +440,7 @@ When interacting with users:
       res!.setHeader('Connection', 'keep-alive');
     }
     
-    console.log('Creating chat completion with OpenAI GPT-4o...');
+    console.log(`Creating chat completion with OpenAI ${getConfiguredModel()}...`);
     console.log(`Mode: ${isStreaming ? 'Streaming' : 'Non-streaming welcome message'}`);
     
     // For welcome messages we can use non-streaming for simplicity
