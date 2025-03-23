@@ -24,7 +24,7 @@ export interface ChatCompletionOptions {
  * Falls back to gpt-4o if not specified
  */
 function getConfiguredModel(): string {
-  return process.env.OPENAI_MODEL || 'gpt-4o';
+  return 'gpt-4o'; // Always use gpt-4o as requested by the user
 }
 
 /**
