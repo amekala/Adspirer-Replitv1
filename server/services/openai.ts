@@ -65,6 +65,34 @@ async function handleDataQuery(
       content: "I'm analyzing your campaign data..." 
     })}\n\n`);
     
+    // Parse the conversation context for revenue information
+    let revenueInfo = null;
+    if (conversationContext) {
+      const revenueMatch = conversationContext.match(/revenue\s+is\s+(\d+)/i);
+      if (revenueMatch && revenueMatch[1]) {
+        revenueInfo = {
+          value: parseFloat(revenueMatch[1]),
+          currency: '$'
+        };
+        console.log(`Found revenue information in conversation context: ${revenueInfo.currency}${revenueInfo.value}`);
+      }
+    }
+    
+    // Parse for campaign IDs in the context
+    let campaignIds: string[] = [];
+    if (conversationContext) {
+      const campaignIdRegex = /Campaign\s+(?:ID)?\s*[:\s]+(\d{8,})/gi;
+      let match;
+      while ((match = campaignIdRegex.exec(conversationContext)) !== null) {
+        if (match[1] && !campaignIds.includes(match[1])) {
+          campaignIds.push(match[1]);
+        }
+      }
+      if (campaignIds.length > 0) {
+        console.log(`Found campaign IDs in context: ${campaignIds.join(', ')}`);
+      }
+    }
+    
     // Process the query with SQL Builder, passing conversation context if available
     // The SQL Builder now checks cache & summaries before executing SQL
     const sqlResult = await processSQLQuery(userId, query, conversationContext);
@@ -153,6 +181,36 @@ async function handleDataQuery(
         console.log("Processed SQL result data:", JSON.stringify(sqlResult.data, null, 2));
       }
       
+      // Process the data if we have revenue information from the context
+      if (revenueInfo && campaignIds.length > 0) {
+        console.log(`Applying revenue ${revenueInfo.value} to campaigns: ${campaignIds.join(', ')}`);
+        
+        // Find the campaign data in the SQL results that matches our campaign IDs
+        if (Array.isArray(sqlResult.data)) {
+          // Calculate ROAS for each campaign mentioned in the context
+          const processedData = sqlResult.data.map(row => {
+            // Deep clone to avoid modifying the original
+            const newRow = {...row};
+            
+            // If this is a campaign mentioned in the context and we have cost data
+            const campaignId = row.campaign_id?.toString() || row.id?.toString();
+            if (campaignId && campaignIds.includes(campaignId) && row.cost) {
+              // Calculate ROAS as revenue / cost
+              const cost = parseFloat(row.cost);
+              if (cost > 0) {
+                newRow.roas = (revenueInfo.value / cost).toFixed(2);
+                console.log(`Calculated ROAS for campaign ${campaignId}: ${newRow.roas}`);
+              }
+            }
+            
+            return newRow;
+          });
+          
+          // Replace the data with our processed version
+          sqlResult.data = processedData;
+        }
+      }
+      
       // Use OpenAI to format the data, with stronger instructions against hallucination
       const openaiClient = getOpenAIClient();
       
@@ -171,6 +229,8 @@ async function handleDataQuery(
                      4. If values appear unusual (e.g., very high or low), note this but do not change them.
                      5. Do not invent explanations for patterns unless clearly evident in the data.
                      6. CTR values should be shown with % symbol and exactly one decimal place.
+                     7. Format ROAS values with an 'x' suffix to represent as a ratio (e.g., "9.98x").
+                     8. Only calculate metrics for campaigns mentioned in the context, never for random campaign IDs.
                      
                      Formatting guidelines:
                      1. Present the data in a clear, easy-to-understand format
@@ -186,6 +246,9 @@ async function handleDataQuery(
                      
                      Here is the EXACT campaign data that must be used (do not modify these values):
                      ${JSON.stringify(sqlResult.data, null, 2)}
+                     
+                     ${revenueInfo ? `The user mentioned revenue is ${revenueInfo.currency}${revenueInfo.value}` : ''}
+                     ${campaignIds.length > 0 ? `The conversation mentioned these campaign IDs: ${campaignIds.join(', ')}` : ''}
                      
                      Format this data into a helpful response using ONLY the actual values provided.
                      If the data seems incomplete or suspicious, acknowledge this in your response.`

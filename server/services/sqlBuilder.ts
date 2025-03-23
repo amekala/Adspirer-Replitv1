@@ -282,7 +282,9 @@ async function generateSQL(
                9. For CTR (click-through rate) calculations, use (clicks::float / impressions) * 100
                10. For ROAS (return on ad spend) calculations, use (sales::float / cost) as a direct ratio, not as a percentage
                11. When calculating average ROAS across multiple campaigns, use weighted averages based on cost
-               12. All ROAS calculations should be formatted as a direct ratio (e.g., "5.4x") not as a percentage`
+               12. All ROAS calculations should be formatted as a direct ratio (e.g., "5.4x") not as a percentage
+               13. If revenue information is mentioned in the conversation context (e.g., "revenue is 200"), use that value for the campaigns being discussed, not for random campaigns
+               14. When specific campaign IDs are mentioned in the context, prioritize those campaigns in your query results`
     }
   ];
   
