@@ -55,6 +55,22 @@ export function formatConversationResponse(data: any): {
         const conversation = data.find(c => c.id === conversationId);
         if (conversation) {
           console.log(`Found conversation ${conversation.id} in list but need to fetch messages`);
+          
+          // Check if we have existing messages in the cache we should preserve
+          const existingData = queryClient.getQueryData([
+            "/api/chat/conversations", 
+            conversationId, 
+            "specific"
+          ]);
+          
+          if (existingData && existingData.messages && existingData.messages.length > 0) {
+            console.log(`Preserving ${existingData.messages.length} existing messages from cache`);
+            return {
+              conversation: conversation,
+              messages: existingData.messages
+            };
+          }
+          
           return {
             conversation: conversation,
             messages: []  // Empty messages - need to be fetched separately
@@ -270,18 +286,27 @@ export async function sendMessage(
       // This prevents message disappearing during cache refresh
       if (result) {
         const messages = result.messages || [];
-        const hasStreamedMessage = messages.some(m => 
-          m.role === 'assistant' && m.content === finalContent
-        );
+        
+        // First check for the precise streaming ID we saved
+        let persistedId = window.persistedMessageId || currentStreamingId;
+        let hasStreamedMessage = messages.some(m => m.id === persistedId);
+        
+        // If we don't find the message by ID, then fall back to content matching
+        if (!hasStreamedMessage && finalContent) {
+          hasStreamedMessage = messages.some(m => 
+            m.role === 'assistant' && m.content === finalContent
+          );
+        }
         
         if (!hasStreamedMessage && finalContent) {
-          console.log('Fetched data missing assistant message, keeping local version');
+          console.log(`Fetched data missing assistant message with ID ${persistedId}, keeping local version`);
           
           // Keep our local version by adding it to the fetched result
+          // Use the known streaming ID instead of creating a new one
           result.messages = [
             ...messages,
             {
-              id: `permanent-${Date.now()}`,
+              id: persistedId, // Use the same ID we generated earlier or received from server
               role: 'assistant',
               content: finalContent,
               createdAt: new Date().toISOString()
