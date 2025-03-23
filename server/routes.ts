@@ -1367,7 +1367,7 @@ Metrics (Last 30 Days):
               embeddingType,
               campaign.profile_id,
               campaignText,
-              embedding,
+              JSON.stringify(embedding),
               JSON.stringify(metadata)
             ]
           );
@@ -1477,7 +1477,7 @@ Metrics (Last 30 Days):
               embeddingType,
               campaign.campaign_id,
               campaignText,
-              embedding,
+              JSON.stringify(embedding),
               JSON.stringify(metadata)
             ]
           );
