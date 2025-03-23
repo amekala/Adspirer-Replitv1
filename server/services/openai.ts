@@ -70,7 +70,8 @@ function convertToResponsesFormat(params: any): any {
   }
   
   if (params.max_tokens !== undefined) {
-    responsesParams.max_tokens = params.max_tokens;
+    // Responses API uses max_output_tokens instead of max_tokens
+    responsesParams.max_output_tokens = params.max_tokens;
   }
   
   if (params.tools) {
@@ -462,7 +463,7 @@ When interacting with users:
         model: 'gpt-4o',
         messages,
         temperature: 0.7,
-        max_tokens: 500, // Welcome messages can be shorter
+        max_output_tokens: 500, // Welcome messages can be shorter
       };
       
       // Convert parameters to Responses API format
@@ -536,7 +537,7 @@ When interacting with users:
           }
         ],
         temperature: 0.1,
-        max_tokens: 10,
+        max_output_tokens: 10,
       };
       
       // Convert parameters to Responses API format
@@ -567,7 +568,7 @@ When interacting with users:
       model: 'gpt-4o',
       messages,
       temperature: 0.7,
-      max_tokens: 1000,
+      max_output_tokens: 1000,
       stream: true,
     };
     

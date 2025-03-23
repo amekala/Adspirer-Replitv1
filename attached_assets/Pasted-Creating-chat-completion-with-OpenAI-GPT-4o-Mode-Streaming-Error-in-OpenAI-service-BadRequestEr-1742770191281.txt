@@ -1,0 +1,38 @@
+Creating chat completion with OpenAI GPT-4o...
+Mode: Streaming
+Error in OpenAI service: BadRequestError: 400 Unknown parameter: 'max_tokens'.
+    at Function.generate (/home/runner/workspace/node_modules/openai/src/error.ts:72:14)
+    at OpenAI.makeStatusError (/home/runner/workspace/node_modules/openai/src/core.ts:443:21)
+    at OpenAI.makeRequest (/home/runner/workspace/node_modules/openai/src/core.ts:507:24)
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+    at async streamChatCompletion (/home/runner/workspace/server/services/openai.ts:546:31)
+    at async <anonymous> (/home/runner/workspace/server/routes.ts:945:9) {
+  status: 400,
+  headers: {
+    'alt-svc': 'h3=":443"; ma=86400',
+    'cf-cache-status': 'DYNAMIC',
+    'cf-ray': '92517b7c5c45233c-ORD',
+    connection: 'keep-alive',
+    'content-length': '167',
+    'content-type': 'application/json',
+    date: 'Sun, 23 Mar 2025 22:49:30 GMT',
+    'openai-organization': 'mockeryai',
+    'openai-processing-ms': '8',
+    'openai-version': '2020-10-01',
+    server: 'cloudflare',
+    'set-cookie': '__cf_bm=aVVHtIs7c8mfo_vBREVoe0U1l4o9TxKJjwXhdTU10eg-1742770170-1.0.1.1-VO__J0g4MXHqBuHwWnNbjiUI_sALE8Py3dR8uH3DGLN6QAf1SlQ5tWUeEyxKqQNsu0X6Vt4dUI03.Zb1jkfhdPKnnTJVPbUqBZmuNBM_2Sw; path=/; expires=Sun, 23-Mar-25 23:19:30 GMT; domain=.api.openai.com; HttpOnly; Secure; SameSite=None, _cfuvid=lzQlPRawI7e4G5DoI9oTZj3538GyWpUmvzNntb3DERU-1742770170367-0.0.1.1-604800000; path=/; domain=.api.openai.com; HttpOnly; Secure; SameSite=None',
+    'strict-transport-security': 'max-age=31536000; includeSubDomains; preload',
+    'x-content-type-options': 'nosniff',
+    'x-request-id': 'req_f43d31c151c8074fc8c70ebbaeece8f0'
+  },
+  request_id: 'req_f43d31c151c8074fc8c70ebbaeece8f0',
+  error: {
+    message: "Unknown parameter: 'max_tokens'.",
+    type: 'invalid_request_error',
+    param: 'max_tokens',
+    code: 'unknown_parameter'
+  },
+  code: 'unknown_parameter',
+  param: 'max_tokens',
+  type: 'invalid_request_error'
+}
