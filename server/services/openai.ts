@@ -2,11 +2,15 @@
  * OpenAI API integration service
  * Provides functionality for interacting with OpenAI APIs, 
  * handling credentials, and streaming responses.
+ * 
+ * This service also integrates with a SQL Builder LLM that handles
+ * database queries for campaign data.
  */
 
 import { OpenAI } from 'openai';
 import { Response } from 'express';
 import { storage } from '../storage';
+import { processSQLQuery } from './sqlBuilder';
 
 // Define interfaces for strongly typed parameters
 export interface ChatCompletionOptions {
