@@ -459,14 +459,16 @@ When interacting with users:
       const modelName = getConfiguredModel();
       const completionParams: any = {
         model: modelName,
-        messages,
-        temperature: 0.7,
+        messages
       };
       
-      // Use correct parameter based on model (o3 models use max_completion_tokens)
+      // Add model-specific parameters
       if (modelName.includes('o3')) {
+        // o3 models don't support temperature
         completionParams.max_completion_tokens = 500; // Welcome messages can be shorter
       } else {
+        // Other models like gpt-4o
+        completionParams.temperature = 0.7;
         completionParams.max_tokens = 500; // Welcome messages can be shorter
       }
       
@@ -533,14 +535,16 @@ When interacting with users:
             role: "user",
             content: `Here is the conversation so far:\n${conversationContext}\n\nBased on this context and the latest message, should I route to the database or handle it as a general knowledge query? Reply with only "DATABASE" or "GENERAL".`
           }
-        ],
-        temperature: 0.1,
+        ]
       };
       
-      // Use the correct token parameter based on model
+      // Add model-specific parameters
       if (modelName.includes('o3')) {
+        // o3 models don't support temperature
         routingParams.max_completion_tokens = 10;
       } else {
+        // Other models like gpt-4o
+        routingParams.temperature = 0.1;
         routingParams.max_tokens = 10;
       }
       
@@ -567,14 +571,16 @@ When interacting with users:
     const streamParams: any = {
       model: modelName,
       messages,
-      temperature: 0.7,
-      stream: true,
+      stream: true
     };
     
-    // Use correct parameter based on model (o3 models use max_completion_tokens)
+    // Add model-specific parameters
     if (modelName.includes('o3')) {
+      // o3 models don't support temperature
       streamParams.max_completion_tokens = 1000;
     } else {
+      // Other models like gpt-4o
+      streamParams.temperature = 0.7;
       streamParams.max_tokens = 1000;
     }
     
