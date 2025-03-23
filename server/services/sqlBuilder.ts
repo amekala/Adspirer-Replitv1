@@ -310,21 +310,24 @@ async function generateSQL(
     max_output_tokens: 500,
   };
 
+  // Format messages for the Responses API
+  // The Responses API expects either a string or an array of messages, with system prompts included in the messages
+  let formattedInput: any = sqlParams.messages;
+  
+  // If the input has a mix of user and system messages, make sure they're properly formatted
+  // unlike in chat completions API, system messages are just part of the input array
+  if (Array.isArray(formattedInput) && formattedInput.some((msg: any) => msg.role === 'system' || msg.role === 'user')) {
+    // Responses API accepts messages in this format already, no need to extract system message
+    formattedInput = sqlParams.messages;
+  }
+  
   // Convert to Responses API format
   const responsesParams: any = {
     model: sqlParams.model,
-    input: sqlParams.messages,
+    input: formattedInput,
     temperature: sqlParams.temperature,
     max_output_tokens: sqlParams.max_output_tokens
   };
-  
-  // Extract system message if present and handle it specially for Responses API
-  const systemMessage = sqlParams.messages.find((msg: any) => msg.role === 'system');
-  if (systemMessage) {
-    responsesParams.system = systemMessage.content;
-    // Remove system message from input array
-    responsesParams.input = responsesParams.input.filter((msg: any) => msg.role !== 'system');
-  }
   
   // Use Responses API
   const response = await openai.responses.create(responsesParams);
