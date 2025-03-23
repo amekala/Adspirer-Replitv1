@@ -112,24 +112,9 @@ export default function ChatPage() {
             conversationWithTyping
           );
           
-          // Now send a request to get an actual welcome message
+          // The server automatically generates a welcome message when creating a conversation
+          // We just need to refresh to get the server-generated welcome message
           try {
-            const completionResponse = await fetch('/api/chat/completions', {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-              },
-              body: JSON.stringify({
-                conversationId: newConversation.id,
-                initialMessage: true
-              }),
-              credentials: 'include'
-            });
-            
-            if (!completionResponse.ok) {
-              console.error('Failed to get initial welcome message');
-            }
-            
             // Final refresh to ensure we have the welcome message
             queryClient.invalidateQueries({ 
               queryKey: ["/api/chat/conversations", newConversation.id] 
@@ -139,7 +124,7 @@ export default function ChatPage() {
               queryKey: ["/api/chat/conversations", newConversation.id, "specific"] 
             });
           } catch (error) {
-            console.error("Error getting welcome message:", error);
+            console.error("Error refreshing conversation data:", error);
           }
         }, 500);
       } catch (error) {
