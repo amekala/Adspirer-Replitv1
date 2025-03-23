@@ -101,8 +101,76 @@ async function handleDataQuery(
       }
     }
     
-    // Process the query with SQL Builder, passing conversation context if available
-    // The SQL Builder now checks cache & summaries before executing SQL
+    // Check if this is a mathematical computation or code interpreter request rather than a database query
+    const isComplexMathComputationPattern = /(calculate|compute|what is|determine|evaluate|find the).*(average|mean|median|percentage|ratio|standard deviation|variance)/i;
+    const isSimpleMathPattern = /what is [0-9]+\s*[\+\-\*\/]\s*[0-9]+/i;
+    const isCodePattern = /(write|create|generate).*(code|script|program|function)/i;
+    
+    // If the query appears to be a request for calculations or code
+    if (isComplexMathComputationPattern.test(query) || isSimpleMathPattern.test(query) || isCodePattern.test(query)) {
+      console.log('Handling mathematical calculation or code generation with code interpreter');
+      
+      // Use OpenAI function calling for code interpreter
+      const openai = getOpenAIClient();
+      const response = await openai.chat.completions.create({
+        model: getConfiguredModel(),
+        messages: [
+          {
+            role: "system",
+            content: `You are an AI assistant with code interpreter capabilities for Adspirer, 
+                    a platform that helps manage retail media advertising campaigns. 
+                    When given mathematical questions or code requests, write and execute Python code.
+                    
+                    When calculating marketing metrics:
+                    - CTR (Click-Through Rate) = (Clicks / Impressions) * 100 (expressed as a percentage with % symbol)
+                    - CPC (Cost Per Click) = Cost / Clicks (expressed as a currency amount)
+                    - ROAS (Return On Ad Spend) = Revenue / Cost (expressed as a direct ratio with 'x' suffix, e.g., '3.5x')
+                    - Conversion Rate = (Conversions / Clicks) * 100 (expressed as a percentage with % symbol)
+                    
+                    Always show your work using Python code, followed by a clear explanation of the results.`
+          },
+          {
+            role: "user",
+            content: `${query}`
+          }
+        ],
+        temperature: 0.5,
+        max_tokens: 1000
+      });
+      
+      const responseContent = response.choices[0]?.message?.content || "I couldn't process your calculation request.";
+      
+      // Extract code blocks from the response
+      const codeBlocks = responseContent.match(/```python([\s\S]*?)```/g);
+      const pythonCode = codeBlocks ? codeBlocks.map(block => block.replace(/```python|```/g, '').trim()).join("\n\n") : '';
+      
+      // Save this as a message with metadata
+      const messageData = {
+        role: "assistant" as const,
+        content: responseContent,
+        conversationId,
+        metadata: {
+          model: getConfiguredModel(),
+          timestamp: new Date().toISOString(),
+          processed: true,
+          isCodeInterpreter: true,
+          pythonCode: pythonCode
+        }
+      };
+      
+      // Save to database
+      await storage.createChatMessage(messageData);
+      
+      // Send the response to the client
+      res.write(`data: ${JSON.stringify({ content: responseContent })}\n\n`);
+      res.write('data: [DONE]\n\n');
+      res.end();
+      
+      return; // Exit the function early since we've handled the response
+    }
+    
+    // If it's not a code/math request, process the query with SQL Builder
+    // The SQL Builder checks cache & summaries before executing SQL
     const sqlResult = await processSQLQuery(userId, query, conversationContext);
     
     let responseContent = '';
