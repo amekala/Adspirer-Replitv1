@@ -21,6 +21,7 @@ import { streamChatCompletion, getOpenAIClient } from './openai';
 import { generateEmbedding } from './embedding';
 import type { Response } from 'express';
 import { pool } from '../db';
+import { storage } from '../storage';
 
 // Define types for the API response
 export interface RAGResponse {
