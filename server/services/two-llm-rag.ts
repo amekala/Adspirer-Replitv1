@@ -331,6 +331,7 @@ export async function processTwoLlmRagQueryNonStreaming(
 ): Promise<RAGResponse> {
   const processingStart = Date.now();
   log(`Processing non-streaming Two-LLM RAG query: "${query}"`, 'two-llm-rag');
+  log(`Options: conversationId=${options.conversationId}, streamingId=${options.streamingId}, includeDebugInfo=${options.includeDebugInfo}`, 'two-llm-rag');
 
   try {
     // Step 1: Generate embedding for the query
