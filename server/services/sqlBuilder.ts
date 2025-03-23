@@ -129,19 +129,26 @@ export async function processSQLQuery(
   try {
     console.log(`SQL Builder processing query from user ${userId}: "${query}"`);
     
-    // Step 1: Check if this query is in the cache
-    const cachedResponse = await QueryCache.getCachedResponse(query, userId);
-    if (cachedResponse) {
-      console.log(`Using cached response for query: "${query}"`);
-      return {
-        data: cachedResponse.data,
-        sql: cachedResponse.sql,
-        fromCache: true
-      };
+    // Check if this is a complex query that should bypass caching and summaries
+    const isComplex = QueryCache.isComplexQuery(query);
+    
+    // Step 1: For non-complex queries, check if this query is in the cache
+    if (!isComplex) {
+      const cachedResponse = await QueryCache.getCachedResponse(query, userId);
+      if (cachedResponse) {
+        console.log(`Using cached response for query: "${query}"`);
+        return {
+          data: cachedResponse.data,
+          sql: cachedResponse.sql,
+          fromCache: true
+        };
+      }
+    } else {
+      console.log(`Complex query detected, bypassing cache: "${query}"`);
     }
     
-    // Step 2: Check if this is a metrics query that can use pre-computed summaries
-    if (QueryCache.containsMetricTerms(query)) {
+    // Step 2: For non-complex queries, check if metrics summaries can be used
+    if (!isComplex && QueryCache.containsMetricTerms(query)) {
       console.log('Query contains metric terms, checking pre-computed summaries');
       const summaries = await QueryCache.getCampaignMetricsSummaries(userId, query);
       

@@ -40,16 +40,54 @@ export function generateQueryHash(query: string, userId: string): string {
 }
 
 /**
+ * Determine if a query is complex and should bypass the cache system
+ * Complex queries often involve specific filters, joins, or advanced calculations
+ */
+export function isComplexQuery(query: string): boolean {
+  // Check for specific keywords that indicate complex queries
+  const complexIndicators = [
+    'specific',
+    'campaign id', 
+    'campaign name',
+    'compared to',
+    'correlation',
+    'relationship between',
+    'trend',
+    'over time',
+    'percentage change',
+    'growth rate',
+    'raw data',
+    'detailed',
+    'exact'
+  ];
+  
+  // Check if query has any complex indicators
+  const normalizedQuery = normalizeQuery(query);
+  return complexIndicators.some(indicator => 
+    normalizedQuery.includes(normalizeQuery(indicator))
+  );
+}
+
+/**
  * Get a cached response for a query if available
+ * Complex queries bypass the cache system to ensure accurate results
  */
 export async function getCachedResponse(
   query: string, 
   userId: string
 ): Promise<any | null> {
+  // Check if this is a complex query that should bypass cache
+  if (isComplexQuery(query)) {
+    console.log(`Complex query detected, bypassing cache: "${query}"`);
+    return null;
+  }
+  
   const queryHash = generateQueryHash(query, userId);
   const cachedEntry = await storage.getQueryCacheEntry(userId, queryHash);
   
   if (cachedEntry) {
+    // Update hit count for analytics
+    await storage.updateQueryCacheHitCount(cachedEntry.id);
     return cachedEntry.responseData;
   }
   

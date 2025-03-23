@@ -2,6 +2,7 @@
   import { registerRoutes } from "./routes";
   import { setupVite, serveStatic, log } from "./vite";
   import { request, IncomingMessage } from "http";
+  import { startScheduledTasks } from "./maintenance/scheduleTasks";
 
   const app = express();
   app.use(express.json());
@@ -95,6 +96,9 @@
       // Log messages specifically for Replit workflow detection
       console.log(`🚀 Server ready at http://0.0.0.0:${port}`);
       console.log(`Server listening on port ${port}`);
+      
+      // Start scheduled maintenance tasks
+      startScheduledTasks();
       
       // Add initial health check
       setTimeout(() => {
