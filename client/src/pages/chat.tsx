@@ -598,7 +598,7 @@ export default function ChatPage() {
                     value={message}
                     onChange={(e) => setMessage(e.target.value)}
                     onKeyDown={handleKeyDown}
-                    placeholder="Type your message..."
+                    placeholder="Send a message..."
                     className="min-h-[60px] resize-none overflow-hidden"
                     rows={1}
                   />
@@ -606,6 +606,7 @@ export default function ChatPage() {
                     onClick={handleSendMessage}
                     disabled={!message.trim() || sendMessageMutation.isPending}
                     size="icon"
+                    aria-label="Send message"
                   >
                     <Send className="h-4 w-4" />
                   </Button>

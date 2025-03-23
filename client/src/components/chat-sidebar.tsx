@@ -20,6 +20,16 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Skeleton } from "@/components/ui/skeleton";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 interface Conversation {
   id: string;
@@ -50,6 +60,8 @@ export function ChatSidebar({
   const [searchTerm, setSearchTerm] = useState("");
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editTitle, setEditTitle] = useState("");
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [conversationToDelete, setConversationToDelete] = useState<string | null>(null);
   
   // Filter conversations based on search term
   const filteredConversations = conversations.filter(
@@ -73,6 +85,21 @@ export function ChatSidebar({
   // Handle canceling edit
   const handleCancelEdit = () => {
     setEditingId(null);
+  };
+  
+  // Handle delete confirmation
+  const handleDeleteClick = (id: string) => {
+    setConversationToDelete(id);
+    setDeleteDialogOpen(true);
+  };
+  
+  // Handle confirmed deletion
+  const handleConfirmDelete = () => {
+    if (conversationToDelete) {
+      onDeleteConversation(conversationToDelete);
+      setDeleteDialogOpen(false);
+      setConversationToDelete(null);
+    }
   };
 
   return (

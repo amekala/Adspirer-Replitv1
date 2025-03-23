@@ -63,6 +63,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
                       onClick={handleLogout}
                       disabled={logoutMutation.isPending}
                       className="cursor-pointer"
+                      aria-label="Logout"
                     >
                       {logoutMutation.isPending && (
                         <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -129,6 +130,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
                         }}
                         className="text-left text-muted-foreground hover:text-foreground transition-colors"
                         disabled={logoutMutation.isPending}
+                        aria-label="Logout"
                       >
                         {logoutMutation.isPending ? (
                           <span className="flex items-center">
