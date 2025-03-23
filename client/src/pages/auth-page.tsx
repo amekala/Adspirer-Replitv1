@@ -20,7 +20,6 @@ import { z } from "zod";
 import { 
   Loader2, 
   Sparkles, 
-  Shield, 
   LightbulbIcon, 
   MessageSquare, 
   Bell, 
@@ -372,19 +371,6 @@ export default function AuthPage() {
                   aria-label={`Go to slide ${index + 1}`}
                 />
               ))}
-            </div>
-          </div>
-          
-          {/* Security Feature */}
-          <div className="flex items-start gap-4 bg-background/70 backdrop-blur-sm p-4 rounded-xl shadow-sm">
-            <div className="bg-primary/10 rounded-lg p-3">
-              <Shield className="h-6 w-6 text-primary" />
-            </div>
-            <div>
-              <h3 className="font-semibold mb-1">Secure & Compliant</h3>
-              <p className="text-sm text-muted-foreground">
-                Enterprise-grade security with multi-platform API authentication
-              </p>
             </div>
           </div>
         </div>

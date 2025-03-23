@@ -239,7 +239,7 @@ export function ChatSidebar({
                               <ChevronRight className="h-4 w-4" />
                             </Button>
                           </DropdownMenuTrigger>
-                          <DropdownMenuContent side="right" align="start" sideOffset={10}>
+                          <DropdownMenuContent align="end" alignOffset={-10}>
                             <DropdownMenuItem
                               onClick={(e) => {
                                 e.stopPropagation();
