@@ -290,8 +290,9 @@ async function handleDataQuery(
       // Use OpenAI to format the data, with stronger instructions against hallucination
       const openaiClient = getOpenAIClient();
       
-      const formatResponse = await openaiClient.chat.completions.create({
-        model: getConfiguredModel(),
+      const modelName = getConfiguredModel();
+      const formatParams: any = {
+        model: modelName,
         messages: [
           {
             role: "system",
@@ -331,7 +332,16 @@ async function handleDataQuery(
           }
         ],
         temperature: 0.3, // Lower temperature for more factual responses
-      });
+      };
+      
+      // Use correct parameter based on model
+      if (modelName.includes('o3')) {
+        formatParams.max_completion_tokens = 1000;
+      } else {
+        formatParams.max_tokens = 1000;
+      }
+      
+      const formatResponse = await openaiClient.chat.completions.create(formatParams);
       
       responseContent = formatResponse.choices[0]?.message?.content || 
         "I've analyzed your campaign data but am having trouble formatting the results. Please try asking in a different way.";
@@ -446,12 +456,21 @@ When interacting with users:
     // For welcome messages we can use non-streaming for simplicity
     if (!isStreaming) {
       // Non-streaming completion for welcome messages
-      const completion = await openaiClient.chat.completions.create({
-        model: getConfiguredModel(),
+      const modelName = getConfiguredModel();
+      const completionParams: any = {
+        model: modelName,
         messages,
         temperature: 0.7,
-        max_tokens: 500, // Welcome messages can be shorter
-      });
+      };
+      
+      // Use correct parameter based on model (o3 models use max_completion_tokens)
+      if (modelName.includes('o3')) {
+        completionParams.max_completion_tokens = 500; // Welcome messages can be shorter
+      } else {
+        completionParams.max_tokens = 500; // Welcome messages can be shorter
+      }
+      
+      const completion = await openaiClient.chat.completions.create(completionParams);
       
       const fullAssistantMessage = completion.choices[0]?.message?.content || '';
       
@@ -489,8 +508,9 @@ When interacting with users:
     if (isStreaming) {
       // First, ask the main LLM if this should be handled as a data query
       const openaiClient = getOpenAIClient();
-      const routingDecision = await openaiClient.chat.completions.create({
-        model: getConfiguredModel(),
+      const modelName = getConfiguredModel();
+      const routingParams: any = {
+        model: modelName,
         messages: [
           {
             role: "system",
@@ -515,8 +535,16 @@ When interacting with users:
           }
         ],
         temperature: 0.1,
-        max_tokens: 10,
-      });
+      };
+      
+      // Use the correct token parameter based on model
+      if (modelName.includes('o3')) {
+        routingParams.max_completion_tokens = 10;
+      } else {
+        routingParams.max_tokens = 10;
+      }
+      
+      const routingDecision = await openaiClient.chat.completions.create(routingParams);
       
       const decision = routingDecision.choices[0]?.message?.content?.trim().toUpperCase() || 'GENERAL';
       console.log(`Routing decision for query: "${lastUserMessage}" → ${decision}`);
@@ -535,29 +563,56 @@ When interacting with users:
     console.log('Messages being sent to OpenAI:', JSON.stringify(messages, null, 2));
     
     // Regular streaming mode for normal interactions
-    const stream = await openaiClient.chat.completions.create({
-      model: getConfiguredModel(),
+    const modelName = getConfiguredModel();
+    const streamParams: any = {
+      model: modelName,
       messages,
       temperature: 0.7,
-      max_tokens: 1000,
       stream: true,
-    });
+    };
+    
+    // Use correct parameter based on model (o3 models use max_completion_tokens)
+    if (modelName.includes('o3')) {
+      streamParams.max_completion_tokens = 1000;
+    } else {
+      streamParams.max_tokens = 1000;
+    }
+    
+    const stream = await openaiClient.chat.completions.create(streamParams);
     
     // Track the complete assistant message for saving to the database
     let fullAssistantMessage = '';
     
     console.log('Stream created, sending chunks to client...');
     
-    // Process stream chunks
-    for await (const chunk of stream) {
-      const content = chunk.choices[0]?.delta?.content || '';
-      
-      if (content) {
-        fullAssistantMessage += content;
-        
-        // Send each chunk to the client
-        res!.write(`data: ${JSON.stringify({ content })}\n\n`);
+    // Process the response (either streaming or non-streaming)
+    try {
+      // First check if it's a non-streaming response
+      const nonStreamResponse = stream as any;
+      if (nonStreamResponse && nonStreamResponse.choices && Array.isArray(nonStreamResponse.choices)) {
+        // Handle as a single non-streaming response
+        const message = nonStreamResponse.choices[0]?.message?.content;
+        if (message) {
+          fullAssistantMessage = message;
+          res!.write(`data: ${JSON.stringify({ content: message })}\n\n`);
+        }
+      } else {
+        // Handle as a streaming response
+        const streamResponse = stream as AsyncIterable<any>;
+        for await (const chunk of streamResponse) {
+          const content = chunk.choices[0]?.delta?.content || '';
+          
+          if (content) {
+            fullAssistantMessage += content;
+            
+            // Send each chunk to the client
+            res!.write(`data: ${JSON.stringify({ content })}\n\n`);
+          }
+        }
       }
+    } catch (streamError) {
+      console.error('Error processing stream response:', streamError);
+      res!.write(`data: ${JSON.stringify({ content: 'Error processing response' })}\n\n`);
     }
     
     console.log('Stream completed, saving response to database...');

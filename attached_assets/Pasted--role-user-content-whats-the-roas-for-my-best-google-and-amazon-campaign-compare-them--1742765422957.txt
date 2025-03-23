@@ -1,0 +1,57 @@
+  "role": "user",
+  "content": "whats the roas for my best google and amazon campaign, compare them to industry benchmark\n"
+}
+User message saved with ID: 148bab9b-455c-43e9-9f26-6a0cf09322f8
+9:29:28 PM [express] POST /api/chat/conversations/affd5a9f-9ced-41e6-a0be-ec138414ffe5/messages 201 …
+9:29:28 PM [express] GET /api/chat/conversations/a18f11e3-8dbb-49b1-bfb1-850293b17610 304 in 220ms :…
+9:29:28 PM [express] GET /api/chat/conversations/affd5a9f-9ced-41e6-a0be-ec138414ffe5 200 in 221ms :…
+User authenticated: 903243fa-a65e-4d38-8236-798559b81941
+Generating chat completion for conversation: affd5a9f-9ced-41e6-a0be-ec138414ffe5
+Retrieved 4 messages for chat completion context
+Creating chat completion with OpenAI o3-mini...
+Mode: Streaming
+Error in OpenAI service: BadRequestError: 400 Unsupported parameter: 'max_tokens' is not supported with this model. Use 'max_completion_tokens' instead.
+    at Function.generate (/home/runner/workspace/node_modules/openai/src/error.ts:72:14)
+    at OpenAI.makeStatusError (/home/runner/workspace/node_modules/openai/src/core.ts:443:21)
+    at OpenAI.makeRequest (/home/runner/workspace/node_modules/openai/src/core.ts:507:24)
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+    at async streamChatCompletion (/home/runner/workspace/server/services/openai.ts:492:31)
+    at async <anonymous> (/home/runner/workspace/server/routes.ts:945:9) {
+  status: 400,
+  headers: {
+    'access-control-expose-headers': 'X-Request-ID',
+    'alt-svc': 'h3=":443"; ma=86400',
+    'cf-cache-status': 'DYNAMIC',
+    'cf-ray': '925106448d0ae814-ORD',
+    connection: 'keep-alive',
+    'content-length': '245',
+    'content-type': 'application/json',
+    date: 'Sun, 23 Mar 2025 21:29:29 GMT',
+    'openai-organization': 'mockeryai',
+    'openai-processing-ms': '15',
+    'openai-version': '2020-10-01',
+    server: 'cloudflare',
+    'set-cookie': '__cf_bm=MPepwlJQ8erRtw.hlrAXLan_4wwVWqkeD34HTbNH.kw-1742765369-1.0.1.1-V0_Y5TvqEkXfx4oTgx3nfDydBGMh_Lrq57gJCwSbk.fRh6FC3QlBzJ77vCEeAMeC1.bPoiP57luthEChLJi6JiRB5cn6VqrEkzNfhrQzJGk; path=/; expires=Sun, 23-Mar-25 21:59:29 GMT; domain=.api.openai.com; HttpOnly; Secure; SameSite=None, _cfuvid=bCSBpA4bkmBbdMhSVq.kPt0v7lvLvGoBLCYKYWHLDCQ-1742765369160-0.0.1.1-604800000; path=/; domain=.api.openai.com; HttpOnly; Secure; SameSite=None',
+    'strict-transport-security': 'max-age=31536000; includeSubDomains; preload',
+    'x-content-type-options': 'nosniff',
+    'x-ratelimit-limit-requests': '5000',
+    'x-ratelimit-limit-tokens': '4000000',
+    'x-ratelimit-remaining-requests': '4999',
+    'x-ratelimit-remaining-tokens': '3999547',
+    'x-ratelimit-reset-requests': '12ms',
+    'x-ratelimit-reset-tokens': '6ms',
+    'x-request-id': 'req_4047b844e630833e60c2696d7434a0d8'
+  },
+  request_id: 'req_4047b844e630833e60c2696d7434a0d8',
+  error: {
+    message: "Unsupported parameter: 'max_tokens' is not supported with this model. Use 'max_completion_tokens' instead.",
+    type: 'invalid_request_error',
+    param: 'max_tokens',
+    code: 'unsupported_parameter'
+  },
+  code: 'unsupported_parameter',
+  param: 'max_tokens',
+  type: 'invalid_request_error'
+}
+9:29:29 PM [express] POST /api/chat/completions 200 in 375ms
+9:29:29 PM [express] GET /api/chat/conversations/a18f11e3-8dbb-49b1-bfb1-850293b17610 304 in 220ms :…
