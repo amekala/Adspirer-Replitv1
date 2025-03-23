@@ -307,7 +307,7 @@ async function generateSQL(
     model: "gpt-4o",
     messages,
     temperature: 0.1, // Lower temperature for more deterministic SQL generation
-    max_tokens: 500,
+    max_output_tokens: 500,
   };
 
   // Convert to Responses API format
@@ -315,7 +315,7 @@ async function generateSQL(
     model: sqlParams.model,
     input: sqlParams.messages,
     temperature: sqlParams.temperature,
-    max_tokens: sqlParams.max_tokens
+    max_output_tokens: sqlParams.max_output_tokens
   };
   
   // Extract system message if present and handle it specially for Responses API
