@@ -6,12 +6,16 @@
  * 
  * It's designed with a clear separation of concerns from the main chat LLM,
  * operating entirely behind the scenes without the user being aware of its existence.
+ * 
+ * This service is now integrated with the Query Cache system to optimize performance
+ * for repeated or similar queries.
  */
 
 import OpenAI from 'openai';
 import { db } from '../db';
 import { sql } from 'drizzle-orm';
 import { QueryResult } from 'pg';
+import * as QueryCache from './queryCache';
 
 // Initialize OpenAI client
 function getOpenAIClient(): OpenAI {
@@ -62,6 +66,8 @@ export interface SQLBuilderResult {
   data: any[];
   sql: string;
   error?: string;
+  fromCache?: boolean;
+  fromSummary?: boolean;
 }
 
 /**
@@ -103,9 +109,12 @@ export function isDataQuery(message: string): boolean {
 
 /**
  * Processes a user's natural language query about campaign data by:
- * 1. Sending the query to OpenAI to convert it to SQL
- * 2. Executing the generated SQL against the database
- * 3. Returning the results and the SQL for transparency
+ * 1. Checking if a cached response exists for similar queries
+ * 2. If not cached, checking if pre-computed summaries are available
+ * 3. If summaries not applicable, generating SQL with OpenAI
+ * 4. Executing the SQL query against the database
+ * 5. Caching the result for future similar queries
+ * 6. Returning the results and the SQL for transparency
  * 
  * @param userId - The user ID to filter data by
  * @param query - Natural language question about campaign data
@@ -120,11 +129,57 @@ export async function processSQLQuery(
   try {
     console.log(`SQL Builder processing query from user ${userId}: "${query}"`);
     
-    // Step 1: Generate SQL from natural language query with conversation context if available
+    // Step 1: Check if this query is in the cache
+    const cachedResponse = await QueryCache.getCachedResponse(query, userId);
+    if (cachedResponse) {
+      console.log(`Using cached response for query: "${query}"`);
+      return {
+        data: cachedResponse.data,
+        sql: cachedResponse.sql,
+        fromCache: true
+      };
+    }
+    
+    // Step 2: Check if this is a metrics query that can use pre-computed summaries
+    if (QueryCache.containsMetricTerms(query)) {
+      console.log('Query contains metric terms, checking pre-computed summaries');
+      const summaries = await QueryCache.getCampaignMetricsSummaries(userId, query);
+      
+      if (summaries && summaries.length > 0) {
+        console.log(`Found ${summaries.length} pre-computed summary groups`);
+        
+        // Format the summaries for display
+        const formattedData = QueryCache.formatSummariesForDisplay(summaries);
+        
+        // Generate insights from the summaries
+        const insights = QueryCache.generateInsights(formattedData);
+        
+        // Combine data and insights
+        const enhancedData = {
+          summaries: formattedData,
+          insights
+        };
+        
+        // Cache this response
+        await QueryCache.cacheResponse(query, userId, {
+          data: enhancedData,
+          sql: 'Used pre-computed metrics summaries',
+          fromSummary: true
+        });
+        
+        return {
+          data: enhancedData,
+          sql: 'Used pre-computed metrics summaries',
+          fromSummary: true
+        };
+      }
+    }
+    
+    // Step 3: Generate SQL from natural language query if not in cache or no summaries
     const sqlQuery = await generateSQL(userId, query, conversationContext);
     console.log(`Generated SQL: ${sqlQuery}`);
     
-    // Step 2: Execute the SQL query
+    // Step 4: Execute the SQL query
     let data: any[] = [];
     let error: string | undefined = undefined;
     
@@ -154,6 +209,14 @@ export async function processSQLQuery(
       }
       
       console.log(`SQL query returned ${data.length} results`);
+      
+      // Step 5: Cache the result for future queries if successful
+      if (!error && data.length > 0) {
+        await QueryCache.cacheResponse(query, userId, {
+          data,
+          sql: sqlQuery
+        });
+      }
     } catch (err: any) {
       error = `SQL execution error: ${err.message}`;
       console.error("SQL execution error:", err);
