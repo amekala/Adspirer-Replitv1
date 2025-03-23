@@ -34,7 +34,12 @@ async function main() {
       }
     }
     
-    // Invalidate old cache entries (older than 1 week)
+    // Skip cache invalidation for now until we run the database migration
+    // A migration is needed to create the query_cache_entries table
+    console.log('Note: You need to run a database migration with "npm run db:push" to create the necessary tables');
+    
+    // When the table exists, we can uncomment and run this code
+    /*
     const oneWeekAgo = new Date();
     oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
     
@@ -46,6 +51,7 @@ async function main() {
         console.error(`Error invalidating cache for user ${user.id}:`, error);
       }
     }
+    */
     
     console.log('Database maintenance completed successfully');
   } catch (error) {
@@ -78,7 +84,8 @@ async function getAllUsersWithCampaignData(): Promise<{ id: string }[]> {
   const allUsers = [...amazonUsers, ...googleUsers];
   const uniqueUserIds = new Set(allUsers.map(user => user.id));
   
-  return Array.from(uniqueUserIds).map(id => ({ id }));
+  // Cast to string to match expected type
+  return Array.from(uniqueUserIds).map(id => ({ id: String(id) }));
 }
 
 // Run the maintenance script

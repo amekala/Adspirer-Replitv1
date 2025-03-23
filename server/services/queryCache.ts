@@ -227,14 +227,21 @@ export async function getCampaignMetricsSummaries(
  * This should be called periodically and after data updates
  */
 export async function generateAllSummaries(userId: string): Promise<void> {
-  // Generate campaign metrics summaries for Amazon
-  await storage.generateCampaignMetricsSummaries(userId);
-  
-  // Generate campaign metrics summaries for Google
-  await storage.generateGoogleCampaignMetricsSummaries(userId);
-  
-  // Invalidate cached queries that might be affected by new data
-  await storage.invalidateQueryCache(userId);
+  try {
+    // Generate campaign metrics summaries for Amazon
+    await storage.generateCampaignMetricsSummaries(userId);
+    
+    // Generate campaign metrics summaries for Google
+    await storage.generateGoogleCampaignMetricsSummaries(userId);
+    
+    // Skip cache invalidation for now until DB migration is run
+    console.log('Note: Cache invalidation skipped until migration creates query_cache_entries table');
+    
+    // Later, uncomment this:
+    // await storage.invalidateQueryCache(userId);
+  } catch (error) {
+    console.error('Error generating summaries:', error);
+  }
 }
 
 /**
