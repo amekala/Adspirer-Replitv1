@@ -1,0 +1,35 @@
+chat.tsx:205 Updating streaming message ID from streaming-1742707953154 to streaming-1742707953154
+chat.tsx:47 Got specific conversation with messages: {conversation: {…}, messages: Array(6)}
+chat.tsx:27 Processing conversation for display: {conversation: {…}, messages: Array(6)}
+chatService.ts:27 Formatting conversation response: {conversation: {…}, messages: Array(6)}
+chatService.ts:31 Found 6 messages for conversation b0430686-8353-4a84-9baa-1a54085c2782
+chat.tsx:36 Found 6 messages for conversation b0430686-8353-4a84-9baa-1a54085c2782
+chatService.ts:203 Received chunk: data: {"content":" you"}
+
+data: {"content":" need"}
+
+data: {"content":"!"}
+
+
+3chat.tsx:205 Updating streaming message ID from streaming-1742707953154 to streaming-1742707953154
+chat.tsx:47 Got specific conversation with messages: {conversation: {…}, messages: Array(6)}
+chat.tsx:27 Processing conversation for display: {conversation: {…}, messages: Array(6)}
+chatService.ts:27 Formatting conversation response: {conversation: {…}, messages: Array(6)}
+chatService.ts:31 Found 6 messages for conversation b0430686-8353-4a84-9baa-1a54085c2782
+chat.tsx:36 Found 6 messages for conversation b0430686-8353-4a84-9baa-1a54085c2782
+chatService.ts:203 Received chunk: data: {"savedMessageId":"streaming-1742707953154"}
+
+data: [DONE]
+
+
+chatService.ts:238 Server saved message with ID: streaming-1742707953154
+chatService.ts:212 Stream completed with ID: streaming-1742707953154
+chatService.ts:302 Fetched data missing assistant message with ID streaming-1742707953154, keeping local version
+chat.tsx:47 Got specific conversation with messages: (14) [{…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, messages: Array(1)]
+chat.tsx:27 Processing conversation for display: (14) [{…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, messages: Array(1)]
+chatService.ts:27 Formatting conversation response: (14) [{…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, messages: Array(1)]
+chatService.ts:83 Using first conversation from list b0430686-8353-4a84-9baa-1a54085c2782
+chat.tsx:47 Got specific conversation with messages: (14) [{…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}]
+chat.tsx:27 Processing conversation for display: (14) [{…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}]
+chatService.ts:27 Formatting conversation response: (14) [{…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}]
+chatService.ts:83 Using first conversation from list b0430686-8353-4a84-9baa-1a54085c2782

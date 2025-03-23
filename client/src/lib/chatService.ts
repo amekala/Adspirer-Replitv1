@@ -46,6 +46,72 @@ export function formatConversationResponse(data: any): {
   
   // Special case: if we're looking at the conversations list array for a specific conversation
   if (Array.isArray(data)) {
+    // CRITICAL FIX: Check if this is an array with a nested messages array 
+    // This is the structure causing the display issue
+    if (data.messages && Array.isArray(data.messages)) {
+      console.log(`Found array with nested messages array (${data.messages.length} messages)`);
+      
+      // Use the first item in the array as the conversation if it has an ID
+      let conversation = null;
+      for (const item of data) {
+        if (item && item.id && typeof item.id === 'string' && item.title) {
+          conversation = item;
+          break;
+        }
+      }
+      
+      // If no conversation was found in the array, try to extract from URL
+      if (!conversation) {
+        const conversationId = window.location.pathname.split('/').pop();
+        // Create a minimal conversation object with the ID from the URL
+        conversation = {
+          id: conversationId || "unknown",
+          title: "Conversation",
+          userId: "",
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString()
+        };
+      }
+      
+      return {
+        conversation: conversation,
+        messages: data.messages
+      };
+    }
+    
+    // Check if this array contains messages directly (role, content properties)
+    if (data.length > 0 && 
+        (data[0].role === 'user' || data[0].role === 'assistant' || data[0].role === 'system')) {
+      console.log(`Found array of messages (${data.length} items)`);
+      
+      // Extract conversation ID from URL
+      const conversationId = window.location.pathname.split('/').pop();
+      
+      // Try to get conversation info from cache
+      const existingData = queryClient.getQueryData([
+        "/api/chat/conversations", 
+        conversationId, 
+        "specific"
+      ]);
+      
+      let conversation = {
+        id: conversationId || "unknown",
+        title: "Conversation",
+        userId: "",
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      };
+      
+      if (existingData && existingData.conversation) {
+        conversation = existingData.conversation;
+      }
+      
+      return {
+        conversation: conversation,
+        messages: data
+      };
+    }
+    
     // Check if this is a list of conversations (not messages)
     if (data.length > 0 && data[0].id && data[0].title) {
       // Is this the list of conversations?
