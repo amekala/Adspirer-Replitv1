@@ -223,7 +223,7 @@ async function handleDataQuery(
       const openaiClient = getOpenAIClient();
       
       const formatResponse = await openaiClient.chat.completions.create({
-        model: "gpt-4o",
+        model: getConfiguredModel(),
         messages: [
           {
             role: "system",
@@ -276,7 +276,7 @@ async function handleDataQuery(
         content: responseContent,
         conversationId,
         metadata: {
-          model: 'gpt-4o',
+          model: getConfiguredModel(),
           timestamp: new Date().toISOString(),
           processed: true,
           isDataQuery: true,
@@ -379,7 +379,7 @@ When interacting with users:
     if (!isStreaming) {
       // Non-streaming completion for welcome messages
       const completion = await openaiClient.chat.completions.create({
-        model: 'gpt-4o',
+        model: getConfiguredModel(),
         messages,
         temperature: 0.7,
         max_tokens: 500, // Welcome messages can be shorter
@@ -393,7 +393,7 @@ When interacting with users:
         content: fullAssistantMessage,
         conversationId,
         metadata: {
-          model: 'gpt-4o',
+          model: getConfiguredModel(),
           timestamp: new Date().toISOString(),
           processed: true,
           isWelcomeMessage: true
@@ -422,7 +422,7 @@ When interacting with users:
       // First, ask the main LLM if this should be handled as a data query
       const openaiClient = getOpenAIClient();
       const routingDecision = await openaiClient.chat.completions.create({
-        model: "gpt-4o",
+        model: getConfiguredModel(),
         messages: [
           {
             role: "system",
@@ -468,7 +468,7 @@ When interacting with users:
     
     // Regular streaming mode for normal interactions
     const stream = await openaiClient.chat.completions.create({
-      model: 'gpt-4o',
+      model: getConfiguredModel(),
       messages,
       temperature: 0.7,
       max_tokens: 1000,
@@ -502,7 +502,7 @@ When interacting with users:
         content: fullAssistantMessage,
         conversationId,
         metadata: {
-          model: 'gpt-4o',
+          model: getConfiguredModel(),
           timestamp: new Date().toISOString(),
           processed: true
         }
