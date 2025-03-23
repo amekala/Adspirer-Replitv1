@@ -889,10 +889,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
     
     console.log('User authenticated:', req.user.id);
 
-    const { conversationId, message } = req.body;
+    const { conversationId, message, initialMessage } = req.body;
     
-    if (!conversationId || !message) {
-      return res.status(400).json({ message: "Conversation ID and message are required" });
+    // Allow an exception for initial welcome messages
+    if (!conversationId || (!message && !initialMessage)) {
+      return res.status(400).json({ message: "Conversation ID and message (or initialMessage flag) are required" });
     }
 
     try {

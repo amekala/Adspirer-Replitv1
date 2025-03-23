@@ -71,7 +71,7 @@ export default function ChatPage() {
       });
       return res.json();
     },
-    onSuccess: (newConversation) => {
+    onSuccess: async (newConversation) => {
       queryClient.invalidateQueries({ queryKey: ["/api/chat/conversations"] });
       setCurrentConversationId(newConversation.id);
       
@@ -79,6 +79,72 @@ export default function ChatPage() {
         title: "Conversation created",
         description: "New conversation has been created"
       });
+      
+      // Trigger an initial assistant message to welcome the user
+      try {
+        // Wait a brief moment for the conversation to be properly loaded
+        setTimeout(async () => {
+          console.log('Triggering initial welcome message for new conversation');
+          
+          // Add a temporary welcome indicator
+          const welcomeTypingMessage = {
+            id: 'typing-indicator',
+            role: 'assistant' as const,
+            content: '...',
+            createdAt: new Date().toISOString()
+          };
+          
+          // Add the temporary message to the UI
+          const conversationWithTyping = {
+            conversation: newConversation,
+            messages: [welcomeTypingMessage]
+          };
+          
+          // Update the conversation in the query cache with typing indicator
+          queryClient.setQueryData(
+            ['/api/chat/conversations', newConversation.id],
+            conversationWithTyping
+          );
+          
+          // Also update the specific query
+          queryClient.setQueryData(
+            ['/api/chat/conversations', newConversation.id, 'specific'],
+            conversationWithTyping
+          );
+          
+          // Now send a request to get an actual welcome message
+          try {
+            const completionResponse = await fetch('/api/chat/completions', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({
+                conversationId: newConversation.id,
+                initialMessage: true
+              }),
+              credentials: 'include'
+            });
+            
+            if (!completionResponse.ok) {
+              console.error('Failed to get initial welcome message');
+            }
+            
+            // Final refresh to ensure we have the welcome message
+            queryClient.invalidateQueries({ 
+              queryKey: ["/api/chat/conversations", newConversation.id] 
+            });
+            
+            queryClient.invalidateQueries({ 
+              queryKey: ["/api/chat/conversations", newConversation.id, "specific"] 
+            });
+          } catch (error) {
+            console.error("Error getting welcome message:", error);
+          }
+        }, 500);
+      } catch (error) {
+        console.error("Error sending initial welcome message:", error);
+      }
     },
     onError: (error: Error) => {
       toast({
@@ -178,15 +244,29 @@ export default function ChatPage() {
               messages: updatedMessages
             }
           );
+          
+          // Also update the specific query cache for the current conversation
+          queryClient.setQueryData(
+            ['/api/chat/conversations', currentConversationId, 'specific'],
+            {
+              conversation: formatted.conversation,
+              messages: updatedMessages
+            }
+          );
         } catch (err) {
           console.error("Error formatting conversation for user message and typing indicator:", err);
         }
       }
       
-      // Use direct fetch and handle streaming ourselves for greater control
+      // IMPORTANT: First persist the user message to the database
       try {
-        // Step 1: First make sure we have the user's message in the UI
-        queryClient.invalidateQueries({ 
+        await apiRequest("POST", `/api/chat/conversations/${currentConversationId}/messages`, {
+          role: "user",
+          content: messageContent
+        });
+          
+        // Step 1: Make sure we have the user's message in the UI
+        await queryClient.invalidateQueries({ 
           queryKey: ["/api/chat/conversations", currentConversationId, "specific"]
         });
         
