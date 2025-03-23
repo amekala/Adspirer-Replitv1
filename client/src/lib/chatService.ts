@@ -29,9 +29,20 @@ export function formatConversationResponse(data: any): {
   // If we have the standard response format with conversation and messages
   if (data && data.conversation && Array.isArray(data.messages)) {
     console.log(`Found ${data.messages.length} messages for conversation ${data.conversation.id}`);
+    
+    // Ensure all messages have required fields
+    const validMessages = data.messages.filter((msg: any) => 
+      msg && msg.role && typeof msg.content === 'string'
+    );
+    
+    // Log any invalid messages that we filtered out
+    if (validMessages.length !== data.messages.length) {
+      console.warn(`Filtered out ${data.messages.length - validMessages.length} invalid messages`);
+    }
+    
     return {
       conversation: data.conversation,
-      messages: data.messages
+      messages: validMessages
     };
   }
   
@@ -46,6 +57,26 @@ export function formatConversationResponse(data: any): {
   
   // Special case: if we're looking at the conversations list array for a specific conversation
   if (Array.isArray(data)) {
+    // First check if this is an array of messages directly
+    if (data.length > 0 && data[0].role && 
+        (data[0].role === 'user' || data[0].role === 'assistant' || data[0].role === 'system')) {
+      // This appears to be an array of messages
+      console.log(`Found array of ${data.length} messages`);
+      
+      // We need to construct a placeholder conversation object
+      const conversationId = window.location.pathname.split('/').pop() || 'unknown';
+      return {
+        conversation: {
+          id: conversationId,
+          title: "Conversation",
+          userId: "",
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString()
+        },
+        messages: data.filter((msg: any) => msg && msg.role && typeof msg.content === 'string')
+      };
+    }
+    
     // Check if this is a list of conversations (not messages)
     if (data.length > 0 && data[0].id && data[0].title) {
       // Is this the list of conversations?
@@ -99,13 +130,35 @@ export async function sendMessage(
   if (!messageContent.trim() || !conversationId) return;
   
   try {  
+    console.log('Sending user message to conversation:', conversationId);
+    
     // Step 1: Send the user message
-    await apiRequest("POST", `/api/chat/conversations/${conversationId}/messages`, {
+    const messageResponse = await apiRequest("POST", `/api/chat/conversations/${conversationId}/messages`, {
       role: "user",
       content: messageContent,
     });
     
-    // Refresh to get the updated conversation with the new user message
+    const messageData = await messageResponse.json();
+    console.log('User message saved successfully:', messageData);
+    
+    // Create an optimistic update with the user message visible immediately
+    const currentData = queryClient.getQueryData(["/api/chat/conversations", conversationId]);
+    if (currentData) {
+      // If we have existing conversation data, add the user message to it
+      const formattedData = formatConversationResponse(currentData);
+      const updatedData = {
+        conversation: formattedData.conversation,
+        messages: [...formattedData.messages, messageData]
+      };
+      
+      // Update the query cache with the new user message
+      queryClient.setQueryData(
+        ["/api/chat/conversations", conversationId],
+        updatedData
+      );
+    }
+    
+    // Also refresh to ensure we have the latest data
     queryClient.invalidateQueries({ 
       queryKey: ["/api/chat/conversations", conversationId] 
     });

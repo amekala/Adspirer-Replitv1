@@ -28,18 +28,32 @@ export function Chat({ conversation, isLoading }: ChatProps) {
       try {
         const formatted = formatConversationResponse(conversation);
         
+        // Add debugging
+        console.log("Conversation messages before sorting:", formatted.messages);
+        
         // Sort messages by createdAt to maintain proper flow
         if (formatted.messages && formatted.messages.length > 0) {
           formatted.messages.sort((a, b) => {
-            return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
+            // Ensure we have valid dates (defensive coding)
+            const dateA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+            const dateB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+            return dateA - dateB;
           });
           console.log(`Found ${formatted.messages.length} messages for conversation ${formatted.conversation.id}`);
+          console.log("Conversation messages after sorting:", formatted.messages);
         }
         
         // Check if there's a typing indicator or streaming message
         const hasTypingMessage = formatted.messages.some(
-          msg => msg.id === 'typing-indicator' || (typeof msg.id === 'string' && msg.id.startsWith('streaming-'))
+          msg => (msg.id === 'typing-indicator') || 
+                (typeof msg.id === 'string' && msg.id.startsWith('streaming-'))
         );
+        
+        // Check that we have both user and assistant messages
+        const hasUserMessages = formatted.messages.some(msg => msg.role === 'user');
+        const hasAssistantMessages = formatted.messages.some(msg => msg.role === 'assistant');
+        
+        console.log(`Message types - User: ${hasUserMessages}, Assistant: ${hasAssistantMessages}, Typing: ${hasTypingMessage}`);
         
         setProcessed(formatted);
         setIsTyping(hasTypingMessage);
