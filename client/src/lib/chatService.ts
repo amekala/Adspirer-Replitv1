@@ -90,37 +90,37 @@ export function formatConversationResponse(data: any): {
 /**
  * Send a message and handle the streaming response
  * 
- * This implementation can use either:
- * 1. Advanced RAG (Retrieval-Augmented Generation) with campaign data (default)
+ * This implementation automatically determines whether to use:
+ * 1. Advanced RAG (Retrieval-Augmented Generation) with campaign data
  * 2. Regular chat completions API for general queries
+ * 
+ * It uses an intelligence content detection approach, defaulting to RAG for
+ * messages that appear to be about campaigns, metrics, or advertising data.
  * 
  * @param conversationId - ID of the conversation to send the message to
  * @param messageContent - The message content to send
  * @param onStreamUpdate - Callback function that receives streamed content updates
- * @param useRag - Whether to use RAG processing (true) or regular chat completions (false)
  */
 export async function sendMessage(
   conversationId: string, 
   messageContent: string,
-  onStreamUpdate: (content: string) => void,
-  useRag: boolean = true
+  onStreamUpdate: (content: string) => void
 ): Promise<void> {
   // Don't send empty messages
   if (!messageContent.trim() || !conversationId) return;
   
-  try {  
+  try {
     // The message was already sent in the UI component, so we don't send it again here.
     // Instead, we'll just query for the latest conversation state
     queryClient.invalidateQueries({ 
       queryKey: ["/api/chat/conversations", conversationId] 
     });
     
-    // Determine which endpoint to use based on the useRag parameter
-    const endpoint = useRag 
-      ? '/api/rag/query-two-llm'  // Advanced RAG with campaign data
-      : '/api/chat/completions';  // Regular chat completions
+    // Always use the Two-LLM RAG endpoint which intelligently detects whether
+    // the query is about campaigns or not
+    const endpoint = '/api/rag/query-two-llm';
     
-    console.log(`Using ${useRag ? 'RAG' : 'regular chat completions'} endpoint...`);
+    console.log(`Using Two-LLM RAG endpoint with automatic detection...`);
     
     // Add timestamp to avoid caching issues with the SSE stream
     const timestamp = Date.now();
@@ -132,19 +132,11 @@ export async function sendMessage(
         'Pragma': 'no-cache',
         'Expires': '0'
       },
-      body: JSON.stringify(useRag 
-        ? {
-            // RAG endpoint expects this format
-            conversationId: conversationId,
-            query: messageContent
-          }
-        : {
-            // Regular chat completions endpoint expects this format
-            conversationId: conversationId,
-            message: messageContent,
-            useContextAwarePrompt: false // Don't use RAG for regular chat completions
-          }
-      ),
+      body: JSON.stringify({
+        // Two-LLM RAG endpoint format
+        conversationId: conversationId,
+        query: messageContent
+      }),
       credentials: 'include' // Include credentials for session authentication
     });
 

@@ -16,7 +16,7 @@ export default function ChatPage() {
   const { toast } = useToast();
   const [message, setMessage] = useState("");
   const [currentConversationId, setCurrentConversationId] = useState<string | null>(null);
-  const [useRagProcessing, setUseRagProcessing] = useState(true); // Default to using RAG
+  // Removed useRagProcessing state - system will automatically detect
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const chatContainerRef = useRef<HTMLDivElement>(null);
   const streamingMessageIdRef = useRef<string>('');
@@ -250,11 +250,11 @@ export default function ChatPage() {
       };
       
       // Use the sendMessage function from chatService instead of direct fetch
+      // Let the server detect if we should use RAG based on message content
       await sendMessage(
         currentConversationId,
         messageContent,
-        updateStreamingContent,
-        useRagProcessing // Pass the RAG flag
+        updateStreamingContent
       );
       
       // Message was sent via the chatService, so we don't need to process the response here
@@ -442,28 +442,14 @@ export default function ChatPage() {
             <>
               <Separator />
               <div className="p-4">
-                <div className="flex items-center justify-end mb-2 text-xs text-muted-foreground">
-                  <span className={!useRagProcessing ? "font-medium" : ""}>Regular LLM</span>
-                  <div className="mx-2">
-                    <label className="relative inline-flex items-center cursor-pointer">
-                      <input 
-                        type="checkbox" 
-                        checked={useRagProcessing} 
-                        onChange={() => setUseRagProcessing(!useRagProcessing)} 
-                        className="sr-only peer"
-                      />
-                      <div className="w-9 h-5 bg-gray-200 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600"></div>
-                    </label>
-                  </div>
-                  <span className={useRagProcessing ? "font-medium" : ""}>Campaign Data</span>
-                </div>
+
                 <div className="flex items-end space-x-2">
                   <Textarea
                     ref={textareaRef}
                     value={message}
                     onChange={(e) => setMessage(e.target.value)}
                     onKeyDown={handleKeyDown}
-                    placeholder={useRagProcessing ? "Ask about your advertising campaigns..." : "Ask anything..."}
+                    placeholder="Ask about your advertising campaigns or anything else..."
                     className="min-h-[60px] resize-none overflow-hidden"
                     rows={1}
                   />
