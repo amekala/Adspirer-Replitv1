@@ -180,8 +180,8 @@ export async function createChatMessageEmbedding(
     
     // Store embedding in database
     const embedding = await storage.createEmbedding({
-      text: embeddingText,
-      vector: vector,
+      textContent: embeddingText,
+      embeddingVector: vector,
       type: 'chat_message',
       sourceId: message.id,
       metadata: {
@@ -231,12 +231,12 @@ export async function createCampaignEmbedding(
     
     // Store embedding in database
     return await storage.createEmbedding({
-      text: embeddingText,
-      vector: vector,
+      textContent: embeddingText,
+      embeddingVector: vector,
       type: 'campaign',
       sourceId: campaignId,
+      userId: userId,
       metadata: {
-        userId: userId,
         platform: campaignData.platform,
         metrics: campaignData.metrics || {}
       }

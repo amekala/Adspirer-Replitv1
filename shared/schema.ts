@@ -242,12 +242,14 @@ export const embeddingTypeEnum = pgEnum('embedding_type', ['campaign', 'ad_group
 // Embeddings store table for central storage of all vector embeddings
 export const embeddingsStore = pgTable("embeddings_store", {
   id: uuid("id").defaultRandom().primaryKey(),
-  vector: json("vector").notNull(), // Vector representation as JSON array (1536 dimensions for OpenAI)
-  text: text("text").notNull(), // The original text content that was embedded
+  userId: uuid("user_id").references(() => users.id), // User who owns this embedding
+  embeddingVector: json("embedding_vector").notNull(), // Vector representation as JSON array (1536 dimensions for OpenAI)
+  textContent: text("text_content").notNull(), // The original text content that was embedded
   type: embeddingTypeEnum("type").notNull(), // Type of content being embedded
   sourceId: text("source_id"), // ID of the source (campaign ID, message ID, etc.)
   metadata: json("metadata").default({}).notNull(), // Additional context/data in JSON format
   createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });
 
 // Chat embeddings relationship table
@@ -261,12 +263,13 @@ export const chatEmbeddings = pgTable("chat_embeddings", {
 
 // Embedding store schema
 export const insertEmbeddingStoreSchema = createInsertSchema(embeddingsStore, {
-  text: z.string().min(1, "Text content is required"),
+  textContent: z.string().min(1, "Text content is required"),
   type: z.enum(['campaign', 'ad_group', 'keyword', 'chat_message']),
-  vector: z.array(z.number()),
+  embeddingVector: z.array(z.number()),
   metadata: z.record(z.any()).optional(),
   sourceId: z.string().optional(),
-}).omit({ id: true, createdAt: true });
+  userId: z.string().uuid().optional(),
+}).omit({ id: true, createdAt: true, updatedAt: true });
 
 // Chat embedding schema
 export const insertChatEmbeddingSchema = createInsertSchema(chatEmbeddings, {
