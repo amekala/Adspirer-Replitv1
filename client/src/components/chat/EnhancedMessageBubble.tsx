@@ -85,7 +85,7 @@ export function EnhancedMessageBubble({ message, isStreaming = false }: Enhanced
         const value = parseInt(impressionsMatch[1].replace(/,/g, ''));
         if (!isNaN(value)) {
           metrics.push({
-            type: 'impressions',
+            type: 'impressions' as const,
             label: 'Impressions',
             value
           });
@@ -98,7 +98,7 @@ export function EnhancedMessageBubble({ message, isStreaming = false }: Enhanced
         const value = parseInt(clicksMatch[1].replace(/,/g, ''));
         if (!isNaN(value)) {
           metrics.push({
-            type: 'clicks',
+            type: 'clicks' as const,
             label: 'Clicks', 
             value
           });
@@ -111,7 +111,7 @@ export function EnhancedMessageBubble({ message, isStreaming = false }: Enhanced
         const value = parseFloat(costMatch[1].replace(/,/g, ''));
         if (!isNaN(value)) {
           metrics.push({
-            type: 'cost',
+            type: 'cost' as const,
             label: 'Cost',
             value
           });
@@ -124,7 +124,7 @@ export function EnhancedMessageBubble({ message, isStreaming = false }: Enhanced
         const value = parseInt(conversionsMatch[1].replace(/,/g, ''));
         if (!isNaN(value)) {
           metrics.push({
-            type: 'conversions',
+            type: 'conversions' as const,
             label: 'Conversions',
             value
           });
@@ -137,7 +137,7 @@ export function EnhancedMessageBubble({ message, isStreaming = false }: Enhanced
         let value = parseFloat(ctrMatch[1].replace('%', ''));
         if (!isNaN(value)) {
           metrics.push({
-            type: 'ctr',
+            type: 'ctr' as const,
             label: 'CTR',
             value
           });
