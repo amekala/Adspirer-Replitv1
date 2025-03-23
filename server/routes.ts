@@ -1327,7 +1327,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
             LIMIT 1
           `;
           
+          console.log(`Executing Amazon campaign query for profile_id ${campaign.profile_id}`);
           const campaignResult = await pool.query(campaignDataQuery, [campaign.profile_id, userId]);
+          console.log(`Amazon campaign query results: ${campaignResult.rows.length} rows`);
+          
           if (campaignResult.rows.length === 0) {
             return {
               campaignId: campaign.profile_id,
@@ -1337,6 +1340,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           }
           
           const campaignData = campaignResult.rows[0];
+          console.log(`Retrieved Amazon campaign data: ${JSON.stringify(campaignData, null, 2)}`);
           
           // Get aggregated metrics for the last 30 days
           const metricsQuery = `
@@ -1425,6 +1429,8 @@ Metrics (Last 30 Days):
           };
         } catch (error) {
           console.error(`Error indexing Amazon campaign ${campaign.profile_id}:`, error);
+          console.error('Full error details:', JSON.stringify(error, null, 2));
+          console.error('Error stack:', error instanceof Error ? error.stack : 'No stack trace');
           return {
             campaignId: campaign.profile_id,
             status: 'failed',
