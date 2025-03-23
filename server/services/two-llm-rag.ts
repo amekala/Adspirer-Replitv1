@@ -29,7 +29,8 @@ export async function processTwoLlmRagQuery(
   query: string,
   userId: string,
   conversationId: string,
-  res: Response
+  res: Response,
+  options: { streamingId?: string } = {}
 ): Promise<void> {
   const processingStart = Date.now();
   log(`Processing Two-LLM RAG query: "${query.substring(0, 50)}..."`, 'two-llm-rag');
@@ -80,8 +81,8 @@ export async function processTwoLlmRagQuery(
         'Connection': 'keep-alive'
       });
 
-      // Create a consistent streaming ID that will be used by both frontend and database
-      const streamingId = `streaming-${Date.now()}`;
+      // Use the client-provided streaming ID or generate a new one
+      const streamingId = options.streamingId || `streaming-${Date.now()}`;
       // Send the streamingId to the frontend so it knows what to look for
       res.write(`data: {"streamingId":"${streamingId}"}\n\n`);
       
@@ -232,8 +233,8 @@ Use a friendly, helpful tone appropriate for a chat interface.
       'Connection': 'keep-alive'
     });
 
-    // Create a consistent streaming ID that will be used by both frontend and database
-    const streamingId = `streaming-${Date.now()}`;
+    // Use the client-provided streaming ID or generate a new one
+    const streamingId = options.streamingId || `streaming-${Date.now()}`;
     // Send the streamingId to the frontend so it knows what to look for
     res.write(`data: {"streamingId":"${streamingId}"}\n\n`);
     
@@ -287,7 +288,10 @@ Use a friendly, helpful tone appropriate for a chat interface.
     
     // Still save the error response to the database
     try {
+      // If we have a streaming ID from options, use it to maintain consistency
+      const errorMessageId = options.streamingId || `error-${Date.now()}`;
       await storage.createChatMessage({
+        id: errorMessageId, // Use consistent ID for error messages too
         conversationId: conversationId,
         role: 'assistant',
         content: formattedErrorMessage,
