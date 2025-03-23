@@ -20,6 +20,14 @@ export interface ChatCompletionOptions {
 }
 
 /**
+ * Get the configured OpenAI model from environment variables
+ * Falls back to gpt-4o if not specified
+ */
+function getConfiguredModel(): string {
+  return process.env.OPENAI_MODEL || 'gpt-4o';
+}
+
+/**
  * Initialize the OpenAI client with the API key
  */
 function getOpenAIClient(): OpenAI {
