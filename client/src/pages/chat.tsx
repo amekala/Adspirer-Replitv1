@@ -415,6 +415,29 @@ export default function ChatPage() {
       });
     },
   });
+  
+  // Index campaign data for RAG queries
+  const indexCampaignsForRAGMutation = useMutation({
+    mutationFn: async () => {
+      const res = await apiRequest("POST", `/api/rag/index-campaigns`);
+      return res.json();
+    },
+    onSuccess: (data) => {
+      console.log("Campaign indexing complete:", data);
+      toast({
+        title: "Campaigns indexed",
+        description: `Successfully indexed ${data.totalIndexed} campaigns for AI assistant`,
+      });
+    },
+    onError: (error: Error) => {
+      console.error("Error indexing campaigns:", error);
+      toast({
+        title: "Error",
+        description: `Failed to index campaigns: ${error.message}`,
+        variant: "destructive",
+      });
+    },
+  });
 
   return (
     <div className="flex h-screen overflow-hidden">
@@ -439,6 +462,21 @@ export default function ChatPage() {
           >
             {currentConversationId ? (
               <>
+                {/* Index Campaigns button for RAG (only visible in active conversation) */}
+                <div className="flex justify-end mb-4">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => indexCampaignsForRAGMutation.mutate()}
+                    disabled={indexCampaignsForRAGMutation.isPending}
+                  >
+                    {indexCampaignsForRAGMutation.isPending ? 
+                      "Indexing Campaigns..." : 
+                      "Index Campaigns for AI"
+                    }
+                  </Button>
+                </div>
+                
                 {/* Adding debug info */}
                 <div className="hidden">
                   <pre>{JSON.stringify(currentConversation, null, 2)}</pre>
