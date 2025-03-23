@@ -301,8 +301,9 @@ async function handleDataQuery(
  */
 export async function streamChatCompletion(
   conversationId: string,
+  userId: string,
   res: Response | null,
-  messages: OpenAIMessage[],
+  messages?: OpenAIMessage[],
   systemPrompt: string = `You are an AI assistant for Adspirer, a platform that helps manage retail media advertising campaigns. You have knowledge about Amazon Advertising and Google Ads APIs, campaign metrics, and advertising strategies.
 
 When interacting with users:
@@ -321,12 +322,17 @@ When interacting with users:
   const isStreaming = !!res;
 
   try {
-    // Find the user ID from the conversation
+    // Get the current conversation 
     const conversation = await storage.getChatConversation(conversationId);
     if (!conversation) {
       throw new Error(`Conversation not found: ${conversationId}`);
     }
-    const userId = conversation.userId;
+    
+    // If no messages were provided, fetch them from the database
+    if (!messages || !Array.isArray(messages)) {
+      console.log("No messages provided, fetching from database");
+      messages = await getConversationHistory(conversationId);
+    }
 
     console.log("Generating chat completion for conversation:", conversationId);
     console.log("Retrieved", messages.length, "messages for chat completion context");
@@ -471,7 +477,8 @@ When interacting with users:
         store: true
       });
 
-      const welcomeMessage = welcomeResponse.output_text || "";
+      // Use string indexing for type safety since the API types might not match actual response
+      const welcomeMessage = welcomeResponse['text'] || welcomeResponse['output_text'] || "";
 
       // Save welcome message to database
       const messageData: MessageData = {
@@ -514,20 +521,26 @@ When interacting with users:
 
       // Handle the streaming response
       for await (const chunk of stream) {
-        // Ensure we only process known event types with output_text
-        if (
-          ('type' in chunk) && 
-          (chunk.type === 'text_delta' || chunk.type === 'finish') && 
-          ('output_text' in chunk) && 
-          typeof chunk.output_text === 'string'
-        ) {
-          // Get just the new text added since last chunk
-          const newText = chunk.output_text.slice(contentAccumulator.length);
-          if (newText) {
-            contentAccumulator = chunk.output_text;
+        // Handle chunks using string indexing since TypeScript definitions may not match
+        if (chunk && typeof chunk === 'object') {
+          // Check for text_delta events (new content being added)
+          if (chunk['type'] === 'text_delta' && 'text' in chunk && typeof chunk['text'] === 'string') {
+            // Add the new text to our accumulator
+            contentAccumulator += chunk['text'];
             
             // Send chunk to client
-            res!.write(`data: ${JSON.stringify({ content: newText })}\n\n`);
+            res!.write(`data: ${JSON.stringify({ content: chunk['text'] })}\n\n`);
+          }
+          // Check for finish events (stream complete)
+          else if (chunk['type'] === 'finish' && 'text' in chunk && typeof chunk['text'] === 'string') {
+            // In case there's additional text in the finish event
+            if (chunk['text'] !== contentAccumulator) {
+              const finalText = chunk['text'].slice(contentAccumulator.length);
+              if (finalText) {
+                contentAccumulator = chunk['text'];
+                res!.write(`data: ${JSON.stringify({ content: finalText })}\n\n`);
+              }
+            }
           }
         }
       }
@@ -567,7 +580,7 @@ When interacting with users:
         store: true
       });
 
-      const responseContent = fallbackResponse.output_text || "I'm sorry, I couldn't generate a proper response.";
+      const responseContent = fallbackResponse.text || "I'm sorry, I couldn't generate a proper response.";
       
       // Send the full response to the client
       res!.write(`data: ${JSON.stringify({ content: responseContent })}\n\n`);
@@ -659,6 +672,7 @@ export async function generateWelcomeMessage(
   // No user messages are needed
   const messages: OpenAIMessage[] = [];
   
-  // Start the streaming process (with null for res because it's non-streaming)
-  await streamChatCompletion(conversationId, null, messages);
+  // Start the streaming process with null for res because it's non-streaming
+  const res = null as unknown as Response;
+  await streamChatCompletion(conversationId, userId, res, messages);
 }
