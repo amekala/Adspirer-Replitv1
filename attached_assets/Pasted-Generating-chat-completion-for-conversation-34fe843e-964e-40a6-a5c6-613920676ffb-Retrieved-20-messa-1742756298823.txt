@@ -1,0 +1,41 @@
+Generating chat completion for conversation: 34fe843e-964e-40a6-a5c6-613920676ffb
+Retrieved 20 messages for chat completion context
+Creating chat completion with OpenAI GPT-4o...
+Mode: Streaming
+Routing decision for query: "which google campaign has most clicks, bring me key KPIs for that campaign. 
+explain why this campaign is having more clicks when you compare against a worst campaign performance in my google campaigns" → DATABASE
+Routing to SQL Builder with context
+Handling data query: "which google campaign has most clicks, bring me key KPIs for that campaign. 
+explain why this campaign is having more clicks when you compare against a worst campaign performance in my google campaigns" with context
+SQL Builder processing query from user 903243fa-a65e-4d38-8236-798559b81941: "which google campaign has most clicks, bring me key KPIs for that campaign. 
+explain why this campaign is having more clicks when you compare against a worst campaign performance in my google campaigns"
+Generated SQL: SELECT campaign_id, SUM(clicks) AS total_clicks, SUM(impressions) AS total_impressions, SUM(cost) AS total_cost, SUM(conversions) AS total_conversions, (SUM(clicks)::float / SUM(impressions)) * 100 AS ctr, (SUM(conversions)::float / NULLIF(SUM(clicks), 0)) * 100 AS conversion_rate
+FROM google_campaign_metrics
+WHERE user_id = '903243fa-a65e-4d38-8236-798559b81941' AND date >= date_trunc('month', CURRENT_DATE) - INTERVAL '1 month' AND date < date_trunc('month', CURRENT_DATE)
+GROUP BY campaign_id
+ORDER BY total_clicks DESC
+LIMIT 1;
+
+SELECT campaign_id, SUM(clicks) AS total_clicks, SUM(impressions) AS total_impressions, SUM(cost) AS total_cost, SUM(conversions) AS total_conversions, (SUM(clicks)::float / SUM(impressions)) * 100 AS ctr, (SUM(conversions)::float / NULLIF(SUM(clicks), 0)) * 100 AS conversion_rate
+FROM google_campaign_metrics
+WHERE user_id = '903243fa-a65e-4d38-8236-798559b81941' AND date >= date_trunc('month', CURRENT_DATE) - INTERVAL '1 month' AND date < date_trunc('month', CURRENT_DATE)
+GROUP BY campaign_id
+ORDER BY total_clicks ASC
+LIMIT 1;
+Executing secure SQL: SELECT campaign_id, SUM(clicks) AS total_clicks, SUM(impressions) AS total_impressions, SUM(cost) AS total_cost, SUM(conversions) AS total_conversions, (SUM(clicks)::float / SUM(impressions)) * 100 AS ctr, (SUM(conversions)::float / NULLIF(SUM(clicks), 0)) * 100 AS conversion_rate
+FROM google_campaign_metrics
+WHERE user_id = '903243fa-a65e-4d38-8236-798559b81941' AND date >= date_trunc('month', CURRENT_DATE) - INTERVAL '1 month' AND date < date_trunc('month', CURRENT_DATE)
+GROUP BY campaign_id
+ORDER BY total_clicks DESC
+LIMIT 1;
+
+SELECT campaign_id, SUM(clicks) AS total_clicks, SUM(impressions) AS total_impressions, SUM(cost) AS total_cost, SUM(conversions) AS total_conversions, (SUM(clicks)::float / SUM(impressions)) * 100 AS ctr, (SUM(conversions)::float / NULLIF(SUM(clicks), 0)) * 100 AS conversion_rate
+FROM google_campaign_metrics
+WHERE user_id = '903243fa-a65e-4d38-8236-798559b81941' AND date >= date_trunc('month', CURRENT_DATE) - INTERVAL '1 month' AND date < date_trunc('month', CURRENT_DATE)
+GROUP BY campaign_id
+ORDER BY total_clicks ASC
+LIMIT 1;
+SQL query returned 2 results
+Data query response saved successfully
+6:53:52 PM [express] POST /api/chat/completions 200 in 10426ms
+6:53:55 PM [express] GET /api/chat/conversations/34fe843e-964e-40a6-a5c6-613920676ffb 200 in 2426ms …

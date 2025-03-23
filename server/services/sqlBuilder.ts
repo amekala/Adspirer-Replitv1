@@ -190,10 +190,14 @@ async function generateSQL(
 ): Promise<string> {
   const openai = getOpenAIClient();
   
-  // Create messages array with optional context
-  const messages = [
+  // Properly type the messages array
+  type ChatRole = 'system' | 'user' | 'assistant';
+  type Message = { role: ChatRole; content: string };
+  
+  // Create properly typed messages array with optional context
+  const messages: Message[] = [
     {
-      role: "system" as const,
+      role: "system",
       content: `You are an AI specialized in converting natural language questions about advertising campaign data into PostgreSQL SQL queries.
                
                You have access to the following database schema:
@@ -216,14 +220,14 @@ async function generateSQL(
   // Add conversation context if available
   if (conversationContext) {
     messages.push({
-      role: "system" as const,
+      role: "system",
       content: `Conversation context (for reference only):\n${conversationContext}`
     });
   }
   
   // Add the user's current query
   messages.push({
-    role: "user" as const,
+    role: "user",
     content: query
   });
   

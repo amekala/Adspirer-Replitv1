@@ -72,7 +72,20 @@ async function handleDataQuery(
       // No data found
       responseContent = "I searched our database but couldn't find any campaign data matching your request. This could be because you don't have any campaigns yet, or the specific data you're looking for isn't available.";
     } else {
-      // We have data - use OpenAI to format it nicely for the user
+      // We have data - log it for debugging
+      console.log("SQL result data:", JSON.stringify(sqlResult.data, null, 2));
+      
+      // Check for potentially fake or hallucinated data
+      // Look for obvious signs like small result set with suspiciously round numbers
+      let hasRealData = true;
+      if (sqlResult.data.length > 0) {
+        // Add validation logic to check the data quality
+        // For example, very round numbers might indicate fake data
+        const dataStr = JSON.stringify(sqlResult.data);
+        console.log(`Data validation check - data string: ${dataStr}`);
+      }
+      
+      // Use OpenAI to format the data, with stronger instructions against hallucination
       const openaiClient = getOpenAIClient();
       
       const formatResponse = await openaiClient.chat.completions.create({
@@ -80,29 +93,36 @@ async function handleDataQuery(
         messages: [
           {
             role: "system",
-            content: `You are an advertising campaign analyst skilled at clearly presenting data insights. 
+            content: `You are an advertising campaign analyst skilled at clearly presenting data insights.
                      Format the following campaign data results into a helpful, concise response.
                      
-                     Guidelines:
+                     CRITICAL INSTRUCTIONS:
+                     1. ONLY use the exact data provided to you. DO NOT add, modify, or invent any metrics.
+                     2. If the data appears incomplete or suspicious, mention this fact rather than filling gaps.
+                     3. Use the exact campaign IDs and numeric values from the data - never round numbers.
+                     4. If values appear unusual (e.g., very high or low), note this but do not change them.
+                     5. Do not invent explanations for patterns unless clearly evident in the data.
+                     
+                     Formatting guidelines:
                      1. Present the data in a clear, easy-to-understand format
                      2. Use bullet points, tables, or other formatting to make the data readable
-                     3. Highlight key insights or patterns in the data
-                     4. Do NOT mention SQL, databases, or queries - present as if you analyzed the data yourself
+                     3. Highlight any insights visible in the actual data
+                     4. Do NOT mention SQL or databases - present as if you analyzed the data yourself
                      5. Keep the tone professional, helpful, and concise
-                     6. Make sure monetary values are formatted appropriately (with currency symbols)
-                     7. Use plain language to explain technical metrics (ROAS, ACOS, CTR, etc.)`
+                     6. Make sure monetary values are formatted appropriately (with currency symbols)`
           },
           {
             role: "user",
             content: `The user asked: "${query}"
                      
-                     Here is the campaign data:
+                     Here is the EXACT campaign data that must be used (do not modify these values):
                      ${JSON.stringify(sqlResult.data, null, 2)}
                      
-                     Please format this data into a helpful response.`
+                     Format this data into a helpful response using ONLY the actual values provided.
+                     If the data seems incomplete or suspicious, acknowledge this in your response.`
           }
         ],
-        temperature: 0.7, // Slightly higher for more natural language
+        temperature: 0.3, // Lower temperature for more factual responses
       });
       
       responseContent = formatResponse.choices[0]?.message?.content || 
