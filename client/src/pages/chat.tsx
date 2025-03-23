@@ -198,8 +198,13 @@ export default function ChatPage() {
       // Use the chatService to handle AI response (not message sending)
       console.log('Calling advanced RAG query endpoint...');
       
-      // Get streaming content handler
-      const updateStreamingContent = (streamedContent: string) => {
+      // Get streaming content handler - supports streamingId parameter from updated chatService
+      const updateStreamingContent = (streamedContent: string, streamingId?: string) => {
+        // Update our tracking reference if a new ID is provided
+        if (streamingId) {
+          console.log(`Updating streaming message ID from ${streamingMessageIdRef.current} to ${streamingId}`);
+          streamingMessageIdRef.current = streamingId;
+        }
         
         // Get latest conversation data
         const latestConversation = queryClient.getQueryData([
@@ -215,16 +220,23 @@ export default function ChatPage() {
         let messages = Array.isArray((latestConversation as any).messages) 
           ? [...(latestConversation as any).messages] 
           : [];
-          
-        // Find if we have a streaming message already
-        const typingIndex = messages.findIndex(m => 
-          m.id === streamingMessageIdRef.current || m.id === 'typing-indicator');
+        
+        // Get all possible IDs that could match the streaming message
+        const possibleIds = [
+          streamingMessageIdRef.current,
+          window.streamingMessageId,
+          window.persistedMessageId,
+          'typing-indicator'
+        ].filter(Boolean);
+        
+        // Find if we have a streaming message with any of the possible IDs
+        const typingIndex = messages.findIndex(m => possibleIds.includes(m.id));
         
         if (typingIndex >= 0) {
           // Update the existing streaming message with content
           messages[typingIndex] = {
             ...messages[typingIndex],
-            id: streamingMessageIdRef.current,
+            id: streamingMessageIdRef.current, // Use current reference ID
             role: 'assistant',
             content: streamedContent,
             createdAt: new Date().toISOString()

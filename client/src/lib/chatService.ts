@@ -101,15 +101,27 @@ export function formatConversationResponse(data: any): {
  * @param messageContent - The message content to send
  * @param onStreamUpdate - Callback function that receives streamed content updates
  */
+// Create a global object to track streaming IDs
+declare global {
+  interface Window {
+    streamingMessageId?: string;
+    persistedMessageId?: string;
+  }
+}
+
 export async function sendMessage(
   conversationId: string, 
   messageContent: string,
-  onStreamUpdate: (content: string) => void
+  onStreamUpdate: (content: string, streamingId?: string) => void
 ): Promise<void> {
   // Don't send empty messages
   if (!messageContent.trim() || !conversationId) return;
   
   try {
+    // Generate a client-side streaming ID that will be used unless server provides one
+    const clientStreamingId = `streaming-${Date.now()}`;
+    window.streamingMessageId = clientStreamingId;
+    
     // The message was already sent in the UI component, so we don't send it again here.
     // Instead, we'll just query for the latest conversation state
     queryClient.invalidateQueries({ 
@@ -120,7 +132,7 @@ export async function sendMessage(
     // the query is about campaigns or not
     const endpoint = '/api/rag/query-two-llm';
     
-    console.log(`Using Two-LLM RAG endpoint with automatic detection...`);
+    console.log(`Using Two-LLM RAG endpoint with streaming ID: ${clientStreamingId}`);
     
     // Add timestamp to avoid caching issues with the SSE stream
     const timestamp = Date.now();
@@ -135,7 +147,8 @@ export async function sendMessage(
       body: JSON.stringify({
         // Two-LLM RAG endpoint format
         conversationId: conversationId,
-        query: messageContent
+        query: messageContent,
+        streamingId: clientStreamingId // Pass our streaming ID to the server
       }),
       credentials: 'include' // Include credentials for session authentication
     });
@@ -153,8 +166,12 @@ export async function sendMessage(
       throw new Error('No reader available from response');
     }
     
+    // First call to onStreamUpdate to create the placeholder with our ID
+    onStreamUpdate('', clientStreamingId);
+    
     const decoder = new TextDecoder();
     let streamedContent = '';
+    let currentStreamingId = clientStreamingId;
     
     // Start reading the stream
     try {
@@ -176,7 +193,7 @@ export async function sendMessage(
               const data = line.substring(6); // Remove 'data: ' prefix
               
               if (data === '[DONE]') {
-                console.log('Stream completed');
+                console.log('Stream completed with ID:', currentStreamingId);
                 done = true;
                 break;
               }
@@ -190,14 +207,31 @@ export async function sendMessage(
               try {
                 // Parse the JSON data
                 const parsedData = JSON.parse(data);
+                
+                // If the server sends a streaming ID, use that instead of our client one
+                if (parsedData.streamingId) {
+                  console.log(`Server assigned streaming ID: ${parsedData.streamingId}`);
+                  currentStreamingId = parsedData.streamingId;
+                  window.streamingMessageId = currentStreamingId;
+                  // Update the UI with the new ID but keep current content
+                  onStreamUpdate(streamedContent, currentStreamingId);
+                }
+                
+                // Record the database-persisted message ID 
+                if (parsedData.savedMessageId) {
+                  console.log(`Server saved message with ID: ${parsedData.savedMessageId}`);
+                  window.persistedMessageId = parsedData.savedMessageId;
+                }
+                
                 if (parsedData.content) {
+                  // Update the streamed content with the new chunk
                   streamedContent += parsedData.content;
-                  onStreamUpdate(streamedContent);
+                  onStreamUpdate(streamedContent, currentStreamingId);
                 } else if (parsedData.error) {
                   // Handle error in the stream
                   console.error('Error from server:', parsedData.error);
                   streamedContent += `\n\nError: ${parsedData.error}`;
-                  onStreamUpdate(streamedContent);
+                  onStreamUpdate(streamedContent, currentStreamingId);
                   done = true;
                   break;
                 }
