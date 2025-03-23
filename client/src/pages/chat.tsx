@@ -19,7 +19,7 @@ export default function ChatPage() {
   const chatContainerRef = useRef<HTMLDivElement>(null);
 
   // Fetch conversations
-  const { data: conversations = [], isLoading: isLoadingConversations } = useQuery({
+  const { data: conversations = [], isLoading: isLoadingConversations } = useQuery<any[]>({
     queryKey: ["/api/chat/conversations"],
     enabled: !!user,
   });
@@ -143,6 +143,14 @@ export default function ChatPage() {
       const messageContent = message;
       setMessage(""); // Clear input immediately for better UX
       
+      // First, add the user message to the conversation
+      const userMessage = {
+        id: 'temp-user-' + Date.now(),
+        role: 'user' as const,
+        content: messageContent,
+        createdAt: new Date().toISOString()
+      };
+      
       // Add temporary typing indicator
       const typingIndicatorMessage = {
         id: 'typing-indicator',
@@ -151,7 +159,7 @@ export default function ChatPage() {
         createdAt: new Date().toISOString()
       };
       
-      // Create a temporary conversation with the typing indicator if we already have conversation data
+      // Create a temporary conversation with both the user message and typing indicator
       if (currentConversation) {
         let formatted;
         try {
@@ -159,9 +167,10 @@ export default function ChatPage() {
           const { formatConversationResponse } = await import("@/lib/chatService");
           formatted = formatConversationResponse(currentConversation);
           
-          const updatedMessages = [...formatted.messages, typingIndicatorMessage];
+          // First add the user message, then the typing indicator
+          const updatedMessages = [...formatted.messages, userMessage, typingIndicatorMessage];
           
-          // Update the conversation in the query cache with typing indicator
+          // Update the conversation in the query cache with both messages
           queryClient.setQueryData(
             ['/api/chat/conversations', currentConversationId],
             {
@@ -170,7 +179,7 @@ export default function ChatPage() {
             }
           );
         } catch (err) {
-          console.error("Error formatting conversation for typing indicator:", err);
+          console.error("Error formatting conversation for user message and typing indicator:", err);
         }
       }
       
@@ -255,9 +264,11 @@ export default function ChatPage() {
                           "/api/chat/conversations", 
                           currentConversationId, 
                           "specific"
-                        ]) || {
-                          conversation: currentConversation.conversation,
-                          messages: currentConversation.messages || []
+                        ]) as { conversation: any; messages: any[] } || {
+                          conversation: typeof currentConversation === 'object' && currentConversation ? 
+                            (currentConversation as any).conversation || {} : {},
+                          messages: typeof currentConversation === 'object' && currentConversation ? 
+                            (currentConversation as any).messages || [] : []
                         };
                         
                         // Create a copy of the messages array

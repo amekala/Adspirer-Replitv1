@@ -84,6 +84,15 @@ export function Layout({ children }: { children: React.ReactNode }) {
               {isLoading && <Loader2 className="h-5 w-5 animate-spin" />}
             </div>
 
+            {/* Mobile Navigation Links */}
+            <div className="flex items-center md:hidden">
+              {user && (
+                <Link href="/chat" className="flex items-center gap-1 mr-3 text-sm font-medium bg-primary/10 text-primary rounded-full px-3 py-1">
+                  AI Chat
+                </Link>
+              )}
+            </div>
+
             {/* Mobile Menu Trigger */}
             <Sheet open={isOpen} onOpenChange={setIsOpen}>
               <SheetTrigger asChild className="md:hidden">
@@ -110,8 +119,8 @@ export function Layout({ children }: { children: React.ReactNode }) {
                       <Link href="/dashboard" onClick={closeSheet} className="text-muted-foreground hover:text-foreground transition-colors">
                         Dashboard
                       </Link>
-                      <Link href="/chat" onClick={closeSheet} className="text-muted-foreground hover:text-foreground transition-colors">
-                        AI Chat
+                      <Link href="/chat" onClick={closeSheet} className="flex items-center gap-2 text-primary font-medium">
+                        <span className="bg-primary/10 p-1 rounded-full">AI Chat</span>
                       </Link>
                       <button
                         onClick={() => {
