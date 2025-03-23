@@ -1,0 +1,156 @@
+# Two-LLM Architecture with Embeddings for Campaign Data Retrieval
+
+Here's a more detailed breakdown of how the two-LLM architecture would work, including where embedding generation and vector similarity search fit in:
+
+## System Flow
+
+1. **User Query Processing**
+   - User asks a question about campaign performance
+   - System captures the query text
+
+2. **Query Embedding Generation**
+   - Convert the user query to a vector embedding
+   - Use `generateEmbedding()` from your embedding service
+   - This creates a 1536-dimension vector representing the query's semantic meaning
+
+3. **Campaign Embedding Lookup**
+   - Search for similar campaign embeddings using `storage.searchSimilarEmbeddings()`
+   - Filter by 'campaign' type and user ID
+   - Return top 5-10 most similar campaign vectors based on cosine similarity
+   - Threshold by minimum similarity score (e.g., >0.65)
+
+4. **Campaign ID Extraction**
+   - Extract campaign IDs from the embedding search results
+   - Each result contains metadata.sourceId which is the campaign ID
+
+5. **Query Understanding LLM**
+   - Pass the user query and relevant campaign IDs to first LLM
+   - This LLM analyzes the query intent (time period, metrics requested, etc.)
+   - Generates a specific SQL query targeting the identified campaigns
+   - Includes proper table joins (campaign_metrics, advertiser_accounts)
+   - Adds filters for time periods, marketplaces, or other constraints
+
+6. **SQL Execution**
+   - Execute the generated SQL query against PostgreSQL
+   - Retrieve campaign data, metrics, performance statistics
+   - Format results into structured data (JSON)
+
+7. **Context Assembly**
+   - Combine original user query
+   - SQL query results (campaign data)
+   - Additional context from user profile or preferences
+
+8. **Response Generation LLM**
+   - Pass assembled context to second LLM
+   - This LLM generates a natural language response
+   - Explains metrics, provides insights, answers the specific question
+   - Maintains conversational tone appropriate for chat
+
+9. **Response Delivery**
+   - Return the generated response to the user
+   - Store the interaction in chat history
+
+## Embeddings Implementation Detail
+
+### Pre-Generation of Campaign Embeddings
+```javascript
+async function generateCampaignEmbeddings() {
+  // Get all campaigns for a user
+  const campaigns = await storage.getCampaignMetrics(userId);
+  
+  // Group metrics by campaign
+  const campaignGroups = {};
+  campaigns.forEach(metric => {
+    if (!campaignGroups[metric.campaignId]) {
+      campaignGroups[metric.campaignId] = [];
+    }
+    campaignGroups[metric.campaignId].push(metric);
+  });
+  
+  // Generate embeddings for each campaign
+  for (const [campaignId, metrics] of Object.entries(campaignGroups)) {
+    // Format campaign data as text
+    const campaignText = formatCampaignForEmbedding({
+      name: `Campaign ${campaignId}`,
+      platform: metrics[0].platform || "Amazon",
+      description: `Campaign with ID ${campaignId}`,
+      metrics: summarizeMetrics(metrics)
+    });
+    
+    // Generate embedding vector
+    const vector = await generateEmbedding(campaignText);
+    
+    // Store in database
+    await storage.createEmbedding({
+      text: campaignText,
+      vector: vector,
+      type: 'campaign',
+      sourceId: campaignId,
+      metadata: {
+        userId: userId,
+        platform: metrics[0].platform || "Amazon",
+        metrics: summarizeMetrics(metrics)
+      }
+    });
+  }
+}
+```
+
+### Query-Time Embedding and Search
+```javascript
+async function processChatQuery(userQuery, userId) {
+  // Generate embedding for the query
+  const queryVector = await generateEmbedding(userQuery);
+  
+  // Search for similar campaign embeddings
+  const similarCampaigns = await storage.searchSimilarEmbeddings(
+    queryVector,
+    'campaign',
+    10, // Get top 10 results
+    userId
+  );
+  
+  // Extract campaign IDs from results
+  const campaignIds = similarCampaigns
+    .filter(result => result.similarity > 0.65) // Only use reasonably similar campaigns
+    .map(result => result.embedding.sourceId);
+  
+  // Create prompt for SQL generation LLM
+  const sqlGenerationPrompt = `
+    The user asked: "${userQuery}"
+    
+    Based on this query, generate a SQL query that retrieves relevant information 
+    from the campaign_metrics table for the following campaign IDs:
+    ${campaignIds.join(', ')}
+    
+    Join with advertiser_accounts table where needed.
+    Only return data for user ID: ${userId}
+    Consider time ranges implied in the query.
+  `;
+  
+  // Call SQL Generation LLM
+  const sqlQuery = await callSqlGenerationLLM(sqlGenerationPrompt);
+  
+  // Execute SQL query
+  const campaignData = await executeQuery(sqlQuery);
+  
+  // Create prompt for Response Generation LLM
+  const responsePrompt = `
+    The user asked: "${userQuery}"
+    
+    Here is the campaign data retrieved:
+    ${JSON.stringify(campaignData, null, 2)}
+    
+    Provide a helpful response explaining the campaign performance
+    based on this data. Focus on metrics like impressions, clicks,
+    cost, and calculate metrics like CTR where appropriate.
+  `;
+  
+  // Call Response Generation LLM
+  const response = await callResponseGenerationLLM(responsePrompt);
+  
+  return response;
+}
+```
+
+This architecture leverages embeddings to bridge the gap between natural language queries and structured database queries. The first LLM acts as a specialized SQL generator, while the second LLM focuses on generating intuitive explanations from the retrieved data. The embedding similarity search ensures you're only analyzing the most semantically relevant campaigns to the user's query.

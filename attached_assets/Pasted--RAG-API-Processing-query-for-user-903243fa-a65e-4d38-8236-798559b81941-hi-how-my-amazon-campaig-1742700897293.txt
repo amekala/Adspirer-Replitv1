@@ -1,0 +1,29 @@
+[RAG API] Processing query for user 903243fa-a65e-4d38-8236-798559b81941: "hi, how my amazon campaigns are performing ?"
+3:34:08 AM [rag-service] Processing RAG query: "hi, how my amazon campaigns are performing ?..."
+3:34:08 AM [rag-service] Extracted parameters: {"metrics":[],"timeframe":null,"platforms":["amazon"],"comparison":false,"specific_campaign":null}
+3:34:08 AM [pinecone] Generating embedding for query: "hi, how my amazon campaigns are performing ?..."
+3:34:08 AM [embedding-service] Generating embeddings for 1 text items
+3:34:08 AM [pinecone] Skipping Pinecone, using PostgreSQL directly
+Found 365 embeddings in database to compare
+3:34:09 AM [pinecone] Found 5 similar campaigns in PostgreSQL
+3:34:09 AM [rag-service] Vector search took 929ms, found 5 results
+3:34:09 AM [rag-service] Extracted 5 campaign IDs for SQL query
+3:34:09 AM [sql-data] Fetching campaign data for 5 campaigns: 688343281136193, 688343281136193, 688343281136197, 688343281136197, 688343281136199
+3:34:09 AM [sql-data] Executing Amazon query with user ID: 903243fa-a65e-4d38-8236-798559b81941
+3:34:09 AM [sql-data] Found 0 Amazon campaigns
+3:34:09 AM [sql-data] Executing Google query with user ID: 903243fa-a65e-4d38-8236-798559b81941
+3:34:09 AM [sql-data] Found 0 Google campaigns
+3:34:09 AM [sql-data] Successfully fetched data for 0 campaigns
+3:34:09 AM [rag-service] SQL query took 155ms, retrieved 0 campaigns
+3:34:09 AM [context-assembly] Assembled context (568 chars) for query: "hi, how my amazon campaigns are performing ?..."
+3:34:09 AM [rag-service] Sending to OpenAI with 568 chars of context
+3:34:09 AM [openai-service] Creating chat completion stream with OpenAI GPT-4o...
+3:34:09 AM [openai-service] Using 2 messages in conversation context
+3:34:09 AM [openai-service] Stream created, sending chunks to client...
+3:34:09 AM [openai-service] Stream completed, saving response to database...
+3:34:10 AM [openai-service] AI response saved successfully with ID: 5a059eba-6664-4906-90a3-ed01114b1905
+3:34:10 AM [openai-service] Generating embedding for message ID: 5a059eba-6664-4906-90a3-ed01114b1905 (message #2)
+3:34:10 AM [embedding-service] Generating embeddings for 1 text items
+3:34:10 AM [openai-service] Successfully created embedding for message ID: 5a059eba-6664-4906-90a3-ed01114b1905
+3:34:10 AM [express] POST /api/rag/query 200 in 2603ms
+3:34:11 AM [express] GET /api/chat/conversations/ea4300e7-a0e0-4aca-8cc5-f599291001d2 200 in 223ms :…

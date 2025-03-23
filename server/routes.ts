@@ -1044,6 +1044,90 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
     }
   });
+  
+  // Two-LLM RAG endpoint (streaming version)
+  app.post("/api/rag/query-two-llm", async (req: Request, res: Response) => {
+    if (!req.isAuthenticated() || !req.user) {
+      return res.status(401).send("Unauthorized");
+    }
+    
+    const { id: userId } = req.user;
+    const { query, conversationId } = req.body;
+    
+    if (!query) {
+      return res.status(400).json({ message: "Query is required" });
+    }
+    
+    if (!conversationId) {
+      return res.status(400).json({ message: "Conversation ID is required" });
+    }
+
+    try {
+      console.log(`[Two-LLM RAG API] Processing query for user ${userId}: "${query}"`);
+      
+      // Set headers for streaming SSE response
+      res.setHeader('Content-Type', 'text/event-stream');
+      res.setHeader('Cache-Control', 'no-cache');
+      res.setHeader('Connection', 'keep-alive');
+      
+      // Import the two-LLM RAG service dynamically
+      const { processTwoLlmRagQuery } = await import('./services/two-llm-rag');
+      
+      // Process the query and stream the response
+      await processTwoLlmRagQuery(query, userId, conversationId, res);
+      
+      // Response is handled by the service (streaming)
+    } catch (error) {
+      console.error('Error processing Two-LLM RAG query:', error instanceof Error ? error.message : 'Unknown error');
+      
+      // If we haven't sent any response yet, send error
+      if (!res.headersSent) {
+        return res.status(500).json({ 
+          message: "Failed to process query", 
+          error: error instanceof Error ? error.message : 'Unknown error' 
+        });
+      }
+      
+      // Otherwise ensure the stream is properly ended
+      try {
+        res.write('data: [ERROR]\n\n');
+        res.end();
+      } catch (streamError) {
+        console.error('Error ending stream after Two-LLM RAG error:', streamError);
+      }
+    }
+  });
+  
+  // Non-streaming Two-LLM RAG endpoint for API usage
+  app.post("/api/rag/query-two-llm/sync", async (req: Request, res: Response) => {
+    if (!req.isAuthenticated() || !req.user) {
+      return res.status(401).send("Unauthorized");
+    }
+    
+    const { id: userId } = req.user;
+    const { query, includeDebugInfo = false } = req.body;
+    
+    if (!query) {
+      return res.status(400).json({ message: "Query is required" });
+    }
+
+    try {
+      console.log(`[Two-LLM RAG API] Processing sync query for user ${userId}: "${query}"`);
+      
+      // Import the two-LLM RAG service dynamically
+      const { processTwoLlmRagQueryNonStreaming } = await import('./services/two-llm-rag');
+      
+      // Process the query and return the response with optional debug info
+      const result = await processTwoLlmRagQueryNonStreaming(query, userId, { includeDebugInfo });
+      return res.json(result);
+    } catch (error) {
+      console.error('Error processing Two-LLM RAG query:', error instanceof Error ? error.message : 'Unknown error');
+      return res.status(500).json({ 
+        message: "Failed to process query", 
+        error: error instanceof Error ? error.message : 'Unknown error' 
+      });
+    }
+  });
 
   // Test endpoint for RAG system with PostgreSQL fallback
   app.get("/api/rag/test-fallback", async (req: Request, res: Response) => {
