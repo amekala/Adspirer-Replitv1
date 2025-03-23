@@ -479,6 +479,7 @@ Use a friendly, helpful tone appropriate for a chat interface.
     if (options.conversationId) {
       try {
         await storage.createChatMessage({
+          id: options.streamingId, // Use the provided streaming ID to maintain consistency with client
           conversationId: options.conversationId,
           role: 'assistant',
           content: answer,
@@ -489,7 +490,7 @@ Use a friendly, helpful tone appropriate for a chat interface.
             campaignIds: campaignIds.length > 0 ? campaignIds : undefined
           }
         });
-        log(`Saved assistant message to database for conversation ${options.conversationId}`, 'two-llm-rag');
+        log(`Saved assistant message to database for conversation ${options.conversationId} with ID: ${options.streamingId || 'auto-generated'}`, 'two-llm-rag');
       } catch (saveError) {
         log(`Error saving assistant message: ${saveError}`, 'two-llm-rag');
       }
