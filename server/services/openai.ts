@@ -33,6 +33,58 @@ function getOpenAIClient(): OpenAI {
 }
 
 /**
+ * Convert chat completion parameters to responses API format
+ * This helper function maintains backward compatibility while migrating to the new API
+ * 
+ * @param params - The original chat completions parameters
+ * @returns Parameters formatted for the responses API
+ */
+function convertToResponsesFormat(params: any): any {
+  // Start with a new params object for the Responses API
+  const responsesParams: any = {
+    model: params.model,
+    stream: params.stream || false,
+  };
+
+  // Convert messages array to input format
+  if (params.messages) {
+    // For simple cases with just messages
+    if (params.messages.length > 0) {
+      responsesParams.input = params.messages;
+    }
+  }
+
+  // Handle system message specially (common in our app)
+  const systemMessage = params.messages?.find((msg: any) => msg.role === 'system');
+  if (systemMessage) {
+    responsesParams.system = systemMessage.content;
+    // Remove system message from input array if it exists
+    if (responsesParams.input) {
+      responsesParams.input = responsesParams.input.filter((msg: any) => msg.role !== 'system');
+    }
+  }
+
+  // Handle temperature
+  if (params.temperature !== undefined) {
+    responsesParams.temperature = params.temperature;
+  }
+
+  // Handle max_tokens
+  if (params.max_tokens !== undefined) {
+    responsesParams.max_tokens = params.max_tokens;
+  }
+
+  // For simple text input (used in some places)
+  if (typeof params.input === 'string') {
+    responsesParams.input = params.input;
+  }
+
+  // Add more parameter mappings as needed
+  
+  return responsesParams;
+}
+
+/**
  * Handles data queries by using SQL Builder to convert natural language to SQL,
  * executing the query, and then formatting the results for the user.
  * 
@@ -214,7 +266,8 @@ async function handleDataQuery(
       // Use OpenAI to format the data, with stronger instructions against hallucination
       const openaiClient = getOpenAIClient();
       
-      const formatResponse = await openaiClient.chat.completions.create({
+      // Create parameters for chat completions
+      const completionParams = {
         model: "gpt-4o",
         messages: [
           {
@@ -255,9 +308,16 @@ async function handleDataQuery(
           }
         ],
         temperature: 0.3, // Lower temperature for more factual responses
-      });
+      };
       
-      responseContent = formatResponse.choices[0]?.message?.content || 
+      // Convert the parameters to the Responses API format
+      const responsesParams = convertToResponsesFormat(completionParams);
+      
+      // Use the Responses API
+      const formatResponse = await openaiClient.responses.create(responsesParams);
+      
+      // Extract content from the responses API result
+      responseContent = formatResponse.output_text || 
         "I've analyzed your campaign data but am having trouble formatting the results. Please try asking in a different way.";
     }
     
