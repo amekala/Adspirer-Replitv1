@@ -55,24 +55,9 @@ function convertToResponsesFormat(params: any): any {
   if (params.messages && Array.isArray(params.messages)) {
     // For cases with messages array
     if (params.messages.length > 0) {
-      // Extract system message if present (common pattern in our app)
-      const systemMessage = params.messages.find((msg: any) => msg.role === 'system');
-      
-      if (systemMessage) {
-        // Set system message as a separate parameter
-        responsesParams.system = systemMessage.content;
-        
-        // Remove system message from input
-        responsesParams.input = params.messages
-          .filter((msg: any) => msg.role !== 'system')
-          .map((msg: any) => ({
-            role: msg.role,
-            content: msg.content
-          }));
-      } else {
-        // No system message, use the entire array
-        responsesParams.input = params.messages;
-      }
+      // In the Responses API format, we need to structure the input differently
+      // The whole messages array should be passed as input
+      responsesParams.input = params.messages;
     }
   } else if (params.input) {
     // If input is already provided (single string or structured format)
@@ -444,8 +429,11 @@ When interacting with users:
   const isStreaming = !!res;
   
   try {
-    // Create a proper system message if not already included
-    if (!messages.some(msg => msg.role === 'system')) {
+    // Check if there's already a system message in the array
+    const hasSystemMessage = messages.some(msg => msg.role === 'system');
+    
+    // If there's no system message, we add it (messages are passed directly to Responses API)
+    if (!hasSystemMessage) {
       messages = [
         { role: 'system', content: systemPrompt },
         ...messages

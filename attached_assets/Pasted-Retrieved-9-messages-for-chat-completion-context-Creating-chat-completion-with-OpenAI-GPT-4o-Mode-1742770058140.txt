@@ -1,0 +1,38 @@
+Retrieved 9 messages for chat completion context
+Creating chat completion with OpenAI GPT-4o...
+Mode: Streaming
+Error in OpenAI service: BadRequestError: 400 Unknown parameter: 'system'.
+    at Function.generate (/home/runner/workspace/node_modules/openai/src/error.ts:72:14)
+    at OpenAI.makeStatusError (/home/runner/workspace/node_modules/openai/src/core.ts:443:21)
+    at OpenAI.makeRequest (/home/runner/workspace/node_modules/openai/src/core.ts:507:24)
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+    at async streamChatCompletion (/home/runner/workspace/server/services/openai.ts:558:31)
+    at async <anonymous> (/home/runner/workspace/server/routes.ts:945:9) {
+  status: 400,
+  headers: {
+    'alt-svc': 'h3=":443"; ma=86400',
+    'cf-cache-status': 'DYNAMIC',
+    'cf-ray': '925177acfc25619f-ORD',
+    connection: 'keep-alive',
+    'content-length': '159',
+    'content-type': 'application/json',
+    date: 'Sun, 23 Mar 2025 22:46:54 GMT',
+    'openai-organization': 'mockeryai',
+    'openai-processing-ms': '9',
+    'openai-version': '2020-10-01',
+    server: 'cloudflare',
+    'set-cookie': '__cf_bm=MnXLyr5MtBl35YlwXMMrvejm5VnbwMawz97KD84cDxY-1742770014-1.0.1.1-ST4PAv31q.0yTbZPnwVGuYbEY1orJME8GxXWUs0HsOnsx6bHE7AatwcY_6j0J2SpxQPOuYOYz7We30x4HN9SLnnTCbLYPg3Pi.7vQs5xhZM; path=/; expires=Sun, 23-Mar-25 23:16:54 GMT; domain=.api.openai.com; HttpOnly; Secure; SameSite=None, _cfuvid=ETaywRkIPgJYc35PLrWu0Kk8gkSDQVempxXFTM13q4w-1742770014497-0.0.1.1-604800000; path=/; domain=.api.openai.com; HttpOnly; Secure; SameSite=None',
+    'strict-transport-security': 'max-age=31536000; includeSubDomains; preload',
+    'x-content-type-options': 'nosniff',
+    'x-request-id': 'req_5e11f96f4b1e4ced32c8c07cd3355ead'
+  },
+  request_id: 'req_5e11f96f4b1e4ced32c8c07cd3355ead',
+  error: {
+    message: "Unknown parameter: 'system'.",
+    type: 'invalid_request_error',
+    param: 'system',
+    code: 'unknown_parameter'
+  },
+  code: 'unknown_parameter',
+  param: 'system',
+  type: 'invalid_request_error'
