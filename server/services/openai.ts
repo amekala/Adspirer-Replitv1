@@ -468,13 +468,17 @@ When interacting with users:
   const isStreaming = !!res;
 
   try {
-    // Check if there's already a system message in the array
+    // For the Responses API, we include system messages in the regular input messages array
+    // Check if there's already a system message
     const hasSystemMessage = messages.some((msg) => msg.role === "system");
 
-    // If there's no system message, we add it (messages are passed directly to Responses API)
+    // If there's no system message, we add it to the beginning of the array
     if (!hasSystemMessage) {
       messages = [{ role: "system", content: systemPrompt }, ...messages];
     }
+    
+    // NOTE: The system message is now part of the messages array, which will be passed as "input"
+    // The Responses API doesn't accept a separate "system" parameter
 
     // Initialize OpenAI client
     const openaiClient = getOpenAIClient();
