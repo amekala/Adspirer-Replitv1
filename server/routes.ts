@@ -1246,134 +1246,290 @@ export async function registerRoutes(app: Express): Promise<Server> {
     const { id: userId } = req.user;
     
     try {
-      // Import services dynamically
+      // Import our services
       const { generateEmbedding } = await import('./services/embedding');
-      const { storeCampaignEmbedding } = await import('./services/pinecone');
+      const { pool } = await import('./db');
       
-      // Get campaign metrics from the last 90 days
-      const today = new Date();
-      const ninetyDaysAgo = new Date();
-      ninetyDaysAgo.setDate(ninetyDaysAgo.getDate() - 90);
+      // Find all unique Amazon campaign IDs using SQL
+      console.log(`Finding all unique Amazon campaigns for user ${userId}`);
+      const amazonCampaignsQuery = `
+        SELECT DISTINCT profile_id 
+        FROM campaign_metrics 
+        WHERE user_id = $1
+      `;
       
-      // Fetch all campaign metrics
-      console.log(`Fetching campaign metrics for user ${userId} from the last 90 days`);
-      const amazonMetrics = await storage.getCampaignMetrics(userId, ninetyDaysAgo, today);
-      const googleMetrics = await storage.getGoogleCampaignMetrics(userId, ninetyDaysAgo, today);
+      // Find all unique Google campaign IDs
+      console.log(`Finding all unique Google campaigns for user ${userId}`);
+      const googleCampaignsQuery = `
+        SELECT DISTINCT campaign_id 
+        FROM google_campaign_metrics 
+        WHERE user_id = $1
+      `;
       
-      console.log(`Found ${amazonMetrics.length} Amazon campaigns and ${googleMetrics.length} Google campaigns`);
+      // Execute both queries
+      const amazonCampaigns = await pool.query(amazonCampaignsQuery, [userId]);
+      const googleCampaigns = await pool.query(googleCampaignsQuery, [userId]);
       
-      // Process and index Amazon campaigns
-      const amazonResults = await Promise.all(amazonMetrics.map(async (campaign) => {
+      console.log(`Found ${amazonCampaigns.rows.length} Amazon campaigns and ${googleCampaigns.rows.length} Google campaigns`);
+      
+      // Process Amazon campaigns
+      const amazonResults = await Promise.all(amazonCampaigns.rows.map(async (campaign) => {
         try {
-          // Format campaign data for embedding
-          const campaignText = `Campaign: ${campaign.campaignName}
+          // Get the most recent campaign data
+          const campaignDataQuery = `
+            SELECT * FROM campaign_metrics 
+            WHERE profile_id = $1 AND user_id = $2
+            ORDER BY date DESC
+            LIMIT 1
+          `;
+          
+          const campaignResult = await pool.query(campaignDataQuery, [campaign.profile_id, userId]);
+          if (campaignResult.rows.length === 0) {
+            return {
+              campaignId: campaign.profile_id,
+              status: 'skipped',
+              reason: 'No campaign data found'
+            };
+          }
+          
+          const campaignData = campaignResult.rows[0];
+          
+          // Get aggregated metrics for the last 30 days
+          const metricsQuery = `
+            SELECT 
+              SUM(impressions) as total_impressions,
+              SUM(clicks) as total_clicks,
+              SUM(cost) as total_spend,
+              SUM(sales) as total_sales
+            FROM campaign_metrics 
+            WHERE profile_id = $1 AND user_id = $2
+            AND date >= CURRENT_DATE - INTERVAL '30 days'
+          `;
+          
+          const metricsResult = await pool.query(metricsQuery, [campaign.profile_id, userId]);
+          const metrics = metricsResult.rows[0];
+          
+          // Format campaign data with metrics for embedding
+          const campaignText = `Campaign: ${campaignData.campaign_name || 'Unnamed Campaign'}
 Platform: Amazon Ads
-ID: ${campaign.campaignId}
-Type: ${campaign.campaignType}
-Budget: ${campaign.dailyBudget}
-Status: ${campaign.status}
-Targeting: ${campaign.targetingType}
-Start Date: ${campaign.startDate.toISOString().split('T')[0]}
+ID: ${campaignData.profile_id}
+Type: ${campaignData.campaign_type || 'Unknown'}
+Budget: ${campaignData.daily_budget || 'Unknown'}
+Status: ${campaignData.status || 'Unknown'}
+Targeting: ${campaignData.targeting_type || 'Unknown'}
 Metrics (Last 30 Days):
-  Impressions: ${campaign.impressions}
-  Clicks: ${campaign.clicks}
-  CTR: ${(campaign.clicks / (campaign.impressions || 1) * 100).toFixed(2)}%
-  Spend: $${campaign.spend ? campaign.spend.toFixed(2) : '0.00'}
-  Sales: $${campaign.sales ? campaign.sales.toFixed(2) : '0.00'}
-  ACOS: ${(campaign.spend / (campaign.sales || 1) * 100).toFixed(2)}%
-  ROAS: ${(campaign.sales / (campaign.spend || 1)).toFixed(2)}`;
+  Impressions: ${metrics.total_impressions || 0}
+  Clicks: ${metrics.total_clicks || 0}
+  CTR: ${metrics.total_impressions ? ((metrics.total_clicks / metrics.total_impressions) * 100).toFixed(2) : '0.00'}%
+  Spend: $${metrics.total_spend ? parseFloat(metrics.total_spend).toFixed(2) : '0.00'}
+  Sales: $${metrics.total_sales ? parseFloat(metrics.total_sales).toFixed(2) : '0.00'}
+  ACOS: ${metrics.total_sales ? ((metrics.total_spend / metrics.total_sales) * 100).toFixed(2) : '0.00'}%
+  ROAS: ${metrics.total_spend ? (metrics.total_sales / metrics.total_spend).toFixed(2) : '0.00'}`;
           
-          // Generate embedding
+          // Generate embedding vector
           const embedding = await generateEmbedding(campaignText);
           
-          // Store in Pinecone and PostgreSQL
-          await storeCampaignEmbedding(embedding, {
-            id: campaign.campaignId,
-            name: campaign.campaignName,
-            platformType: 'amazon',
-            description: campaignText,
+          // Store embedding in our database
+          const insertEmbeddingQuery = `
+            INSERT INTO embeddings_store (
+              id, 
+              user_id, 
+              type, 
+              source_id, 
+              text_content, 
+              embedding_vector, 
+              metadata
+            )
+            VALUES (
+              $1, $2, $3, $4, $5, $6, $7
+            )
+            ON CONFLICT (id) 
+            DO UPDATE SET
+              text_content = $5,
+              embedding_vector = $6,
+              metadata = $7,
+              updated_at = NOW()
+            RETURNING id
+          `;
+          
+          const embeddingId = `camp_amazon_${campaign.profile_id}`;
+          const embeddingType = 'campaign';
+          const metadata = {
+            platform: 'amazon',
+            campaignName: campaignData.campaign_name,
+            campaignType: campaignData.campaign_type,
+            status: campaignData.status,
             metrics: {
-              impressions: campaign.impressions,
-              clicks: campaign.clicks,
-              spend: campaign.spend,
-              sales: campaign.sales
+              impressions: metrics.total_impressions || 0,
+              clicks: metrics.total_clicks || 0,
+              spend: metrics.total_spend || 0,
+              sales: metrics.total_sales || 0
             }
-          }, userId);
+          };
+          
+          const insertResult = await pool.query(
+            insertEmbeddingQuery, 
+            [
+              embeddingId,
+              userId,
+              embeddingType,
+              campaign.profile_id,
+              campaignText,
+              embedding,
+              JSON.stringify(metadata)
+            ]
+          );
           
           return {
-            campaignId: campaign.campaignId,
-            status: 'indexed'
+            campaignId: campaign.profile_id,
+            status: 'indexed',
+            embeddingId: insertResult.rows[0].id
           };
         } catch (error) {
-          console.error(`Error indexing Amazon campaign ${campaign.campaignId}:`, error);
+          console.error(`Error indexing Amazon campaign ${campaign.profile_id}:`, error);
           return {
-            campaignId: campaign.campaignId,
+            campaignId: campaign.profile_id,
             status: 'failed',
             error: error instanceof Error ? error.message : 'Unknown error'
           };
         }
       }));
       
-      // Process and index Google campaigns
-      const googleResults = await Promise.all(googleMetrics.map(async (campaign) => {
+      // Process Google campaigns
+      const googleResults = await Promise.all(googleCampaigns.rows.map(async (campaign) => {
         try {
-          // Format campaign data for embedding
-          const campaignText = `Campaign: ${campaign.campaignName}
-Platform: Google Ads
-ID: ${campaign.campaignId}
-Type: ${campaign.campaignType}
-Budget: ${campaign.dailyBudget}
-Status: ${campaign.status}
-Network: ${campaign.network || 'Unknown'}
-Start Date: ${campaign.startDate.toISOString().split('T')[0]}
-Metrics (Last 30 Days):
-  Impressions: ${campaign.impressions}
-  Clicks: ${campaign.clicks}
-  CTR: ${(campaign.clicks / (campaign.impressions || 1) * 100).toFixed(2)}%
-  Cost: $${campaign.cost ? campaign.cost.toFixed(2) : '0.00'}
-  Conversions: ${campaign.conversions || 0}
-  Conversion Value: $${campaign.conversionValue ? campaign.conversionValue.toFixed(2) : '0.00'}
-  CPA: $${campaign.conversions ? (campaign.cost / campaign.conversions).toFixed(2) : 'N/A'}
-  ROAS: ${campaign.conversionValue ? (campaign.conversionValue / (campaign.cost || 1)).toFixed(2) : 'N/A'}`;
+          // Get the most recent campaign data
+          const campaignDataQuery = `
+            SELECT * FROM google_campaign_metrics 
+            WHERE campaign_id = $1 AND user_id = $2
+            ORDER BY date DESC
+            LIMIT 1
+          `;
           
-          // Generate embedding
+          const campaignResult = await pool.query(campaignDataQuery, [campaign.campaign_id, userId]);
+          if (campaignResult.rows.length === 0) {
+            return {
+              campaignId: campaign.campaign_id,
+              status: 'skipped',
+              reason: 'No campaign data found'
+            };
+          }
+          
+          const campaignData = campaignResult.rows[0];
+          
+          // Get aggregated metrics for the last 30 days
+          const metricsQuery = `
+            SELECT 
+              SUM(impressions) as total_impressions,
+              SUM(clicks) as total_clicks,
+              SUM(cost) as total_cost,
+              SUM(conversions) as total_conversions
+            FROM google_campaign_metrics 
+            WHERE campaign_id = $1 AND user_id = $2
+            AND date >= CURRENT_DATE - INTERVAL '30 days'
+          `;
+          
+          const metricsResult = await pool.query(metricsQuery, [campaign.campaign_id, userId]);
+          const metrics = metricsResult.rows[0];
+          
+          // Format campaign data with metrics for embedding
+          const campaignText = `Campaign: ${campaignData.campaign_name || 'Unnamed Campaign'}
+Platform: Google Ads
+ID: ${campaignData.campaign_id}
+Customer ID: ${campaignData.customer_id}
+Metrics (Last 30 Days):
+  Impressions: ${metrics.total_impressions || 0}
+  Clicks: ${metrics.total_clicks || 0}
+  CTR: ${metrics.total_impressions ? ((metrics.total_clicks / metrics.total_impressions) * 100).toFixed(2) : '0.00'}%
+  Cost: $${metrics.total_cost ? parseFloat(metrics.total_cost).toFixed(2) : '0.00'}
+  Conversions: ${metrics.total_conversions || 0}
+  Cost Per Conversion: $${metrics.total_conversions && parseFloat(metrics.total_cost) ? (parseFloat(metrics.total_cost) / metrics.total_conversions).toFixed(2) : '0.00'}`;
+          
+          // Generate embedding vector
           const embedding = await generateEmbedding(campaignText);
           
-          // Store in Pinecone and PostgreSQL
-          await storeCampaignEmbedding(embedding, {
-            id: campaign.campaignId,
-            name: campaign.campaignName,
-            platformType: 'google',
-            description: campaignText,
+          // Store embedding in our database
+          const insertEmbeddingQuery = `
+            INSERT INTO embeddings_store (
+              id, 
+              user_id, 
+              type, 
+              source_id, 
+              text_content, 
+              embedding_vector, 
+              metadata
+            )
+            VALUES (
+              $1, $2, $3, $4, $5, $6, $7
+            )
+            ON CONFLICT (id) 
+            DO UPDATE SET
+              text_content = $5,
+              embedding_vector = $6,
+              metadata = $7,
+              updated_at = NOW()
+            RETURNING id
+          `;
+          
+          const embeddingId = `camp_google_${campaign.campaign_id}`;
+          const embeddingType = 'campaign';
+          const metadata = {
+            platform: 'google',
+            campaignName: campaignData.campaign_name,
+            customerId: campaignData.customer_id,
             metrics: {
-              impressions: campaign.impressions,
-              clicks: campaign.clicks,
-              cost: campaign.cost,
-              conversions: campaign.conversions,
-              conversionValue: campaign.conversionValue
+              impressions: metrics.total_impressions || 0,
+              clicks: metrics.total_clicks || 0,
+              cost: metrics.total_cost || 0,
+              conversions: metrics.total_conversions || 0
             }
-          }, userId);
+          };
+          
+          const insertResult = await pool.query(
+            insertEmbeddingQuery, 
+            [
+              embeddingId,
+              userId,
+              embeddingType,
+              campaign.campaign_id,
+              campaignText,
+              embedding,
+              JSON.stringify(metadata)
+            ]
+          );
           
           return {
-            campaignId: campaign.campaignId,
-            status: 'indexed'
+            campaignId: campaign.campaign_id,
+            status: 'indexed',
+            embeddingId: insertResult.rows[0].id
           };
         } catch (error) {
-          console.error(`Error indexing Google campaign ${campaign.campaignId}:`, error);
+          console.error(`Error indexing Google campaign ${campaign.campaign_id}:`, error);
           return {
-            campaignId: campaign.campaignId,
+            campaignId: campaign.campaign_id,
             status: 'failed',
             error: error instanceof Error ? error.message : 'Unknown error'
           };
         }
       }));
       
-      // Return results
+      // Count successful indexing
+      const successfulAmazon = amazonResults.filter(r => r.status === 'indexed').length;
+      const successfulGoogle = googleResults.filter(r => r.status === 'indexed').length;
+      
       return res.json({
         message: "Campaign indexing complete",
-        totalIndexed: amazonResults.length + googleResults.length,
-        amazonResults,
-        googleResults
+        totalIndexed: successfulAmazon + successfulGoogle,
+        amazonResults: {
+          total: amazonResults.length,
+          successful: successfulAmazon,
+          details: amazonResults
+        },
+        googleResults: {
+          total: googleResults.length,
+          successful: successfulGoogle,
+          details: googleResults
+        }
       });
     } catch (error) {
       console.error('Error indexing campaigns:', error instanceof Error ? error.message : 'Unknown error');
@@ -1408,6 +1564,142 @@ Metrics (Last 30 Days):
       console.error('Error running migrations:', error);
       return res.status(500).json({ 
         message: "Failed to run migrations", 
+        error: error instanceof Error ? error.message : 'Unknown error' 
+      });
+    }
+  });
+  
+  // Auto-indexing route for initial system setup and testing
+  app.get("/api/rag/auto-index", async (req: Request, res: Response) => {
+    try {
+      // Find any users who have campaign data but no embeddings
+      const { pool } = await import('./db');
+      
+      const userQuery = `
+        SELECT DISTINCT user_id 
+        FROM campaign_metrics 
+        UNION 
+        SELECT DISTINCT user_id 
+        FROM google_campaign_metrics
+      `;
+      
+      const userResult = await pool.query(userQuery);
+      const usersWithCampaigns = userResult.rows;
+      
+      console.log(`Found ${usersWithCampaigns.length} users with campaign data`);
+      
+      if (usersWithCampaigns.length === 0) {
+        return res.json({
+          message: "No users with campaign data found for indexing"
+        });
+      }
+      
+      // For each user, check if they already have embeddings
+      const stats = [];
+      
+      for (const userRow of usersWithCampaigns) {
+        const userId = userRow.user_id;
+        
+        // Check if user already has campaign embeddings
+        const embeddingCheckQuery = `
+          SELECT COUNT(*) as count 
+          FROM embeddings_store 
+          WHERE user_id = $1 
+          AND type = 'campaign'
+        `;
+        
+        const embeddingResult = await pool.query(embeddingCheckQuery, [userId]);
+        const embeddingCount = parseInt(embeddingResult.rows[0].count);
+        
+        // Get campaign counts for this user
+        const campaignCountQuery = `
+          SELECT 
+            (SELECT COUNT(DISTINCT profile_id) FROM campaign_metrics WHERE user_id = $1) as amazon_count,
+            (SELECT COUNT(DISTINCT campaign_id) FROM google_campaign_metrics WHERE user_id = $1) as google_count
+        `;
+        
+        const campaignResult = await pool.query(campaignCountQuery, [userId]);
+        const amazonCount = parseInt(campaignResult.rows[0].amazon_count) || 0;
+        const googleCount = parseInt(campaignResult.rows[0].google_count) || 0;
+        
+        // If user has campaigns but no or fewer embeddings, create a fake request to index them
+        if (amazonCount + googleCount > embeddingCount) {
+          // Simulate a POST request to the index-campaigns endpoint
+          const req = { 
+            isAuthenticated: () => true,
+            user: { id: userId }
+          } as Request;
+          
+          const mockRes = {
+            status: (code: number) => ({
+              json: (data: any) => console.log(`Status ${code}:`, data),
+              send: (msg: string) => console.log(`Status ${code}:`, msg)
+            }),
+            json: (data: any) => console.log('Response:', data)
+          } as Response;
+          
+          // Find the index-campaigns function
+          const indexCampaignsHandler = app._router.stack
+            .find((layer: any) => 
+              layer.route && 
+              layer.route.path === '/api/rag/index-campaigns' && 
+              layer.route.methods.post
+            )?.route.stack[0].handle;
+          
+          if (indexCampaignsHandler) {
+            try {
+              console.log(`Auto-indexing campaigns for user ${userId}`);
+              await indexCampaignsHandler(req, mockRes, () => {});
+              stats.push({
+                userId,
+                amazonCount,
+                googleCount,
+                previousEmbeddings: embeddingCount,
+                status: 'indexed'
+              });
+            } catch (error) {
+              console.error(`Error auto-indexing for user ${userId}:`, error);
+              stats.push({
+                userId,
+                amazonCount,
+                googleCount,
+                previousEmbeddings: embeddingCount,
+                status: 'failed',
+                error: error instanceof Error ? error.message : 'Unknown error'
+              });
+            }
+          } else {
+            console.error('Could not find index-campaigns handler');
+            stats.push({
+              userId,
+              amazonCount,
+              googleCount,
+              previousEmbeddings: embeddingCount,
+              status: 'skipped',
+              reason: 'Route handler not found'
+            });
+          }
+        } else {
+          console.log(`User ${userId} already has ${embeddingCount} embeddings for ${amazonCount + googleCount} campaigns`);
+          stats.push({
+            userId,
+            amazonCount,
+            googleCount,
+            previousEmbeddings: embeddingCount,
+            status: 'skipped',
+            reason: 'Already indexed'
+          });
+        }
+      }
+      
+      return res.json({
+        message: "Auto-indexing complete",
+        stats
+      });
+    } catch (error) {
+      console.error('Error in auto-indexing:', error);
+      return res.status(500).json({ 
+        message: "Failed to auto-index campaigns", 
         error: error instanceof Error ? error.message : 'Unknown error' 
       });
     }
