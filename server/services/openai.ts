@@ -69,7 +69,6 @@ export async function streamChatCompletion(
     
     console.log('Creating chat completion with OpenAI GPT-4o...');
     console.log(`Mode: ${isStreaming ? 'Streaming' : 'Non-streaming welcome message'}`);
-    console.log('Messages being sent to OpenAI:', JSON.stringify(messages, null, 2));
     
     // For welcome messages we can use non-streaming for simplicity
     if (!isStreaming) {
@@ -101,6 +100,21 @@ export async function streamChatCompletion(
       console.log('Welcome message saved successfully');
       return;
     }
+    
+    // ----- NEW SECTION: DATA QUERY DETECTION -----
+    // Check if this is a data query that should be handled by SQL Builder
+    import { isDataQuery, processSQLQuery } from './sqlBuilder';
+    
+    // Get the most recent user message to check if it's a data query
+    const userMessage = messages.find(msg => msg.role === 'user')?.content || '';
+    if (isDataQuery(userMessage) && isStreaming) {
+      await handleDataQuery(conversationId, userId, res!, userMessage);
+      return;
+    }
+    // ----- END NEW SECTION -----
+    
+    // Log messages for regular chat completion
+    console.log('Messages being sent to OpenAI:', JSON.stringify(messages, null, 2));
     
     // Regular streaming mode for normal interactions
     const stream = await openaiClient.chat.completions.create({
@@ -168,6 +182,126 @@ export async function streamChatCompletion(
       res!.write('data: [ERROR]\n\n');
       res!.end();
     }
+  }
+}
+
+/**
+ * Handles data queries by using SQL Builder to convert natural language to SQL,
+ * executing the query, and then formatting the results for the user.
+ * 
+ * This function maintains a complete separation of concerns - the user never sees
+ * the SQL or knows that a second LLM is involved.
+ */
+async function handleDataQuery(
+  conversationId: string,
+  userId: string,
+  res: Response,
+  query: string
+): Promise<void> {
+  console.log(`Handling data query: "${query}"`);
+  
+  try {
+    // Send a thinking message to the client
+    res.write(`data: ${JSON.stringify({ 
+      content: "I'm analyzing your campaign data..." 
+    })}\n\n`);
+    
+    // Process the query with SQL Builder
+    const sqlResult = await processSQLQuery(userId, query);
+    
+    let responseContent = '';
+    
+    if (sqlResult.error) {
+      // If there was an error processing the SQL query
+      responseContent = `I encountered an issue while analyzing your campaign data: ${sqlResult.error}`;
+    } else if (!sqlResult.data || sqlResult.data.length === 0) {
+      // No data found
+      responseContent = "I searched our database but couldn't find any campaign data matching your request. This could be because you don't have any campaigns yet, or the specific data you're looking for isn't available.";
+    } else {
+      // We have data - use OpenAI to format it nicely for the user
+      const openaiClient = getOpenAIClient();
+      
+      const formatResponse = await openaiClient.chat.completions.create({
+        model: "gpt-4o",
+        messages: [
+          {
+            role: "system",
+            content: `You are an advertising campaign analyst skilled at clearly presenting data insights. 
+                     Format the following campaign data results into a helpful, concise response.
+                     
+                     Guidelines:
+                     1. Present the data in a clear, easy-to-understand format
+                     2. Use bullet points, tables, or other formatting to make the data readable
+                     3. Highlight key insights or patterns in the data
+                     4. Do NOT mention SQL, databases, or queries - present as if you analyzed the data yourself
+                     5. Keep the tone professional, helpful, and concise
+                     6. Make sure monetary values are formatted appropriately (with currency symbols)
+                     7. Use plain language to explain technical metrics (ROAS, ACOS, CTR, etc.)`
+          },
+          {
+            role: "user",
+            content: `The user asked: "${query}"
+                     
+                     Here is the campaign data:
+                     ${JSON.stringify(sqlResult.data, null, 2)}
+                     
+                     Please format this data into a helpful response.`
+          }
+        ],
+        temperature: 0.7, // Slightly higher for more natural language
+      });
+      
+      responseContent = formatResponse.choices[0]?.message?.content || 
+        "I've analyzed your campaign data but am having trouble formatting the results. Please try asking in a different way.";
+    }
+    
+    // Send the formatted response to the client
+    res.write(`data: ${JSON.stringify({ content: responseContent })}\n\n`);
+    
+    // Save the response to the database with metadata indicating it was from SQL Builder
+    const messageData = {
+      role: "assistant" as const,
+      content: responseContent,
+      conversationId,
+      metadata: {
+        model: 'gpt-4o',
+        timestamp: new Date().toISOString(),
+        processed: true,
+        isDataQuery: true,
+        // Store SQL info for debugging but not visible to user
+        sqlQuery: sqlResult.sql,
+        rowCount: sqlResult.data?.length || 0
+      }
+    };
+    
+    await storage.createChatMessage(messageData);
+    console.log('Data query response saved successfully');
+    
+    // End the stream
+    res.write('data: [DONE]\n\n');
+    res.end();
+    
+  } catch (error) {
+    console.error('Error handling data query:', error);
+    
+    // Send error message to client
+    const errorMessage = "I'm sorry, I encountered an issue while processing your data request. Please try again or ask in a different way.";
+    res.write(`data: ${JSON.stringify({ content: errorMessage })}\n\n`);
+    
+    // Save error message
+    await storage.createChatMessage({
+      role: "assistant" as const,
+      content: errorMessage,
+      conversationId,
+      metadata: {
+        error: true,
+        errorMessage: (error as Error).message
+      }
+    });
+    
+    // End the stream
+    res.write('data: [DONE]\n\n');
+    res.end();
   }
 }
 

@@ -1,58 +1,35 @@
 /**
  * SQL Builder LLM Service
  * 
- * This service acts as a secondary LLM that specializes in converting natural language
- * questions about campaign data into SQL queries, executing them, and returning the results.
+ * This service acts as a background LLM that converts natural language questions
+ * about campaign data into SQL queries, executes them, and returns the data results.
+ * 
+ * It's designed with a clear separation of concerns from the main chat LLM,
+ * operating entirely behind the scenes without the user being aware of its existence.
  */
 
 import OpenAI from 'openai';
 import { db } from '../db';
 import { sql } from 'drizzle-orm';
-import * as schema from '@shared/schema';
 
 // Initialize OpenAI client
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-});
+function getOpenAIClient(): OpenAI {
+  const apiKey = process.env.OPENAI_API_KEY;
+  if (!apiKey) {
+    throw new Error("OpenAI API key not found");
+  }
+  
+  return new OpenAI({
+    apiKey
+  });
+}
 
 // Database schema information to provide context to the LLM
 const DB_SCHEMA = `
--- Users table
-CREATE TABLE users (
-  id TEXT PRIMARY KEY,
-  email TEXT UNIQUE NOT NULL,
-  password TEXT NOT NULL
-);
-
--- Amazon Tokens table
-CREATE TABLE amazon_tokens (
-  id SERIAL PRIMARY KEY,
-  userId TEXT NOT NULL REFERENCES users(id),
-  accessToken TEXT NOT NULL,
-  refreshToken TEXT NOT NULL,
-  tokenScope TEXT,
-  expiresAt TIMESTAMP NOT NULL,
-  lastRefreshed TIMESTAMP NOT NULL,
-  isActive BOOLEAN DEFAULT true
-);
-
--- Advertiser accounts (Amazon Advertising profiles)
-CREATE TABLE advertiser_accounts (
-  id SERIAL PRIMARY KEY,
-  userId TEXT NOT NULL REFERENCES users(id),
-  profileId TEXT NOT NULL,
-  accountName TEXT NOT NULL,
-  marketplace TEXT NOT NULL,
-  accountType TEXT,
-  status TEXT,
-  createdAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  lastSynced TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
-
 -- Campaign metrics for Amazon
 CREATE TABLE campaign_metrics (
   id SERIAL PRIMARY KEY,
-  userId TEXT NOT NULL REFERENCES users(id),
+  userId TEXT NOT NULL,
   profileId TEXT NOT NULL,
   campaignId TEXT NOT NULL,
   campaignName TEXT NOT NULL,
@@ -69,21 +46,10 @@ CREATE TABLE campaign_metrics (
   createdAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
--- Google advertiser accounts
-CREATE TABLE google_advertiser_accounts (
-  id SERIAL PRIMARY KEY,
-  userId TEXT NOT NULL REFERENCES users(id),
-  customerId TEXT NOT NULL,
-  accountName TEXT NOT NULL,
-  status TEXT,
-  createdAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  lastSynced TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
-
 -- Google campaign metrics
 CREATE TABLE google_campaign_metrics (
   id SERIAL PRIMARY KEY,
-  userId TEXT NOT NULL REFERENCES users(id),
+  userId TEXT NOT NULL,
   customerId TEXT NOT NULL,
   campaignId TEXT NOT NULL,
   campaignName TEXT NOT NULL,
@@ -101,57 +67,48 @@ CREATE TABLE google_campaign_metrics (
 );
 `;
 
-// Common query templates the LLM can reference
-const QUERY_TEMPLATES = `
--- Get total count of Amazon campaigns for a user
-SELECT COUNT(DISTINCT campaignId) FROM campaign_metrics WHERE userId = ?;
-
--- Get total count of Google campaigns for a user
-SELECT COUNT(DISTINCT campaignId) FROM google_campaign_metrics WHERE userId = ?;
-
--- Get Amazon campaign performance metrics for last 30 days
-SELECT 
-  campaignName, 
-  SUM(impressions) as total_impressions, 
-  SUM(clicks) as total_clicks, 
-  SUM(cost) as total_cost, 
-  SUM(orders) as total_orders, 
-  SUM(sales) as total_sales,
-  CASE 
-    WHEN SUM(cost) > 0 THEN SUM(sales)/SUM(cost) 
-    ELSE 0 
-  END as roas,
-  CASE 
-    WHEN SUM(sales) > 0 THEN (SUM(cost)/SUM(sales))*100 
-    ELSE 0 
-  END as acos
-FROM campaign_metrics 
-WHERE userId = ? AND date >= CURRENT_DATE - INTERVAL '30 days'
-GROUP BY campaignName
-ORDER BY total_sales DESC;
-
--- Get Google campaign performance metrics for last 30 days
-SELECT 
-  campaignName, 
-  SUM(impressions) as total_impressions, 
-  SUM(clicks) as total_clicks, 
-  SUM(cost) as total_cost,
-  SUM(conversions) as total_conversions,
-  SUM(conversionValue) as total_conversion_value,
-  CASE 
-    WHEN SUM(cost) > 0 THEN SUM(conversionValue)/SUM(cost) 
-    ELSE 0 
-  END as roas
-FROM google_campaign_metrics 
-WHERE userId = ? AND date >= CURRENT_DATE - INTERVAL '30 days'
-GROUP BY campaignName
-ORDER BY total_conversion_value DESC;
-`;
-
-interface SQLBuilderResult {
+// Interface for SQL Builder results
+export interface SQLBuilderResult {
   data: any[];
   sql: string;
   error?: string;
+}
+
+/**
+ * Detect if a user message is asking for campaign data
+ * This function identifies patterns in user questions that suggest
+ * they're looking for campaign performance data.
+ * 
+ * @param message - The user's message
+ * @returns boolean - Whether this is likely a data query
+ */
+export function isDataQuery(message: string): boolean {
+  // Remove punctuation and convert to lowercase for more reliable matching
+  const normalizedMessage = message.toLowerCase().replace(/[.,\/#!$%\^&\*;:{}=\-_`~()]/g, "");
+  
+  // Common patterns that indicate a data query
+  const dataQueryPatterns = [
+    // Campaign performance patterns
+    /(how|what).*(campaign|campaigns|ads|advertising).*(performance|performing|doing|going|result|metrics)/,
+    /(show|tell|give).*(campaign|campaigns|ads).*data/,
+    /(how many|total).*(campaign|campaigns|ads)/,
+    
+    // Metric specific patterns
+    /(clicks|impressions|cost|sales|acos|roas|ctr|cpc|conversion|conversions)/,
+    
+    // Time period patterns
+    /(this week|last week|this month|last month|yesterday|today|day|week|month)/,
+    
+    // Analysis patterns
+    /(best|worst|top|highest|lowest).*(campaign|campaigns|performing)/,
+    /(amazon|google).*(campaign|campaigns|ads|advertising)/,
+    
+    // Direct data questions
+    /how (are|is) my.*(campaign|campaigns|ads)/
+  ];
+  
+  // Check if any pattern matches
+  return dataQueryPatterns.some(pattern => pattern.test(normalizedMessage));
 }
 
 /**
@@ -166,8 +123,11 @@ interface SQLBuilderResult {
  */
 export async function processSQLQuery(userId: string, query: string): Promise<SQLBuilderResult> {
   try {
+    console.log(`SQL Builder processing query from user ${userId}: "${query}"`);
+    
     // Step 1: Generate SQL from natural language query
     const sqlQuery = await generateSQL(userId, query);
+    console.log(`Generated SQL: ${sqlQuery}`);
     
     // Step 2: Execute the SQL query
     let data: any[] = [];
@@ -181,9 +141,14 @@ export async function processSQLQuery(userId: string, query: string): Promise<SQ
       
       // Add userId filter if not present to ensure data isolation
       const secureQuery = ensureUserFilter(sqlQuery, userId);
+      console.log(`Executing secure SQL: ${secureQuery}`);
       
       // Execute the query
-      data = await db.execute(sql.raw(secureQuery));
+      const result = await db.execute(sql.raw(secureQuery));
+      // Convert query result to array for consistent handling
+      data = (result as unknown as any).rows || [];
+      
+      console.log(`SQL query returned ${data.length} results`);
     } catch (err: any) {
       error = `SQL execution error: ${err.message}`;
       console.error("SQL execution error:", err);
@@ -206,30 +171,29 @@ export async function processSQLQuery(userId: string, query: string): Promise<SQ
 
 /**
  * Uses OpenAI to generate SQL from a natural language query
+ * This function is isolated from the main chat flow.
  */
 async function generateSQL(userId: string, query: string): Promise<string> {
+  const openai = getOpenAIClient();
+  
   const response = await openai.chat.completions.create({
     model: "gpt-4o",
     messages: [
       {
         role: "system",
-        content: `You are an AI assistant specialized in converting natural language questions 
-                  about advertising campaign data into SQL queries. You have access to the 
-                  following PostgreSQL database schema:
-                  
-                  ${DB_SCHEMA}
-                  
-                  You can reference these query templates for common requests:
-                  
-                  ${QUERY_TEMPLATES}
-                  
-                  Important guidelines:
-                  1. ONLY return the SQL query without any explanation or markdown formatting
-                  2. Always include userId = '${userId}' filter in WHERE clauses to ensure data isolation
-                  3. Use only SELECT statements for security - no INSERT, UPDATE, DELETE, etc.
-                  4. Ensure queries are optimized for PostgreSQL
-                  5. Handle time periods intelligently (last 7 days, last month, etc.)
-                  6. Join tables when necessary to provide comprehensive information`
+        content: `You are an AI specialized in converting natural language questions about advertising campaign data into PostgreSQL SQL queries.
+                 
+                 You have access to the following database schema:
+                 ${DB_SCHEMA}
+                 
+                 Guidelines:
+                 1. Return ONLY the SQL query without any explanation or markdown
+                 2. Always include "userId = '${userId}'" in WHERE clauses for security
+                 3. Only write SELECT statements (no INSERT, UPDATE, DELETE)
+                 4. Join tables when necessary but keep queries efficient
+                 5. Handle time periods intelligently (e.g., last 7 days, last month)
+                 6. Format dates properly for PostgreSQL (use CURRENT_DATE for today)
+                 7. Use appropriate aggregations (SUM, AVG, COUNT) as needed`
       },
       {
         role: "user",
@@ -237,7 +201,7 @@ async function generateSQL(userId: string, query: string): Promise<string> {
       }
     ],
     temperature: 0.1, // Lower temperature for more deterministic SQL generation
-    max_tokens: 1000,
+    max_tokens: 500,
   });
   
   const generatedSql = response.choices[0]?.message?.content?.trim() || '';
@@ -246,29 +210,36 @@ async function generateSQL(userId: string, query: string): Promise<string> {
 
 /**
  * Ensures the SQL query has a userId filter for security
+ * This function adds appropriate WHERE conditions if not present.
  */
 function ensureUserFilter(query: string, userId: string): string {
-  // This is a simplified implementation
-  // In a production environment, this would use a proper SQL parser
   const lowerQuery = query.toLowerCase();
   
-  if (!lowerQuery.includes('userid') && !lowerQuery.includes('user_id') && !lowerQuery.includes('user id')) {
-    // If query has a WHERE clause, add to it
-    if (lowerQuery.includes('where')) {
-      return query.replace(/where/i, `WHERE userId = '${userId}' AND `);
-    } 
-    // Otherwise, add a WHERE clause
-    else if (lowerQuery.includes('group by')) {
-      return query.replace(/group by/i, `WHERE userId = '${userId}' GROUP BY`);
-    } 
-    else if (lowerQuery.includes('order by')) {
-      return query.replace(/order by/i, `WHERE userId = '${userId}' ORDER BY`);
-    }
-    // If no obvious place to insert, add before semicolon or at end
-    else {
-      return query.replace(/;$/, ` WHERE userId = '${userId}';`);
-    }
+  // If query already contains userId filter, return as-is
+  if (lowerQuery.includes(`userid = '${userId.toLowerCase()}'`) || 
+      lowerQuery.includes(`userid='${userId.toLowerCase()}'`)) {
+    return query;
   }
   
-  return query;
+  // Add userId filter based on query structure
+  if (lowerQuery.includes('where')) {
+    // Add to existing WHERE clause
+    return query.replace(/where\s+/i, `WHERE userId = '${userId}' AND `);
+  } else if (lowerQuery.includes('group by')) {
+    // Add WHERE before GROUP BY
+    return query.replace(/group by/i, `WHERE userId = '${userId}' GROUP BY`);
+  } else if (lowerQuery.includes('order by')) {
+    // Add WHERE before ORDER BY
+    return query.replace(/order by/i, `WHERE userId = '${userId}' ORDER BY`);
+  } else if (lowerQuery.includes('limit')) {
+    // Add WHERE before LIMIT
+    return query.replace(/limit/i, `WHERE userId = '${userId}' LIMIT`);
+  } else {
+    // No obvious place, add before end of query
+    if (query.endsWith(';')) {
+      return query.replace(/;$/, ` WHERE userId = '${userId}';`);
+    } else {
+      return `${query} WHERE userId = '${userId}'`;
+    }
+  }
 }
