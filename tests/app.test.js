@@ -26,7 +26,7 @@ const SELECTORS = {
   chatMessage: '.chat-message',
   assistantMessage: '.chat-message.assistant',
   deleteConversationButton: 'button[aria-label="Delete conversation"]',
-  confirmDeleteButton: 'button[data-action="confirm-delete"]',
+  confirmDeleteButton: '[data-testid="confirm-delete-conversation"]',
   conversationList: '[data-testid="conversation-list"]',
   conversationItem: '[data-testid="conversation-item"]',
 };

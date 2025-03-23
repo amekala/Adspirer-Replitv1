@@ -104,6 +104,28 @@ export function ChatSidebar({
 
   return (
     <div className="min-w-[300px] border-r border-border">
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Conversation</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete this conversation? This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={handleConfirmDelete}
+              className="bg-destructive hover:bg-destructive/90"
+              data-testid="confirm-delete-conversation"
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+      
       <div className="flex flex-col h-full">
         <div className="p-3 border-b">
           <Button
@@ -227,7 +249,7 @@ export function ChatSidebar({
                               className="text-destructive focus:text-destructive"
                               onClick={(e) => {
                                 e.stopPropagation();
-                                onDeleteConversation(conversation.id);
+                                handleDeleteClick(conversation.id);
                               }}
                               aria-label="Delete conversation"
                             >
