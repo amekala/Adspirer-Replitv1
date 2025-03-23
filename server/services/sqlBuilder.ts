@@ -109,14 +109,19 @@ export function isDataQuery(message: string): boolean {
  * 
  * @param userId - The user ID to filter data by
  * @param query - Natural language question about campaign data
+ * @param conversationContext - Optional conversation history for context
  * @returns The query results and SQL used
  */
-export async function processSQLQuery(userId: string, query: string): Promise<SQLBuilderResult> {
+export async function processSQLQuery(
+  userId: string, 
+  query: string, 
+  conversationContext?: string
+): Promise<SQLBuilderResult> {
   try {
     console.log(`SQL Builder processing query from user ${userId}: "${query}"`);
     
-    // Step 1: Generate SQL from natural language query
-    const sqlQuery = await generateSQL(userId, query);
+    // Step 1: Generate SQL from natural language query with conversation context if available
+    const sqlQuery = await generateSQL(userId, query, conversationContext);
     console.log(`Generated SQL: ${sqlQuery}`);
     
     // Step 2: Execute the SQL query
@@ -172,35 +177,59 @@ export async function processSQLQuery(userId: string, query: string): Promise<SQ
 /**
  * Uses OpenAI to generate SQL from a natural language query
  * This function is isolated from the main chat flow.
+ * 
+ * @param userId - The user ID for filtering data
+ * @param query - The natural language query to convert to SQL
+ * @param conversationContext - Optional previous conversation for context
+ * @returns Generated SQL query string
  */
-async function generateSQL(userId: string, query: string): Promise<string> {
+async function generateSQL(
+  userId: string, 
+  query: string, 
+  conversationContext?: string
+): Promise<string> {
   const openai = getOpenAIClient();
+  
+  // Create messages array with optional context
+  const messages = [
+    {
+      role: "system" as const,
+      content: `You are an AI specialized in converting natural language questions about advertising campaign data into PostgreSQL SQL queries.
+               
+               You have access to the following database schema:
+               ${DB_SCHEMA}
+               
+               Guidelines:
+               1. Return ONLY the SQL query without any explanation or markdown
+               2. Always include "user_id = '${userId}'" in WHERE clauses for security
+               3. Only write SELECT statements (no INSERT, UPDATE, DELETE)
+               4. Join tables when necessary but keep queries efficient
+               5. Handle time periods intelligently (e.g., last 7 days, last month)
+               6. Format dates properly for PostgreSQL (use CURRENT_DATE for today)
+               7. Use appropriate aggregations (SUM, AVG, COUNT) as needed
+               8. Use snake_case for all column names (user_id, campaign_id, etc.)
+               9. For CTR (click-through rate) calculations, use (clicks::float / impressions) * 100
+               10. For ROAS (return on ad spend) calculations, use (sales::float / cost)`
+    }
+  ];
+  
+  // Add conversation context if available
+  if (conversationContext) {
+    messages.push({
+      role: "system" as const,
+      content: `Conversation context (for reference only):\n${conversationContext}`
+    });
+  }
+  
+  // Add the user's current query
+  messages.push({
+    role: "user" as const,
+    content: query
+  });
   
   const response = await openai.chat.completions.create({
     model: "gpt-4o",
-    messages: [
-      {
-        role: "system",
-        content: `You are an AI specialized in converting natural language questions about advertising campaign data into PostgreSQL SQL queries.
-                 
-                 You have access to the following database schema:
-                 ${DB_SCHEMA}
-                 
-                 Guidelines:
-                 1. Return ONLY the SQL query without any explanation or markdown
-                 2. Always include "user_id = '${userId}'" in WHERE clauses for security
-                 3. Only write SELECT statements (no INSERT, UPDATE, DELETE)
-                 4. Join tables when necessary but keep queries efficient
-                 5. Handle time periods intelligently (e.g., last 7 days, last month)
-                 6. Format dates properly for PostgreSQL (use CURRENT_DATE for today)
-                 7. Use appropriate aggregations (SUM, AVG, COUNT) as needed
-                 8. Use snake_case for all column names (user_id, campaign_id, etc.)`
-      },
-      {
-        role: "user",
-        content: query
-      }
-    ],
+    messages,
     temperature: 0.1, // Lower temperature for more deterministic SQL generation
     max_tokens: 500,
   });

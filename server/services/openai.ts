@@ -38,14 +38,21 @@ function getOpenAIClient(): OpenAI {
  * 
  * This function maintains a complete separation of concerns - the user never sees
  * the SQL or knows that a second LLM is involved.
+ * 
+ * @param conversationId - The ID of the conversation
+ * @param userId - The user ID making the query
+ * @param res - Express response object for streaming
+ * @param query - The natural language query from the user
+ * @param conversationContext - Optional prior conversation for context
  */
 async function handleDataQuery(
   conversationId: string,
   userId: string,
   res: Response,
-  query: string
+  query: string,
+  conversationContext?: string
 ): Promise<void> {
-  console.log(`Handling data query: "${query}"`);
+  console.log(`Handling data query: "${query}" with ${conversationContext ? 'context' : 'no context'}`);
   
   try {
     // Send a thinking message to the client
@@ -53,8 +60,8 @@ async function handleDataQuery(
       content: "I'm analyzing your campaign data..." 
     })}\n\n`);
     
-    // Process the query with SQL Builder
-    const sqlResult = await processSQLQuery(userId, query);
+    // Process the query with SQL Builder, passing conversation context if available
+    const sqlResult = await processSQLQuery(userId, query, conversationContext);
     
     let responseContent = '';
     
@@ -221,18 +228,62 @@ export async function streamChatCompletion(
       return;
     }
     
-    // ----- DATA QUERY DETECTION -----
-    // Get the most recent user message to check if it's a data query
-    // Make sure to get the LAST user message in the array, not just any user message
+    // ----- INTELLIGENT QUERY HANDLING -----
+    // Get the most recent user message
     const userMessages = messages.filter(msg => msg.role === 'user');
     const lastUserMessage = userMessages.length > 0 ? userMessages[userMessages.length - 1].content : '';
     
-    if (isDataQuery(lastUserMessage) && isStreaming) {
-      console.log(`Detected data query in message: "${lastUserMessage}"`);
-      await handleDataQuery(conversationId, userId, res!, lastUserMessage);
-      return;
+    // Get conversation context (excluding system messages)
+    const conversationContext = messages
+      .filter(msg => msg.role !== 'system')
+      .map(msg => `${msg.role}: ${msg.content}`)
+      .join('\n\n');
+    
+    // For streaming responses, check if this is a data query that should be handled by SQL Builder
+    if (isStreaming) {
+      // First, ask the main LLM if this should be handled as a data query
+      const openaiClient = getOpenAIClient();
+      const routingDecision = await openaiClient.chat.completions.create({
+        model: "gpt-4o",
+        messages: [
+          {
+            role: "system",
+            content: `You are a routing agent for an advertising platform assistant.
+                     Your job is to determine if a user's message should be answered with:
+                     1. Campaign data from the database (using SQL)
+                     2. General knowledge about advertising
+                     
+                     Only route to the database if the user is clearly asking for their specific campaign performance,
+                     metrics, or data about their advertising accounts. Examples of database queries:
+                     - "How are my Amazon campaigns performing?"
+                     - "What was my CTR last week?"
+                     - "Show me my campaigns with the highest ROAS"
+                     - "Which of my Google ads had the most impressions yesterday?"
+                     
+                     If the user is asking general questions about advertising strategy, best practices,
+                     or how something works, do NOT route to the database.`
+          },
+          {
+            role: "user",
+            content: `Here is the conversation so far:\n${conversationContext}\n\nBased on this context and the latest message, should I route to the database or handle it as a general knowledge query? Reply with only "DATABASE" or "GENERAL".`
+          }
+        ],
+        temperature: 0.1,
+        max_tokens: 10,
+      });
+      
+      const decision = routingDecision.choices[0]?.message?.content?.trim().toUpperCase() || 'GENERAL';
+      console.log(`Routing decision for query: "${lastUserMessage}" → ${decision}`);
+      
+      if (decision === 'DATABASE') {
+        // If the main LLM thinks this is a data query, pass to SQL Builder with context
+        console.log(`Routing to SQL Builder with context`);
+        await handleDataQuery(conversationId, userId, res!, lastUserMessage, conversationContext);
+        return;
+      }
+      // Otherwise fall through to regular completion
     }
-    // ----- END DATA QUERY DETECTION -----
+    // ----- END INTELLIGENT QUERY HANDLING -----
     
     // Log messages for regular chat completion
     console.log('Messages being sent to OpenAI:', JSON.stringify(messages, null, 2));
