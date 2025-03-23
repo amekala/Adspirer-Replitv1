@@ -1630,16 +1630,20 @@ Metrics (Last 30 Days):
       for (const userRow of usersWithCampaigns) {
         const userId = userRow.user_id;
         
-        // Check if user already has campaign embeddings
+        // Check if user already has campaign embeddings by platform
         const embeddingCheckQuery = `
-          SELECT COUNT(*) as count 
+          SELECT 
+            COUNT(*) FILTER (WHERE metadata->>'platform' = 'amazon') as amazon_embeddings,
+            COUNT(*) FILTER (WHERE metadata->>'platform' = 'google') as google_embeddings
           FROM embeddings_store 
           WHERE user_id = $1 
           AND type = 'campaign'
         `;
         
         const embeddingResult = await pool.query(embeddingCheckQuery, [userId]);
-        const embeddingCount = parseInt(embeddingResult.rows[0].count);
+        const amazonEmbeddings = parseInt(embeddingResult.rows[0].amazon_embeddings) || 0;
+        const googleEmbeddings = parseInt(embeddingResult.rows[0].google_embeddings) || 0;
+        const totalEmbeddings = amazonEmbeddings + googleEmbeddings;
         
         // Get campaign counts for this user
         const campaignCountQuery = `
@@ -1652,8 +1656,10 @@ Metrics (Last 30 Days):
         const amazonCount = parseInt(campaignResult.rows[0].amazon_count) || 0;
         const googleCount = parseInt(campaignResult.rows[0].google_count) || 0;
         
-        // If user has campaigns but no or fewer embeddings, create a fake request to index them
-        if (amazonCount + googleCount > embeddingCount) {
+        console.log(`User ${userId} has ${amazonEmbeddings}/${amazonCount} Amazon embeddings and ${googleEmbeddings}/${googleCount} Google embeddings`);
+        
+        // If user has campaigns but missing embeddings for any platform, create a request to index them
+        if (amazonCount > amazonEmbeddings || googleCount > googleEmbeddings) {
           // Simulate a POST request to the index-campaigns endpoint
           const req = { 
             isAuthenticated: () => true,
@@ -1684,7 +1690,9 @@ Metrics (Last 30 Days):
                 userId,
                 amazonCount,
                 googleCount,
-                previousEmbeddings: embeddingCount,
+                amazonEmbeddings,
+                googleEmbeddings,
+                previousEmbeddings: totalEmbeddings,
                 status: 'indexed'
               });
             } catch (error) {
@@ -1693,7 +1701,9 @@ Metrics (Last 30 Days):
                 userId,
                 amazonCount,
                 googleCount,
-                previousEmbeddings: embeddingCount,
+                amazonEmbeddings,
+                googleEmbeddings,
+                previousEmbeddings: totalEmbeddings,
                 status: 'failed',
                 error: error instanceof Error ? error.message : 'Unknown error'
               });
@@ -1704,18 +1714,22 @@ Metrics (Last 30 Days):
               userId,
               amazonCount,
               googleCount,
-              previousEmbeddings: embeddingCount,
+              amazonEmbeddings,
+              googleEmbeddings,
+              previousEmbeddings: totalEmbeddings,
               status: 'skipped',
               reason: 'Route handler not found'
             });
           }
         } else {
-          console.log(`User ${userId} already has ${embeddingCount} embeddings for ${amazonCount + googleCount} campaigns`);
+          console.log(`User ${userId} already has ${amazonEmbeddings}/${amazonCount} Amazon embeddings and ${googleEmbeddings}/${googleCount} Google embeddings`);
           stats.push({
             userId,
             amazonCount,
             googleCount,
-            previousEmbeddings: embeddingCount,
+            amazonEmbeddings,
+            googleEmbeddings,
+            previousEmbeddings: totalEmbeddings,
             status: 'skipped',
             reason: 'Already indexed'
           });
