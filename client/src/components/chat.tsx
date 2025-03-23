@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { Avatar } from "@/components/ui/avatar";
 import { Card } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -134,6 +134,139 @@ export function Chat({ conversation, isLoading }: ChatProps) {
 
 function MessageBubble({ message, isStreaming = false }: { message: Message; isStreaming?: boolean }) {
   const isUser = message.role === "user";
+  const hasMarkdown = !isUser && (
+    message.content.includes('|') || 
+    message.content.includes('**') || 
+    message.content.includes('```')
+  );
+  
+  // Process message content to enhance formatting (for AI messages only)
+  const processedContent = React.useMemo(() => {
+    if (isUser) return message.content;
+    
+    let processed = message.content;
+    
+    // Format tables with better styling
+    if (processed.includes('|') && processed.includes('\n')) {
+      // Replace markdown tables with styled HTML tables
+      const tablePattern = /(\|[^\n]+\|\n)((?:\|:?[-]+:?)+\|\n)((?:\|[^\n]+\|\n)+)/g;
+      processed = processed.replace(tablePattern, (match: string, headerRow: string, separator: string, bodyRows: string) => {
+        // Extract headers
+        const headers: string[] = headerRow.split('|')
+          .filter((cell: string) => cell.trim().length > 0)
+          .map((cell: string) => cell.trim());
+        
+        // Extract body rows
+        const rows: string[][] = bodyRows.split('\n')
+          .filter((row: string) => row.includes('|'))
+          .map((row: string) => row.split('|')
+            .filter((cell: string) => cell.trim().length > 0)
+            .map((cell: string) => cell.trim())
+          );
+        
+        // Render styled HTML table
+        return `<div class="overflow-x-auto my-3 rounded-lg border border-slate-200 dark:border-slate-700">
+          <table class="w-full text-sm">
+            <thead class="bg-slate-100 dark:bg-slate-800">
+              <tr>
+                ${headers.map((header: string) => `<th class="px-4 py-2 text-left font-medium">${header}</th>`).join('')}
+              </tr>
+            </thead>
+            <tbody>
+              ${rows.map((row: string[], i: number) => `
+                <tr class="${i % 2 === 0 ? 'bg-white dark:bg-slate-900' : 'bg-slate-50 dark:bg-slate-800/50'}">
+                  ${row.map((cell: string) => {
+                    // Style numeric values and metrics differently
+                    let styledCell = cell;
+                    
+                    // Style percentages (e.g., CTR)
+                    if (/\d+\.\d+%/.test(cell)) {
+                      styledCell = cell.replace(/(\d+\.\d+%)/, '<span class="font-medium text-blue-600 dark:text-blue-400">$1</span>');
+                    }
+                    
+                    // Style currency values
+                    if (/\$\d+(\.\d+)?/.test(cell)) {
+                      styledCell = cell.replace(/(\$\d+(\.\d+)?)/, '<span class="font-medium text-emerald-600 dark:text-emerald-400">$1</span>');
+                    }
+                    
+                    return `<td class="px-4 py-2 border-t border-slate-200 dark:border-slate-700">${styledCell}</td>`;
+                  }).join('')}
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+        </div>`;
+      });
+    }
+    
+    // Format metrics and KPIs with colorful badges
+    const metricsPattern = /(CTR|ROAS|CPC|Impressions|Clicks|Conversions|Cost|Sales):\s*([^,\n]+)/gi;
+    processed = processed.replace(metricsPattern, (match: string, metric: string, value: string) => {
+      // Select appropriate icon and colors based on metric type
+      let icon = '📊'; // Default icon
+      let bgColor = 'bg-blue-100 dark:bg-blue-900/30';
+      let textColor = 'text-blue-700 dark:text-blue-300';
+      
+      if (/CTR/i.test(metric)) {
+        icon = '🎯';
+        bgColor = 'bg-purple-100 dark:bg-purple-900/30';
+        textColor = 'text-purple-700 dark:text-purple-300';
+      } else if (/ROAS|Sales/i.test(metric)) {
+        icon = '💰';
+        bgColor = 'bg-emerald-100 dark:bg-emerald-900/30';
+        textColor = 'text-emerald-700 dark:text-emerald-300';
+      } else if (/Cost|CPC/i.test(metric)) {
+        icon = '💸';
+        bgColor = 'bg-amber-100 dark:bg-amber-900/30';
+        textColor = 'text-amber-700 dark:text-amber-300';
+      } else if (/Impressions/i.test(metric)) {
+        icon = '👁️';
+        bgColor = 'bg-sky-100 dark:bg-sky-900/30';
+        textColor = 'text-sky-700 dark:text-sky-300';
+      } else if (/Clicks/i.test(metric)) {
+        icon = '👆';
+        bgColor = 'bg-indigo-100 dark:bg-indigo-900/30';
+        textColor = 'text-indigo-700 dark:text-indigo-300';
+      } else if (/Conversions/i.test(metric)) {
+        icon = '✅';
+        bgColor = 'bg-green-100 dark:bg-green-900/30';
+        textColor = 'text-green-700 dark:text-green-300';
+      }
+      
+      return `<span class="inline-flex items-center px-2.5 py-1 rounded-md text-sm ${bgColor} ${textColor} mr-2 mb-2">
+        <span class="mr-1">${icon}</span>
+        <span class="font-medium">${metric}:</span> ${value}
+      </span>`;
+    });
+    
+    // Format campaign IDs with badges
+    const campaignIdPattern = /Campaign(?:\s+ID)?[:\s]+(\d{8,})/gi;
+    processed = processed.replace(campaignIdPattern, (match: string, id: string) => {
+      return `Campaign <span class="inline-flex items-center px-2 py-0.5 rounded-md text-xs font-medium bg-slate-100 text-slate-800 dark:bg-slate-800 dark:text-slate-200">ID: ${id}</span>`;
+    });
+    
+    // Format markdown bold text
+    processed = processed.replace(/\*\*(.+?)\*\*/g, (match: string, content: string) => {
+      return `<strong>${content}</strong>`;
+    });
+    
+    // Format code blocks
+    processed = processed.replace(/```(?:\w+)?\n([\s\S]+?)\n```/g, 
+      (match: string, code: string) => {
+        return `<pre class="bg-slate-100 dark:bg-slate-800 p-3 my-2 rounded-md overflow-x-auto text-xs"><code>${code}</code></pre>`;
+      }
+    );
+    
+    return processed;
+  }, [isUser, message.content]);
+  
+  // Detect if we need to render HTML content
+  const shouldRenderHTML = !isUser && (
+    processedContent.includes('<table') || 
+    processedContent.includes('<span class') || 
+    processedContent.includes('<strong>') ||
+    processedContent.includes('<pre')
+  );
   
   return (
     <div className={`flex ${isUser ? "justify-end" : "justify-start"} group py-2 chat-message ${isUser ? 'user' : 'assistant'}`}>
@@ -157,10 +290,17 @@ function MessageBubble({ message, isStreaming = false }: { message: Message; isS
             ? "bg-blue-600 text-white border-0" 
             : "bg-gray-100 dark:bg-zinc-800 text-foreground border-0"
         } shadow-md rounded-2xl ${isUser ? 'rounded-tr-sm' : 'rounded-tl-sm'}`}>
-          <div className="whitespace-pre-wrap text-sm md:text-base">
-            {message.content}
-            {isStreaming && <span className="inline-block animate-pulse ml-0.5">▌</span>}
-          </div>
+          {shouldRenderHTML ? (
+            <div 
+              className="text-sm md:text-base prose-sm dark:prose-invert prose-headings:mb-2 prose-p:mb-2 prose-p:leading-relaxed prose-li:mb-0"
+              dangerouslySetInnerHTML={{ __html: processedContent }}
+            />
+          ) : (
+            <div className="whitespace-pre-wrap text-sm md:text-base">
+              {message.content}
+              {isStreaming && <span className="inline-block animate-pulse ml-0.5">▌</span>}
+            </div>
+          )}
         </Card>
       </div>
     </div>
