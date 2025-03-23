@@ -515,12 +515,21 @@ export class DatabaseStorage implements IStorage {
     const embeddingId = crypto.randomUUID();
     
     try {
+      // Make sure we're using the correct field names
+      const embeddingData = {
+        id: embeddingId,
+        embeddingVector: embedding.embeddingVector,
+        textContent: embedding.textContent,
+        type: embedding.type,
+        sourceId: embedding.sourceId,
+        userId: embedding.userId,
+        metadata: embedding.metadata,
+        createdAt: new Date(),
+        updatedAt: new Date()
+      };
+      
       const [newEmbedding] = await db.insert(embeddingsStore)
-        .values({
-          id: embeddingId,
-          ...embedding,
-          createdAt: new Date()
-        })
+        .values(embeddingData)
         .returning();
       
       return newEmbedding;
@@ -588,70 +597,20 @@ export class DatabaseStorage implements IStorage {
       let query;
       let params;
       
-      if (type) {
-        query = `
-          SELECT 
-            id, 
-            type, 
-            source_id as "sourceId", 
-            metadata, 
-            embedding_vector as vector,
-            text_content as text,
-            created_at as "createdAt",
-            updated_at as "updatedAt",
-            1 - (embedding_vector::text::float[] <-> $1::text::float[]) as similarity
-          FROM embeddings_store
-          WHERE type = $3
-          ORDER BY similarity DESC
-          LIMIT $2
-        `;
-        params = [vectorString, limit, type];
-      } else {
-        query = `
-          SELECT 
-            id, 
-            type, 
-            source_id as "sourceId", 
-            metadata, 
-            embedding_vector as vector,
-            text_content as text,
-            created_at as "createdAt",
-            updated_at as "updatedAt",
-            1 - (embedding_vector::text::float[] <-> $1::text::float[]) as similarity
-          FROM embeddings_store
-          ORDER BY similarity DESC
-          LIMIT $2
-        `;
-        params = [vectorString, limit];
+      // Since we don't have PostgreSQL vector extension, use fallback method
+      const embeddings = type
+        ? await db.select().from(embeddingsStore).where(eq(embeddingsStore.type, type as any))
+        : await db.select().from(embeddingsStore);
+        
+      console.log(`Found ${embeddings.length} embeddings in database to compare`);
+      
+      // Early return if no embeddings found
+      if (embeddings.length === 0) {
+        return [];
       }
       
-      // Execute the raw query with parameters
-      const result = await pool.query(query, params);
-      
-      // Format the results
-      return result.rows.map((row: any) => {
-        // Convert the database row to the expected EmbeddingStore format
-        const embedding: EmbeddingStore = {
-          id: row.id,
-          type: row.type as any, // Type cast to match schema
-          sourceId: row.sourceId,
-          metadata: row.metadata,
-          vector: row.vector,
-          text: row.text,
-          createdAt: new Date(row.createdAt)
-        };
-        
-        // PostgreSQL's <=> operator returns distance (smaller is more similar)
-        // Convert to similarity (higher is more similar) by using 1 - distance
-        // Clamp to [0,1] range in case of floating point errors
-        const distance = parseFloat(row.similarity);
-        const similarity = Math.max(0, Math.min(1, 1 - distance));
-        
-        return {
-          embedding,
-          similarity
-        };
-      });
+      // Manual similarity calculation
+      return this.searchSimilarEmbeddingsInMemory(queryVector, type, limit);
     } catch (error) {
       console.error('Error searching similar embeddings:', error);
       // Fall back to in-memory calculation if the PostgreSQL vector extension fails
@@ -684,8 +643,8 @@ export class DatabaseStorage implements IStorage {
         let vectorData;
         
         try {
-          // Handle the renamed field from vector to embeddingVector
-          const vectorField = embedding.embeddingVector || embedding.vector;
+          // Use the renamed field from vector to embeddingVector
+          const vectorField = embedding.embeddingVector;
           
           if (Array.isArray(vectorField)) {
             vectorData = vectorField;
