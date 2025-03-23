@@ -68,6 +68,60 @@ export interface SQLBuilderResult {
   error?: string;
   fromCache?: boolean;
   fromSummary?: boolean;
+  isGreeting?: boolean;
+}
+
+/**
+ * Check if a message is a simple greeting
+ * This function identifies common greeting patterns to avoid
+ * processing them as data queries
+ * 
+ * @param message - The user's message
+ * @returns boolean - Whether this is likely a simple greeting
+ */
+export function isGreeting(message: string): boolean {
+  // Common greetings to check for
+  const greetings = [
+    'hi', 'hello', 'hey', 'howdy', 'hola', 'hai', 'yo',
+    'good morning', 'good afternoon', 'good evening', 'greetings'
+  ];
+  
+  // Normalize the message for better matching
+  const normalizedMessage = message.toLowerCase().trim();
+  
+  // Direct match for very short messages
+  if (normalizedMessage.length < 5) {
+    return true;
+  }
+  
+  // Check for exact greeting matches or greetings with simple additions
+  for (const greeting of greetings) {
+    if (normalizedMessage === greeting || 
+        normalizedMessage === greeting + '!' ||
+        normalizedMessage === greeting + '.' || 
+        normalizedMessage.startsWith(greeting + ' ') ||
+        normalizedMessage === greeting + ' there') {
+      return true;
+    }
+  }
+  
+  // Additional greeting patterns with simple variations
+  const greetingPatterns = [
+    /^hi\s+there.?$/i,
+    /^hello\s+there.?$/i,
+    /^hey\s+there.?$/i,
+    /^just\s+saying\s+(hi|hello|hey).?$/i,
+    /^good\s+(morning|afternoon|evening|day).?$/i,
+    /^(what\'s|whats)\s+up.?$/i
+  ];
+  
+  for (const pattern of greetingPatterns) {
+    if (pattern.test(normalizedMessage)) {
+      return true;
+    }
+  }
+  
+  return false;
 }
 
 /**
