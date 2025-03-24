@@ -408,12 +408,30 @@ async function generateSQL(
   // The Responses API uses 'developer' for system prompts instead of 'system'
   
   // Using the OpenAI API - with correct parameters for the API version
+  // Create properly typed messages for the OpenAI API
+  const typedMessages = input.map(item => {
+    if (item.role === "developer") {
+      return {
+        role: "system" as const,
+        content: item.content
+      };
+    } else if (item.role === "user") {
+      return {
+        role: "user" as const,
+        content: item.content
+      };
+    } else {
+      return {
+        role: "assistant" as const,
+        content: item.content
+      };
+    }
+  });
+  
+  // Now create a chat completion with properly typed messages
   const response = await openai.chat.completions.create({
     model: "gpt-4o",
-    messages: input.map(item => ({
-      role: item.role === "developer" ? "system" : item.role,
-      content: item.content
-    })),
+    messages: typedMessages,
     temperature: 0.1, // Lower temperature for more deterministic SQL generation
     max_tokens: 500,
   });
