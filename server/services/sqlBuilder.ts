@@ -221,8 +221,57 @@ export async function processSQLQuery(
         });
       }
     } catch (err: any) {
+      // Record the original error
       error = `SQL execution error: ${err.message}`;
       console.error("SQL execution error:", err);
+      
+      // If this was a syntax error, try a second approach with more careful query generation
+      if (err.message.includes("syntax error") && conversationContext) {
+        try {
+          console.log("SQL syntax error detected, attempting to generate a simpler query...");
+          
+          // Generate a new, simpler query 
+          const retryPrompt = `The previous SQL query had a syntax error. Please generate a simpler query without UNION or complex joins for: "${query}"`;
+          
+          // Append this to the conversation context
+          const enhancedContext = conversationContext + "\n\n" + retryPrompt;
+          
+          // Generate a new SQL query
+          const simplifiedSql = await generateSQL(userId, retryPrompt, enhancedContext);
+          
+          // Ensure it's a SELECT and add userId filter
+          if (simplifiedSql.trim().toLowerCase().startsWith('select')) {
+            const secureRetryQuery = ensureUserFilter(simplifiedSql, userId);
+            console.log(`Executing simplified SQL: ${secureRetryQuery}`);
+            
+            // Try executing the simplified query
+            const retryResult = await db.execute(sql.raw(secureRetryQuery));
+            
+            // Extract rows from retry result
+            if (retryResult && typeof retryResult === 'object') {
+              if ('rows' in retryResult && Array.isArray(retryResult.rows)) {
+                data = retryResult.rows;
+              } else if (Array.isArray(retryResult)) {
+                data = retryResult;
+              }
+            }
+            
+            // If successful, update the SQL query for the return value
+            if (data.length > 0) {
+              console.log(`Simplified SQL query successful, returned ${data.length} results`);
+              error = undefined; // Clear the error since we succeeded
+              return {
+                data,
+                sql: simplifiedSql,
+                error: undefined
+              };
+            }
+          }
+        } catch (retryErr) {
+          console.error("Retry also failed:", retryErr.message);
+          // We keep the original error if the retry also fails
+        }
+      }
     }
     
     return {
@@ -280,9 +329,8 @@ async function generateSQL(
                12. All ROAS calculations should be formatted as a direct ratio (e.g., "5.4x") not as a percentage
                13. If revenue information is mentioned in the conversation context (e.g., "revenue is 200"), use that value for the campaigns being discussed, not for random campaigns
                14. When specific campaign IDs are mentioned in the context, prioritize those campaigns in your query results
-               15. When using UNION or UNION ALL, every subquery must be properly wrapped in parentheses
-               16. For UNION ALL queries, format as: (subquery1) UNION ALL (subquery2)
-               17. For multiple data sources, prefer JOINs over UNION when possible`
+               15. Follow PostgreSQL best practices for complex queries
+               16. Learn from SQL errors and adapt your query generation approach accordingly`
     }
   ];
   
