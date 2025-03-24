@@ -35,6 +35,7 @@ export type ResponseStreamEvent = ResponseTextDeltaEvent | ResponseFinishEvent;
 export interface OpenAIMessage {
   role: MessageRole;
   content: string;
+  metadata?: Record<string, any>;
 }
 
 // Options for chat completion
@@ -267,7 +268,7 @@ async function handleDataQuery(
     // Stream completion signal
     res.write("data: [DONE]\n\n");
 
-    // Save the assistant's response to the database
+    // Save the assistant's response to the database with enhanced metadata
     messageData = {
       conversationId,
       role: "assistant" as const,
@@ -278,7 +279,18 @@ async function handleDataQuery(
         recordCount: sqlResult.data ? sqlResult.data.length : 0,
         fromCache: sqlResult.fromCache || false,
         fromSummary: sqlResult.fromSummary || false,
+        fromFallback: sqlResult.fromFallback || false,
         revenueApplied: revenueInfo !== null,
+        revenueValue: revenueInfo ? revenueInfo.value : null,
+        mentionedCampaignIds: campaignIds.length > 0 ? campaignIds : [],
+        // Track dates and time periods to improve future contextual responses
+        detectedTimeFrame: sqlResult.data && sqlResult.data.length > 0 && sqlResult.data[0].date ? 
+          {start: sqlResult.data[0].date, end: sqlResult.data[sqlResult.data.length-1].date} : null,
+        // Track key metrics found in the data
+        metricsFound: sqlResult.data && sqlResult.data.length > 0 ? 
+          Object.keys(sqlResult.data[0]).filter(key => 
+            ['impressions', 'clicks', 'cost', 'ctr', 'roas', 'conversions'].includes(key)
+          ) : [],
       },
     };
 
@@ -329,7 +341,7 @@ export async function streamChatCompletion(
   userId: string,
   res: Response | null,
   messages?: OpenAIMessage[],
-  systemPrompt: string = `You are a friendly, conversational AI assistant for Adspirer, a platform that helps manage retail media advertising campaigns. You're a knowledgeable expert with a warm, engaging personality. You understand both the data side and human side of advertising campaigns.
+  systemPrompt: string = `You are a friendly, conversational AI assistant for Adspirer, a platform that helps manage retail media advertising campaigns. You're a knowledgeable expert with a warm, engaging personality who understands both the data side and human side of advertising campaigns.
   
 KEY CONVERSATION GUIDELINES:
 1. Be genuinely conversational and personable - interact like a helpful colleague, not a data report
@@ -341,21 +353,37 @@ KEY CONVERSATION GUIDELINES:
 7. ALWAYS end your responses with an open-ended question to continue the conversation
 8. When the user shares information (like revenue per conversion), acknowledge it enthusiastically
 
+ENHANCED CONTEXTUAL AWARENESS:
+1. Maintain memory of specific campaign IDs, metrics, and time periods discussed in previous messages
+2. Understand references like "it," "that campaign," or "those metrics" from conversation context
+3. Refer to previously mentioned campaigns by both ID and name for continuity
+4. Acknowledge how new data relates to previously discussed insights
+5. When a user refers to "performance" without specifying metrics, ask which specific KPIs they're interested in
+6. If the user asks about "campaigns" without specifics, ask which campaigns they want to know about
+
+ADVANCED STORYTELLING TECHNIQUES:
+1. Frame data within a clear narrative structure (setup → insight → implication)
+2. Connect current data to historical trends when evident in the conversation
+3. Use "bridging statements" between data points to make the narrative flow smoothly
+4. Include a clear "key takeaway" or main insight from each analysis
+5. Use vivid language when describing performance (e.g., "skyrocketing CTR" vs. "increased CTR")
+6. Relate metrics to business outcomes (e.g., "This higher CTR suggests your ad copy is resonating with customers")
+7. Reference industry standards or benchmarks when appropriate (e.g., "Your 2.5% CTR is above the retail industry average")
+
 TECHNICAL GUIDELINES:
 1. Present ROAS as a ratio (e.g., "9.98x") rather than as a percentage 
-2. When a user mentions revenue or sales figures, apply this information to analyze the campaigns they're referring to
+2. When a user mentions revenue or sales figures, apply this information to analyze the campaigns 
 3. When providing metrics analysis, ask if they want to know why certain metrics are performing as they are
-4. If the user asks about "campaigns" without specifying which ones, ask which specific campaigns they want information about
-5. For specific campaign performance analyses, reference both the campaign ID and name for clarity
-6. If a question is ambiguous about time period, ask them to specify a date range
-7. Explain your thinking step by step before drawing conclusions
-8. Use data visualizations when possible to make information easier to understand
-9. When a user asks a question that could have multiple interpretations, present the options and ask which they meant
+4. If a question is ambiguous about time period, ask them to specify a date range
+5. Ask follow-up questions that suggest next analytical directions, such as:
+   - "Would you like to see how these campaigns compare to your other campaigns?"
+   - "Should we look at which ad creative is driving the highest CTR?"
+   - "Would you like to understand what factors might be affecting this change in performance?"
 
 EXAMPLES OF GOOD RESPONSES:
-1. "Great news! Your Campaign 12345 is showing a strong ROAS of 5.2x, which is above industry average. What specific aspect of this campaign would you like to dig into next?"
-2. "I notice your click-through rate has dropped by 0.5% since last week. Would you like me to analyze what might be causing this change?"
-3. "Thanks for sharing that information! $15 per conversion will help me calculate more meaningful ROAS for your campaigns. Would you like to see which campaign is getting the best return based on this value?"`,
+1. "Great news! Your Campaign 12345 is showing a strong ROAS of 5.2x, which is above industry average. This means you're earning $5.20 for every $1 spent - an excellent return in the retail space. What specific aspect of this campaign would you like to dig into next?"
+2. "I notice your click-through rate has dropped by 0.5% since last week for the campaigns you mentioned. This could indicate several things, such as ad fatigue or changing market conditions. Would you like me to analyze what might be causing this change?"
+3. "Thanks for sharing that information! $15 per conversion will help me calculate more meaningful ROAS for your campaigns. Looking at Campaign 87654, with this conversion value, your ROAS is actually 3.2x - a solid performer. Would you like to see which of your campaigns is getting the best return based on this value?"`,
 ): Promise<void> {
   // Determine if this is a streaming response (with res object) or non-streaming (welcome message)
   const isStreaming = !!res;
@@ -384,11 +412,119 @@ EXAMPLES OF GOOD RESPONSES:
         ? userMessages[userMessages.length - 1].content
         : "";
 
-    // Get conversation context (excluding system messages)
-    const conversationContext = messages
-      .filter((msg) => msg.role !== "developer")
-      .map((msg) => `${msg.role}: ${msg.content}`)
-      .join("\n\n");
+    // Generate enhanced conversation context with structured information
+    let conversationContext = "";
+    let structuredContext = {
+      mentionedCampaignIds: [] as string[],
+      timeFrames: [] as {start?: string, end?: string, description?: string}[],
+      revenue: null as {value: number, currency: string} | null,
+      metrics: [] as string[],
+      recentTopics: [] as string[]
+    };
+    
+    // Process messages to extract structured context information
+    for (const msg of messages.filter((m: OpenAIMessage) => m.role !== "developer")) {
+      // Add the basic message content
+      conversationContext += `${msg.role}: ${msg.content}\n\n`;
+      
+      // We need to use type assertions because TypeScript doesn't know the structure
+      // of the metadata object that might be present in the message
+      const msgWithMetadata = msg as unknown as { 
+        role: string;
+        content: string;
+        metadata?: { 
+          mentionedCampaignIds?: string[];
+          detectedTimeFrame?: { start?: string; end?: string; description?: string };
+          revenueApplied?: boolean;
+          revenueValue?: number;
+          metricsFound?: string[];
+        } 
+      };
+      
+      // Extract additional structured information if this is an assistant message with metadata
+      if (msg.role === "assistant" && msgWithMetadata.metadata) {
+        const metadata = msgWithMetadata.metadata;
+        
+        // Track campaign IDs mentioned
+        if (metadata.mentionedCampaignIds && Array.isArray(metadata.mentionedCampaignIds)) {
+          structuredContext.mentionedCampaignIds = [
+            ...structuredContext.mentionedCampaignIds,
+            ...metadata.mentionedCampaignIds.filter((id: string) => 
+              !structuredContext.mentionedCampaignIds.includes(id)
+            )
+          ];
+        }
+        
+        // Track time frames
+        if (metadata.detectedTimeFrame) {
+          structuredContext.timeFrames.push(metadata.detectedTimeFrame);
+        }
+        
+        // Track revenue information
+        if (metadata.revenueApplied && metadata.revenueValue !== undefined) {
+          structuredContext.revenue = {
+            value: metadata.revenueValue,
+            currency: "$" // Default for now
+          };
+        }
+        
+        // Track metrics discussed
+        if (metadata.metricsFound && Array.isArray(metadata.metricsFound)) {
+          structuredContext.metrics = [
+            ...structuredContext.metrics,
+            ...metadata.metricsFound.filter((metric: string) => !structuredContext.metrics.includes(metric))
+          ];
+        }
+      }
+      
+      // Also check user messages for revenue information
+      if (msg.role === "user") {
+        const revenueMatch = msg.content.match(/revenue\s+is\s+\$?(\d+)/i);
+        if (revenueMatch && revenueMatch[1]) {
+          structuredContext.revenue = {
+            value: parseFloat(revenueMatch[1]),
+            currency: "$"
+          };
+        }
+        
+        // Extract campaign IDs from user messages
+        const campaignIdRegex = /Campaign\s+(?:ID)?\s*[:\s]+(\d{8,})/gi;
+        let match;
+        while ((match = campaignIdRegex.exec(msg.content)) !== null) {
+          if (match[1] && !structuredContext.mentionedCampaignIds.includes(match[1])) {
+            structuredContext.mentionedCampaignIds.push(match[1]);
+          }
+        }
+      }
+    }
+    
+    // Add structured context summary to the conversation context
+    conversationContext += "\n--- CONVERSATION SUMMARY ---\n";
+    if (structuredContext.mentionedCampaignIds.length > 0) {
+      conversationContext += `Previously mentioned campaign IDs: ${structuredContext.mentionedCampaignIds.join(", ")}\n`;
+    }
+    
+    if (structuredContext.timeFrames.length > 0) {
+      conversationContext += "Time periods discussed: ";
+      structuredContext.timeFrames.forEach((tf, i) => {
+        if (tf.description) {
+          conversationContext += tf.description;
+        } else if (tf.start && tf.end) {
+          conversationContext += `${tf.start} to ${tf.end}`;
+        }
+        conversationContext += i < structuredContext.timeFrames.length - 1 ? ", " : "\n";
+      });
+    }
+    
+    if (structuredContext.revenue) {
+      conversationContext += `Revenue per conversion: ${structuredContext.revenue.currency}${structuredContext.revenue.value}\n`;
+    }
+    
+    if (structuredContext.metrics.length > 0) {
+      conversationContext += `Metrics discussed: ${structuredContext.metrics.join(", ")}\n`;
+    }
+    
+    console.log("Enhanced conversation context created with structured information");
 
     // For streaming responses, check if this is a data query that should be handled by SQL Builder
     if (isStreaming) {
@@ -635,11 +771,36 @@ EXAMPLES OF GOOD RESPONSES:
       // Log completion of stream
       console.log("Stream completed, saving response to database...");
 
-      // Save the complete assistant response to database
+      // Analyze message for topics and important context
+      const topicKeywords = [
+        'campaign', 'advertising', 'performance', 'metrics',
+        'ctr', 'clicks', 'impressions', 'cost', 'roas', 'conversions',
+        'amazon', 'google', 'retail', 'optimization'
+      ];
+      
+      // Extract identifiable topics from the response
+      const detectedTopics = topicKeywords.filter(keyword => 
+        contentAccumulator.toLowerCase().includes(keyword)
+      );
+      
+      // Save the complete assistant response to database with enhanced metadata
       const messageData: MessageData = {
         conversationId,
         role: "assistant" as const,
         content: contentAccumulator,
+        metadata: {
+          // Store these topics for future context
+          detectedTopics: detectedTopics,
+          // Extract any campaign IDs mentioned in the response
+          mentionedCampaignIds: (contentAccumulator.match(/\b\d{8,}\b/g) || []),
+          // Track whether this response included follow-up questions
+          includesFollowUp: contentAccumulator.includes('?'),
+          // Try to extract time periods mentioned (simple extraction)
+          timeReferences: [
+            ...(contentAccumulator.match(/\b(yesterday|today|this week|last week|this month|last month)\b/gi) || []),
+            ...(contentAccumulator.match(/\b\d{4}-\d{2}-\d{2}\b/g) || [])  // ISO date format
+          ],
+        }
       };
 
       const assistantMessage = await storage.createChatMessage(messageData);
@@ -769,7 +930,7 @@ export async function generateWelcomeMessage(
   const messages: OpenAIMessage[] = [
     {
       role: "developer",
-      content: `You are a friendly, conversational AI assistant for Adspirer, a platform that helps manage retail media advertising campaigns. You're a knowledgeable expert with a warm, engaging personality. You understand both the data side and human side of advertising campaigns.
+      content: `You are a friendly, conversational AI assistant for Adspirer, a platform that helps manage retail media advertising campaigns. You're a knowledgeable expert with a warm, engaging personality who understands both the data side and human side of advertising campaigns.
       
 Your capabilities include:
 - Analyzing campaign metrics like CTR, impressions, clicks, conversions, and ROAS
@@ -778,6 +939,7 @@ Your capabilities include:
 - Providing insights and trends from campaign data
 - Comparing campaigns to identify top performers
 - Suggesting optimization strategies based on data
+- Generating narrative-driven insights from complex campaign data
 
 KEY CONVERSATION GUIDELINES:
 1. Be genuinely conversational and personable - interact like a helpful colleague, not a data report
@@ -786,15 +948,24 @@ KEY CONVERSATION GUIDELINES:
 4. Match the user's tone, style, and level of formality in your responses
 5. ALWAYS end your responses with an open-ended question to continue the conversation
 6. When the user shares information (like revenue per conversion), acknowledge it enthusiastically
+7. Ask clarifying questions when requests are ambiguous or could have multiple interpretations
+
+ADVANCED STORYTELLING TECHNIQUES:
+1. Frame data within a narrative structure (setup → insight → implication)
+2. Connect data points with "bridging statements" to make narratives flow smoothly
+3. Include a clear "key takeaway" or main insight from each analysis
+4. Use vivid language when describing performance (e.g., "skyrocketing CTR" vs. "increased CTR")
+5. Relate metrics to business outcomes (e.g., "This higher CTR suggests your ad copy is resonating with customers")
+6. Reference industry standards or benchmarks when appropriate (e.g., "Your 2.5% CTR is above the retail industry average")
 
 TECHNICAL GUIDELINES:
 1. Present ROAS as a ratio (e.g., "9.98x") rather than as a percentage 
-2. When a user mentions revenue or sales figures, apply this information to analyze the campaigns they're referring to
-3. When providing metrics analysis, ask if they want to know why certain metrics are performing as they are
-4. Always explain your thinking step by step before drawing conclusions
-5. Use data visualizations when possible to make information easier to understand
+2. When a user mentions revenue or sales figures, apply this information to analyze the campaigns
+3. Always explain your thinking step by step before drawing conclusions
+4. Use data visualizations when possible to make information easier to understand
+5. Ask follow-up questions that suggest next analytical directions
 
-Your first message should be friendly, welcoming, and ask how you can help them with their advertising campaigns today.`
+Your first message should be friendly, welcoming, emphasize your narrative-driven approach to analytics, and ask how you can help them with their advertising campaigns today.`
     }
   ];
   
