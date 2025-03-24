@@ -1,0 +1,115 @@
+Creating user message with data: {
+  "conversationId": "b0b5df23-7671-4f87-9c2d-29d8a90ef5b0",
+  "role": "user",
+  "content": "how many campaigns do i have which are live currently. \n"
+}
+User message saved with ID: 845ee3be-61b8-4f06-a7f5-426a7b78ac72
+3:10:05 AM [express] POST /api/chat/conversations/b0b5df23-7671-4f87-9c2d-29d8a90ef5b0/messages 201 …
+3:10:05 AM [express] GET /api/chat/conversations/b0b5df23-7671-4f87-9c2d-29d8a90ef5b0 200 in 226ms :…
+User authenticated: 903243fa-a65e-4d38-8236-798559b81941
+Generating chat completion for conversation: b0b5df23-7671-4f87-9c2d-29d8a90ef5b0
+Loading conversation history for b0b5df23-7671-4f87-9c2d-29d8a90ef5b0
+Conversation has 1 complete exchanges
+Estimated total tokens for full conversation: 94
+Returning 2 messages for conversation context
+Retrieved 2 messages for chat completion context
+Generating chat completion for conversation: b0b5df23-7671-4f87-9c2d-29d8a90ef5b0
+Retrieved 2 messages for chat completion context
+Enhanced conversation context created with structured information
+Routing decision for "how many campaigns do i have which are live currently. 
+": DATA
+Handling data query: "how many campaigns do i have which are live currently. 
+" with context
+SQL Builder processing query from user 903243fa-a65e-4d38-8236-798559b81941: "how many campaigns do i have which are live currently. 
+"
+Extracted from context: { campaignIds: [], timeFrames: [], revenue: null, metrics: [] }
+Bypassing cache and precomputed summaries - directly generating SQL for all queries
+Cleaned SQL: SELECT COUNT(DISTINCT campaign_id) 
+FROM campaign_metrics 
+WHERE user_id = '903243fa-a65e-4d38-8236-798559b81941' 
+AND date = CURRENT_DATE;
+Generated SQL: SELECT COUNT(DISTINCT campaign_id) 
+FROM campaign_metrics 
+WHERE user_id = '903243fa-a65e-4d38-8236-798559b81941' 
+AND date = CURRENT_DATE;
+Executing secure SQL: SELECT COUNT(DISTINCT campaign_id) 
+FROM campaign_metrics 
+WHERE user_id = '903243fa-a65e-4d38-8236-798559b81941' 
+AND date = CURRENT_DATE;
+SQL query returned 1 results
+Skipping result caching to ensure accurate responses for future queries
+SQL used: SELECT COUNT(DISTINCT campaign_id) 
+FROM campaign_metrics 
+WHERE user_id = '903243fa-a65e-4d38-8236-798559b81941' 
+AND date = CURRENT_DATE;
+Data found: 1 records
+AI response saved successfully with ID: 720ca07e-26c7-4f80-b5c3-52960582bda8
+3:10:10 AM [express] POST /api/chat/completions 200 in 4970ms
+3:10:10 AM [express] GET /api/chat/conversations/b0b5df23-7671-4f87-9c2d-29d8a90ef5b0 200 in 225ms :…
+Creating user message with data: {
+  "conversationId": "b0b5df23-7671-4f87-9c2d-29d8a90ef5b0",
+  "role": "user",
+  "content": "i have a lot of campaigns.. google and amazon campaigns"
+}
+User message saved with ID: 7fbffb61-2a4f-42ed-9f96-768312add4db
+3:10:36 AM [express] POST /api/chat/conversations/b0b5df23-7671-4f87-9c2d-29d8a90ef5b0/messages 201 …
+3:10:37 AM [express] GET /api/chat/conversations/b0b5df23-7671-4f87-9c2d-29d8a90ef5b0 200 in 230ms :…
+User authenticated: 903243fa-a65e-4d38-8236-798559b81941
+Generating chat completion for conversation: b0b5df23-7671-4f87-9c2d-29d8a90ef5b0
+Loading conversation history for b0b5df23-7671-4f87-9c2d-29d8a90ef5b0
+Conversation has 2 complete exchanges
+Estimated total tokens for full conversation: 356
+Returning 4 messages for conversation context
+Retrieved 4 messages for chat completion context
+Generating chat completion for conversation: b0b5df23-7671-4f87-9c2d-29d8a90ef5b0
+Retrieved 4 messages for chat completion context
+Enhanced conversation context created with structured information
+Routing decision for "i have a lot of campaigns.. google and amazon campaigns": DATA
+Handling data query: "i have a lot of campaigns.. google and amazon campaigns" with context
+SQL Builder processing query from user 903243fa-a65e-4d38-8236-798559b81941: "i have a lot of campaigns.. google and amazon campaigns"
+Extracted from context: { campaignIds: [], timeFrames: [], revenue: null, metrics: [] }
+Bypassing cache and precomputed summaries - directly generating SQL for all queries
+Cleaned SQL: SELECT COUNT(DISTINCT campaign_id) AS total_campaigns
+FROM (
+  SELECT campaign_id
+  FROM campaign_metrics
+  WHERE user_id = '903243fa-a65e-4d38-8236-798559b81941'
+  UNION
+  SELECT campaign_id
+  FROM google_campaign_metrics
+  WHERE user_id = '903243fa-a65e-4d38-8236-798559b81941'
+) AS all_campaigns;
+Generated SQL: SELECT COUNT(DISTINCT campaign_id) AS total_campaigns
+FROM (
+  SELECT campaign_id
+  FROM campaign_metrics
+  WHERE user_id = '903243fa-a65e-4d38-8236-798559b81941'
+  UNION
+  SELECT campaign_id
+  FROM google_campaign_metrics
+  WHERE user_id = '903243fa-a65e-4d38-8236-798559b81941'
+) AS all_campaigns;
+Executing secure SQL: SELECT COUNT(DISTINCT campaign_id) AS total_campaigns
+FROM (
+  SELECT campaign_id
+  FROM campaign_metrics
+  WHERE user_id = '903243fa-a65e-4d38-8236-798559b81941'
+  UNION
+  SELECT campaign_id
+  FROM google_campaign_metrics
+  WHERE user_id = '903243fa-a65e-4d38-8236-798559b81941'
+) AS all_campaigns;
+SQL query returned 1 results
+Skipping result caching to ensure accurate responses for future queries
+SQL used: SELECT COUNT(DISTINCT campaign_id) AS total_campaigns
+FROM (
+  SELECT campaign_id
+  FROM campaign_metrics
+  WHERE user_id = '903243fa-a65e-4d38-8236-798559b81941'
+  UNION
+  SELECT campaign_id
+  FROM google_campaign_metrics
+  WHERE user_id = '903243fa-a65e-4d38-8236-798559b81941'
+) AS all_campaigns;
+Data found: 1 records
+AI response saved successfully with ID: 222c9010-6fe0-4298-92f0-773ea31c80cf

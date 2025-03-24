@@ -87,36 +87,74 @@ export function isDataQuery(message: string): boolean {
   // Remove punctuation and convert to lowercase for more reliable matching
   const normalizedMessage = message.toLowerCase().replace(/[.,\/#!$%\^&\*;:{}=\-_`~()]/g, "");
   
-  // Common patterns that indicate a data query
+  // EXCLUDE PATTERNS - check these first to quickly filter out non-data queries
+  const exclusionPatterns = [
+    // Meta conversation patterns - questions about previous answers
+    /why did you/,
+    /you said/,
+    /you mentioned/,
+    /you told me/,
+    /can you explain/,
+    /i am confused/,
+    /im confused/,
+    /what do you mean/,
+    /what does that mean/,
+    /summarize/,
+    /summary/,
+    /explain .* again/,
+    /you .* wrong/,
+    /you .* incorrect/,
+    /^ok/,
+    /^i see/,
+    /^got it/,
+    /^thanks/,
+    /^thank you/,
+    
+    // General questions looking for explanation rather than data
+    /reasoning/,
+    /what made you/,
+    /(why|how).*(pick|chose|select|decided|included|excluded|only)/,
+    /(why|what).*(criteria|methodology|factors|unique|special)/,
+    /explain.*(choice|selection|decision|why|how)/
+  ];
+  
+  // If any exclusion pattern matches, this is NOT a data query
+  if (exclusionPatterns.some(pattern => pattern.test(normalizedMessage))) {
+    console.log('Query matched exclusion pattern, not treating as data query');
+    return false;
+  }
+  
+  // INCLUSION PATTERNS - only if it passes exclusion check
   const dataQueryPatterns = [
-    // Campaign performance patterns
+    // Campaign performance patterns - asking for current data
     /(how|what).*(campaign|campaigns|ads|advertising).*(performance|performing|doing|going|result|metrics)/,
     /(show|tell|give).*(campaign|campaigns|ads).*data/,
     /(how many|total).*(campaign|campaigns|ads)/,
     
-    // Metric specific patterns
-    /(clicks|impressions|cost|sales|acos|roas|ctr|cpc|conversion|conversions)/,
+    // Metric specific patterns with clear quantitative intent
+    /(clicks|impressions|cost|sales|acos|roas|ctr|cpc|conversion|conversions).*(campaigns|ads|data|numbers|metrics|report)/,
     
-    // Time period patterns
-    /(this week|last week|this month|last month|yesterday|today|day|week|month)/,
+    // Time-bound performance questions
+    /(this week|last week|this month|last month|yesterday|today).*(performance|metrics|results|report|data)/,
     
-    // Analysis patterns
+    // Analysis patterns with clear comparative intent
     /(best|worst|top|highest|lowest).*(campaign|campaigns|performing)/,
-    /(amazon|google).*(campaign|campaigns|ads|advertising)/,
     
-    // Direct data questions
-    /how (are|is) my.*(campaign|campaigns|ads)/,
+    // Platform-specific queries for fresh data
+    /(amazon|google).*(campaign|campaigns|ads|advertising).*(metrics|performance|data|report)/,
     
-    // Meta-queries about previous responses or selection criteria
-    /(why|how).*(pick|chose|select|decided|included|excluded|only)/,
-    /(why|what).*(criteria|methodology|factors|unique|special)/,
-    /explain.*(choice|selection|decision|why|how)/,
-    /reasoning/,
-    /what made you/
+    // Direct data questions with clear first-person ownership
+    /how (are|is) my.*(campaign|campaigns|ads)/
   ];
   
-  // Check if any pattern matches
-  return dataQueryPatterns.some(pattern => pattern.test(normalizedMessage));
+  // Check if any data pattern matches
+  const isDataRequest = dataQueryPatterns.some(pattern => pattern.test(normalizedMessage));
+  
+  if (isDataRequest) {
+    console.log('Query matched inclusion pattern, treating as data query');
+  }
+  
+  return isDataRequest;
 }
 
 /**
