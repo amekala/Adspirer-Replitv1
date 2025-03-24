@@ -123,18 +123,32 @@ const getMetricColorScheme = (type: MetricType) => {
 
 // Format value with appropriate prefix/suffix
 const formatValue = (value: string | number, type: MetricType, unit?: string) => {
+  // If it's already a formatted string, return as-is
   if (typeof value === 'string') {
+    // If it's a ROAS value that doesn't have the 'x' suffix, add it
+    if (type === 'roas' && !value.includes('x') && !value.includes('%')) {
+      const numValue = parseFloat(value.replace(/[^0-9.]/g, ''));
+      if (!isNaN(numValue)) {
+        return `${numValue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}x`;
+      }
+    }
     return value;
   }
   
   switch (type) {
     case 'cost':
     case 'sales':
-      return `$${value.toLocaleString('en-US', { maximumFractionDigits: 2 })}`;
+      return `$${value.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
     case 'ctr':
-      return `${value.toLocaleString('en-US', { maximumFractionDigits: 1 })}${unit || '%'}`;
+      return `${value.toLocaleString('en-US', { minimumFractionDigits: 1, maximumFractionDigits: 1 })}${unit || '%'}`;
     case 'roas':
-      return `${value.toLocaleString('en-US', { maximumFractionDigits: 2 })}${unit || 'x'}`;
+      // Always format ROAS as a ratio with 'x' suffix
+      return `${value.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}x`;
+    case 'impressions':
+    case 'clicks':
+    case 'conversions':
+      // Format count metrics with full number formatting
+      return value.toLocaleString('en-US');
     default:
       return value.toLocaleString('en-US');
   }

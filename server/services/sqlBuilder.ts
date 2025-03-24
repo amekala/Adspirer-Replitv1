@@ -375,11 +375,18 @@ async function generateSQL(
     "3. Format dates properly for PostgreSQL (use CURRENT_DATE for today)\n" +
     "4. Use appropriate aggregations (SUM, AVG, COUNT) as needed\n" +
     "5. Use snake_case for all column names (user_id, campaign_id, etc.)\n" +
-    "6. For CTR calculations, use (clicks::float / impressions) * 100\n" +
-    "7. For ROAS calculations, use (sales::float / cost) as a direct ratio\n" +
+    "6. For CTR calculations, use (clicks::float / NULLIF(impressions, 0)) * 100\n" +
+    "7. For ROAS calculations, use ROUND((revenue::numeric / NULLIF(cost, 0))::numeric, 2) as roas - NEVER multiply by 100\n" +
     "8. When calculating average ROAS across multiple campaigns, use weighted averages based on cost\n" +
-    "9. If revenue information is mentioned in the context, use that value for the campaigns being discussed\n" +
-    "10. When specific campaign IDs are mentioned in the context, prioritize those campaigns in your results\n\n" +
+    "9. For all percentage calculations, round to at most 2 decimal places\n\n" +
+    
+    "CONTEXTUAL AWARENESS:\n" +
+    "1. If revenue information is mentioned in the context (e.g. 'revenue is $15'), use that value for campaigns mentioned in the query\n" +
+    "2. When specific campaign IDs are mentioned in the context, prioritize those campaigns in your results\n" +
+    "3. If the context refers to time periods like 'last week' or 'this month', honor those time frames in your query\n" +
+    "4. If the user refers to 'it' or 'this campaign', look for campaign IDs in the context\n" +
+    "5. For references to 'metrics' or 'performance', include key metrics (impressions, clicks, cost, CTR, ROAS)\n\n" +
+    
     "If the user is asking for a narrative or analysis instead of raw data, still return an appropriate SQL query that will fetch the data needed for that analysis. DO NOT WRITE THE ANALYSIS ITSELF.";
 
   const input = [
@@ -452,6 +459,28 @@ async function generateSQL(
     if (codeMatch && codeMatch[1]) {
       generatedSql = codeMatch[1].trim();
     }
+  }
+  
+  // Clean up any comments or extra whitespace
+  generatedSql = generatedSql.replace(/-- .*$/gm, "").trim();
+  
+  // Format ROAS calculation to ensure it's presented as a ratio (Nx) rather than percentage
+  // Find any calculations that look like ROAS calculations and format them correctly
+  if (generatedSql.toLowerCase().includes('as roas') || 
+      generatedSql.toLowerCase().includes('roas =') || 
+      generatedSql.toLowerCase().includes('roas,')) {
+    
+    // Remove any multiplication by 100 in ROAS calculations to keep as ratio
+    generatedSql = generatedSql.replace(
+      /(\(.*sales.*\/.*cost.*\)|\(.*revenue.*\/.*cost.*\))\s*\*\s*100/gi, 
+      '$1'
+    );
+    
+    // Make sure aliased calculations use proper format
+    generatedSql = generatedSql.replace(
+      /(revenue|sales).*\/.*cost.*AS\s+roas/gi,
+      'ROUND(($1::numeric / NULLIF(cost, 0))::numeric, 2) AS roas'
+    );
   }
   
   // Remove any explanatory text before the SELECT statement
