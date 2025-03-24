@@ -197,55 +197,9 @@ export async function processSQLQuery(
       });
     }
     
-    // Check if this is a complex query that should bypass caching and summaries
-    const isComplex = QueryCache.isComplexQuery(query);
-    
-    // Step 1: For non-complex queries, check if this query is in the cache
-    if (!isComplex) {
-      const cachedResponse = await QueryCache.getCachedResponse(query, userId);
-      if (cachedResponse) {
-        console.log(`Using cached response for query: "${query}"`);
-        return {
-          data: cachedResponse.data,
-          sql: cachedResponse.sql,
-          fromCache: true
-        };
-      }
-    } else {
-      console.log(`Complex query detected, bypassing cache: "${query}"`);
-    }
-    
-    // Step 2: For non-complex queries, check if metrics summaries can be used
-    if (!isComplex && QueryCache.containsMetricTerms(query)) {
-      console.log('Query contains metric terms, checking pre-computed summaries');
-      const summaries = await QueryCache.getCampaignMetricsSummaries(userId, query);
-      
-      if (summaries && summaries.length > 0) {
-        console.log(`Found ${summaries.length} pre-computed summary groups`);
-        
-        // Format the summaries for display
-        const formattedData = QueryCache.formatSummariesForDisplay(summaries);
-        
-        // Generate insights from the summaries
-        const insights = QueryCache.generateInsights(formattedData);
-        
-        // Add insights to the formattedData array
-        const enhancedData = [...formattedData];
-        
-        // Cache this response
-        await QueryCache.cacheResponse(query, userId, {
-          data: enhancedData,
-          sql: 'Used pre-computed metrics summaries',
-          fromSummary: true
-        });
-        
-        return {
-          data: formattedData,  // Use the properly formatted array data
-          sql: 'Used pre-computed metrics summaries',
-          fromSummary: true
-        };
-      }
-    }
+    // No longer using cache or precomputed summaries
+    // All queries will directly generate SQL for more accurate results
+    console.log('Bypassing cache and precomputed summaries - directly generating SQL for all queries');
     
     // Step 3: Generate SQL from natural language query if not in cache or no summaries
     const sqlQuery = await generateSQL(userId, query, conversationContext);
@@ -370,13 +324,8 @@ export async function processSQLQuery(
       
       // Selection metadata will be added to the result later
       
-      // Step 5: Cache the result for future queries if successful
-      if (!error && data.length > 0) {
-        await QueryCache.cacheResponse(query, userId, {
-          data,
-          sql: sqlQuery
-        });
-      }
+      // No longer caching results - this ensures every query gets fresh data
+      console.log('Skipping result caching to ensure accurate responses for future queries');
     } catch (err: any) {
       // Record the original error
       error = `SQL execution error: ${err.message}`;
