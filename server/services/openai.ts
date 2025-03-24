@@ -921,10 +921,30 @@ EXAMPLES OF GOOD RESPONSES:
  * @param maxTokens - Optional max number of tokens to consider
  * @returns Array of messages formatted for OpenAI
  */
+/**
+ * Rough estimate of token count for a string
+ * This is a very simple estimator that can be replaced with a more accurate one
+ * like tiktoken if needed.
+ */
+function estimateTokenCount(text: string): number {
+  // Roughly 4 characters per token for English text
+  return Math.ceil(text.length / 4);
+}
+
+/**
+ * Get the conversation history for OpenAI completion
+ * @param conversationId - The ID of the conversation
+ * @param maxTokens - Optional max number of tokens to consider (default: 12000)
+ * @param minExchanges - Minimum number of conversation exchanges to keep (default: 15)
+ * @returns Array of messages formatted for OpenAI
+ */
 export async function getConversationHistory(
   conversationId: string,
-  maxTokens?: number
+  maxTokens: number = 12000,  // Higher default to ensure we keep more context
+  minExchanges: number = 15   // Minimum conversation turns to maintain
 ): Promise<OpenAIMessage[]> {
+  console.log(`Loading conversation history for ${conversationId}`);
+  
   // Get messages for the conversation
   const messages = await storage.getChatMessages(conversationId);
 
@@ -942,10 +962,76 @@ export async function getConversationHistory(
     
     return {
       role: msg.role === 'system' ? 'developer' as MessageRole : msg.role as MessageRole,
-      content: content
+      content: content,
+      metadata: msg.metadata // Preserve metadata
     };
   });
 
+  // Calculate total number of exchanges (user + assistant message pairs)
+  // This helps ensure we keep coherent conversation turns
+  const exchanges = Math.floor(formattedMessages.filter(m => m.role === 'user').length);
+  console.log(`Conversation has ${exchanges} complete exchanges`);
+
+  // If we need to truncate the context due to token limits,
+  // we'll do it by removing oldest messages first but preserving
+  // at least minExchanges recent exchanges
+  if (maxTokens) {
+    let totalTokens = 0;
+    let tokensPerMessage: number[] = [];
+    
+    // Calculate tokens for each message
+    formattedMessages.forEach(msg => {
+      const tokens = estimateTokenCount(msg.content);
+      tokensPerMessage.push(tokens);
+      totalTokens += tokens;
+    });
+    
+    console.log(`Estimated total tokens for full conversation: ${totalTokens}`);
+    
+    // If we exceed the token limit, trim older messages
+    if (totalTokens > maxTokens) {
+      // Start from the end and work backwards to count how many
+      // messages we can keep within the token limit
+      let runningTotal = 0;
+      let keepCount = 0;
+      
+      // First, count the most recent 2*minExchanges messages (to ensure we keep coherent turns)
+      // that we want to absolutely preserve
+      const preserveCount = Math.min(formattedMessages.length, minExchanges * 2);
+      
+      // Count tokens from the end of the array (most recent messages)
+      for (let i = formattedMessages.length - 1; i >= Math.max(0, formattedMessages.length - preserveCount); i--) {
+        runningTotal += tokensPerMessage[i];
+        keepCount++;
+      }
+      
+      // If we have token budget left, keep adding more messages
+      for (let i = formattedMessages.length - preserveCount - 1; i >= 0; i--) {
+        if (runningTotal + tokensPerMessage[i] > maxTokens) {
+          break;
+        }
+        runningTotal += tokensPerMessage[i];
+        keepCount++;
+      }
+      
+      // Ensure we keep at least the minimum required exchanges if possible
+      // by adjusting token length per message if needed
+      if (keepCount < minExchanges * 2 && formattedMessages.length >= minExchanges * 2) {
+        keepCount = minExchanges * 2;
+        console.log(`Forcing to keep minimum ${keepCount} messages to maintain context`);
+      }
+      
+      // Slice to keep the most recent 'keepCount' messages
+      const keptMessages = formattedMessages.slice(-keepCount);
+      
+      console.log(`Truncated conversation from ${formattedMessages.length} to ${keptMessages.length} messages to fit within token limit`);
+      console.log(`Keeping approximately ${runningTotal} tokens out of original ${totalTokens}`);
+      
+      return keptMessages;
+    }
+  }
+
+  console.log(`Returning ${formattedMessages.length} messages for conversation context`);
   return formattedMessages;
 }
 
