@@ -279,7 +279,10 @@ async function generateSQL(
                11. When calculating average ROAS across multiple campaigns, use weighted averages based on cost
                12. All ROAS calculations should be formatted as a direct ratio (e.g., "5.4x") not as a percentage
                13. If revenue information is mentioned in the conversation context (e.g., "revenue is 200"), use that value for the campaigns being discussed, not for random campaigns
-               14. When specific campaign IDs are mentioned in the context, prioritize those campaigns in your query results`
+               14. When specific campaign IDs are mentioned in the context, prioritize those campaigns in your query results
+               15. When using UNION or UNION ALL, every subquery must be properly wrapped in parentheses
+               16. For UNION ALL queries, format as: (subquery1) UNION ALL (subquery2)
+               17. For multiple data sources, prefer JOINs over UNION when possible`
     }
   ];
   

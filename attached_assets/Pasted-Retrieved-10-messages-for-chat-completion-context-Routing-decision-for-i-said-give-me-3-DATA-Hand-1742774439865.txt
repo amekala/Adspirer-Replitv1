@@ -1,0 +1,62 @@
+Retrieved 10 messages for chat completion context
+Routing decision for "i said give me 3": DATA
+Handling data query: "i said give me 3" with context
+Found campaign IDs in context: 5544332211, 6655443322
+SQL Builder processing query from user 903243fa-a65e-4d38-8236-798559b81941: "i said give me 3"
+Generated SQL: SELECT campaign_id, SUM(impressions) AS total_impressions, SUM(clicks) AS total_clicks, SUM(cost) AS total_cost, SUM(conversions) AS total_conversions
+FROM google_campaign_metrics
+WHERE user_id = '903243fa-a65e-4d38-8236-798559b81941'
+GROUP BY campaign_id
+ORDER BY total_conversions DESC
+LIMIT 3;
+
+UNION ALL
+
+SELECT campaign_id, SUM(impressions) AS total_impressions, SUM(clicks) AS total_clicks, SUM(cost) AS total_cost, 0 AS total_conversions
+FROM campaign_metrics
+WHERE user_id = '903243fa-a65e-4d38-8236-798559b81941'
+GROUP BY campaign_id
+ORDER BY total_clicks DESC
+LIMIT 3;
+Executing secure SQL: SELECT campaign_id, SUM(impressions) AS total_impressions, SUM(clicks) AS total_clicks, SUM(cost) AS total_cost, SUM(conversions) AS total_conversions
+FROM google_campaign_metrics
+WHERE user_id = '903243fa-a65e-4d38-8236-798559b81941'
+GROUP BY campaign_id
+ORDER BY total_conversions DESC
+LIMIT 3;
+
+UNION ALL
+
+SELECT campaign_id, SUM(impressions) AS total_impressions, SUM(clicks) AS total_clicks, SUM(cost) AS total_cost, 0 AS total_conversions
+FROM campaign_metrics
+WHERE user_id = '903243fa-a65e-4d38-8236-798559b81941'
+GROUP BY campaign_id
+ORDER BY total_clicks DESC
+LIMIT 3;
+SQL execution error: error: syntax error at or near "UNION"
+    at file:///home/runner/workspace/node_modules/@neondatabase/serverless/index.mjs:1345:74
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+    at async Module.processSQLQuery (/home/runner/workspace/server/services/sqlBuilder.ts:200:22)
+    at async handleDataQuery (/home/runner/workspace/server/services/openai.ts:134:23)
+    at async streamChatCompletion (/home/runner/workspace/server/services/openai.ts:427:11)
+    at async <anonymous> (/home/runner/workspace/server/routes.ts:945:9) {
+  length: 95,
+  severity: 'ERROR',
+  code: '42601',
+  detail: undefined,
+  hint: undefined,
+  position: '299',
+  internalPosition: undefined,
+  internalQuery: undefined,
+  where: undefined,
+  schema: undefined,
+  table: undefined,
+  column: undefined,
+  dataType: undefined,
+  constraint: undefined,
+  file: 'scan.l',
+  line: '1244',
+  routine: 'scanner_yyerror'
+}
+AI response saved successfully with ID: 1fffa0fe-7e1a-47ce-88be-227375749073
+12:00:11 AM [express] POST /api/chat/completions 200 in 2591ms
