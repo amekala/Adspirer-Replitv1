@@ -368,7 +368,30 @@ async function generateSQL(
   });
   
   // Extract SQL from the response
-  const generatedSql = response.output_text?.trim() || '';
+  let generatedSql = response.output_text?.trim() || '';
+  
+  // Remove any markdown SQL code block formatting if present
+  if (generatedSql.includes('```sql')) {
+    // Extract SQL from a markdown code block
+    const sqlMatch = generatedSql.match(/```sql\s*([\s\S]*?)\s*```/);
+    if (sqlMatch && sqlMatch[1]) {
+      generatedSql = sqlMatch[1].trim();
+    }
+  } else if (generatedSql.includes('```')) {
+    // Extract from a generic code block 
+    const codeMatch = generatedSql.match(/```\s*([\s\S]*?)\s*```/);
+    if (codeMatch && codeMatch[1]) {
+      generatedSql = codeMatch[1].trim();
+    }
+  }
+  
+  // Remove any explanatory text before the SELECT statement
+  const selectIndex = generatedSql.toLowerCase().indexOf('select');
+  if (selectIndex > 0) {
+    generatedSql = generatedSql.substring(selectIndex);
+  }
+  
+  console.log("Cleaned SQL:", generatedSql);
   return generatedSql;
 }
 
