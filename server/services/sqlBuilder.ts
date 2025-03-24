@@ -312,12 +312,7 @@ export async function processSQLQuery(
         }
       }
       
-      // Add selection criteria to the metadata
-      const selectionMetadata = {
-        selectionCriteria: selectionCriteria || 'Based on the query parameters specified',
-        originalQuery: query,
-        generatedSql: sqlQuery
-      };
+      // Selection metadata will be added to the result later
       
       // Step 5: Cache the result for future queries if successful
       if (!error && data.length > 0) {
@@ -510,7 +505,11 @@ export async function processSQLQuery(
       data: [],
       sql: '',
       error: `SQL builder error: ${err.message}`,
-      selectionMetadata: undefined
+      selectionMetadata: {
+        selectionCriteria: 'Error occurred during selection process',
+        originalQuery: query,
+        generatedSql: ''
+      }
     };
   }
 }
