@@ -211,19 +211,34 @@ async function handleDataQuery(
                      3. Use vivid, descriptive language for campaign performance (e.g., "skyrocketing clicks" vs. "increased clicks")
                      4. Create "bridging statements" between data points to make the narrative flow smoothly
                      5. Include a clear "key takeaway" or main insight from the data
+                     6. When discussing trends, use specific quantitative changes (e.g., "CTR increased by 1.2%")
+                     7. Use industry-specific interpretive frameworks to add context to the numbers
+                     8. Frame metrics in terms of business outcomes, not just technical measurements
+                     9. Create narrative continuity between this response and previous conversations
                      
-                     CONTEXTUAL AWARENESS:
-                     1. Maintain memory of campaign IDs, metrics, and time periods from previous messages
-                     2. Understand references like "it," "that campaign," or "those metrics" by context
-                     3. Refer to previously mentioned campaigns by name/ID for continuity
-                     4. Acknowledge how new data relates to previously discussed insights
+                     CONTEXTUAL AWARENESS (CRITICAL):
+                     1. Maintain explicit memory of campaign IDs, metrics, and time periods from previous messages
+                     2. Properly resolve references like "it," "that campaign," or "those metrics" by context
+                     3. When user references "the highest performing campaign" or similar, correctly identify which one
+                     4. Apply revenue/conversion information from previous messages to relevant campaign discussions
+                     5. If user mentions "yesterday's campaigns" or other temporal references, correctly connect to prior data
+                     6. Track campaign IDs mentioned across the entire conversation history
+                     7. Actively maintain context about which metrics were most important to the user
+                     8. If user refers to "the conversion issue we discussed," recall the specific conversion problems
+                     9. Recognize when current query is a follow-up to previous data discussion
+                     10. Apply revenue data provided earlier to calculate metrics in current responses
                      
-                     SELECTION CRITERIA EXPLANATION:
-                     1. If selection criteria are provided, clearly explain WHY certain campaigns were selected
-                     2. Use selection criteria to frame your narrative and storytelling
-                     3. Make selection criteria part of your explanation to help the user understand the data story
-                     4. Connect selection criteria to user's original query to show reasoning
-                     5. Make the explanation of criteria sound natural, not technical
+                     SELECTION CRITERIA EXPLANATION (CRITICAL):
+                     1. ALWAYS explicitly explain WHY certain campaigns were selected for display
+                     2. Use selection criteria as a primary framing element in your narrative
+                     3. Connect the selection logic directly to the user's question
+                     4. Explain in plain language what made these specific campaigns relevant to their query
+                     5. If sorted by a metric, explain why that sort order matters in this context
+                     6. If filtered by date range, clarify why that timeframe is relevant
+                     7. Make the reasoning behind campaign inclusion/exclusion completely transparent
+                     8. Proactively explain why other campaigns might have been excluded
+                     9. When showing "top" campaigns, explain the specific metric used for ranking
+                     10. If selection criteria includes complex logic, break it down into simple explanations
                      
                      CONVERSATION & PERSONALITY REQUIREMENTS:
                      1. Be conversational and friendly - sound like a curious colleague, not a data report
@@ -562,18 +577,48 @@ EXAMPLES OF GOOD RESPONSES:
 
     // For streaming responses, check if this is a data query that should be handled by SQL Builder
     if (isStreaming) {
-      // Quick early check for common greetings and simple messages
-      // These should never be routed to the SQL Builder
+      // Quick early check for common message patterns that should never go to SQL Builder
+      // These include greetings, short messages, questions about the assistant, etc.
       const simpleGreetings = [
         "hi", "hello", "hey", "hi there", "hello there", "hey there", 
-        "good morning", "good afternoon", "good evening", "greetings"
+        "good morning", "good afternoon", "good evening", "greetings",
+        "thanks", "thank you", "cool", "awesome", "nice", "great",
+        "i see", "got it", "understood", "ok", "okay"
       ];
       
-      if (lastUserMessage && 
-          (simpleGreetings.includes(lastUserMessage.toLowerCase()) || 
-           lastUserMessage.length < 10)) {
-        // Simple greeting detected, skip SQL routing and proceed with general chat
-        console.log(`Simple greeting detected: "${lastUserMessage}" → GENERAL (bypassed routing)`);
+      // Patterns to bypass SQL routing entirely
+      const bypassPatterns = [
+        // Questions about the AI itself
+        /\byou\b.*\b(mean|said|do|think|know|understand|explain)\b/i,
+        /\bwhy did you\b/i,
+        /\bwhat do you\b/i,
+        /\bcan you\b/i,
+        
+        // Meta discussion about the conversation
+        /\bwhat (does|did) that mean\b/i,
+        /\bi('m| am) confused\b/i,
+        /\bclarify\b/i,
+        /\bexplain\b/i,
+        
+        // Follow-up patterns
+        /\btell me more\b/i,
+        /\belaborate\b/i,
+        /^(what|why|how) about/i,
+        
+        // Feedback patterns
+        /\bthat('s| is) (not|wrong|incorrect|right|correct)\b/i,
+        
+        // Non-data information requests
+        /\bhow (do|can|should) I\b/i
+      ];
+      
+      // Check if message matches any bypass conditions
+      const isSimpleGreeting = simpleGreetings.includes(lastUserMessage.toLowerCase()) || lastUserMessage.length < 10;
+      const matchesPatterns = bypassPatterns.some(pattern => pattern.test(lastUserMessage));
+      
+      if (lastUserMessage && (isSimpleGreeting || matchesPatterns)) {
+        // Pattern detected that should never use SQL Builder
+        console.log(`Conversational pattern detected: "${lastUserMessage}" → GENERAL (bypassed routing)`);
         // Continue to regular chat completion after this if block (don't enter the else block)
       } else {
         // Proceed with LLM-based routing for more complex queries
@@ -949,8 +994,8 @@ function estimateTokenCount(text: string): number {
  */
 export async function getConversationHistory(
   conversationId: string,
-  maxTokens: number = 12000,  // Higher default to ensure we keep more context
-  minExchanges: number = 15   // Minimum conversation turns to maintain
+  maxTokens: number = 16000,  // Increased token limit to maintain more context for better continuity
+  minExchanges: number = 18   // Increased minimum exchanges to preserve more conversation history
 ): Promise<OpenAIMessage[]> {
   console.log(`Loading conversation history for ${conversationId}`);
   
