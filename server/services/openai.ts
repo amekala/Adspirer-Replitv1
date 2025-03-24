@@ -218,6 +218,13 @@ async function handleDataQuery(
                      3. Refer to previously mentioned campaigns by name/ID for continuity
                      4. Acknowledge how new data relates to previously discussed insights
                      
+                     SELECTION CRITERIA EXPLANATION:
+                     1. If selection criteria are provided, clearly explain WHY certain campaigns were selected
+                     2. Use selection criteria to frame your narrative and storytelling
+                     3. Make selection criteria part of your explanation to help the user understand the data story
+                     4. Connect selection criteria to user's original query to show reasoning
+                     5. Make the explanation of criteria sound natural, not technical
+                     
                      CONVERSATION & PERSONALITY REQUIREMENTS:
                      1. Be conversational and friendly - sound like a curious colleague, not a data report
                      2. Ask 2-3 specific follow-up questions that suggest next analytical directions
@@ -226,8 +233,8 @@ async function handleDataQuery(
                      5. Be curious about the "why" behind the metrics, not just the numbers themselves
                      6. Suggest what they might want to look at next based on the current data
                      7. Sound curious and ask follow-up questions to keep the conversation going
-                     7. Briefly mention why this data might be important to their business goals
-                     8. ALWAYS end with an open-ended question that invites further discussion
+                     8. Briefly mention why this data might be important to their business goals
+                     9. ALWAYS end with an open-ended question that invites further discussion
                      
                      Formatting guidelines:
                      1. Present the data in a clear, easy-to-understand format
@@ -245,8 +252,11 @@ async function handleDataQuery(
                      Here is the EXACT campaign data that must be used (do not modify these values):
                      ${JSON.stringify(sqlResult.data, null, 2)}
                      
+                     ${sqlResult.selectionMetadata ? `SELECTION CRITERIA: ${sqlResult.selectionMetadata.selectionCriteria}` : ''}
                      ${revenueInfo ? `The user mentioned revenue is ${revenueInfo.currency}${revenueInfo.value}` : ""}
                      ${campaignIds.length > 0 ? `The conversation mentioned these campaign IDs: ${campaignIds.join(", ")}` : ""}
+                     
+                     ${isSelectionExplanationQuery ? "The user wants to understand WHY specific campaigns were selected. Explain the criteria thoroughly." : ""}
                      
                      Format this data into a helpful response using ONLY the actual values provided.
                      If the data seems incomplete or suspicious, acknowledge this in your response.`
@@ -296,6 +306,9 @@ async function handleDataQuery(
         revenueApplied: revenueInfo !== null,
         revenueValue: revenueInfo ? revenueInfo.value : null,
         mentionedCampaignIds: campaignIds.length > 0 ? campaignIds : [],
+        // Add selection criteria metadata if available
+        selectionCriteria: sqlResult.selectionMetadata ? sqlResult.selectionMetadata.selectionCriteria : null,
+        originalQuery: sqlResult.selectionMetadata ? sqlResult.selectionMetadata.originalQuery : query,
         // Track dates and time periods to improve future contextual responses
         detectedTimeFrame: sqlResult.data && sqlResult.data.length > 0 && sqlResult.data[0].date ? 
           {start: sqlResult.data[0].date, end: sqlResult.data[sqlResult.data.length-1].date} : null,
@@ -332,6 +345,9 @@ async function handleDataQuery(
       metadata: {
         isDataQuery: true,
         error: error instanceof Error ? error.message : String(error),
+        // Include the original query for debugging purposes
+        originalQuery: query,
+        isSelectionExplanationQuery: isSelectionExplanationQuery || false,
       },
     };
 

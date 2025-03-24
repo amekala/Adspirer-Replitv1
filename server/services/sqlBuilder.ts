@@ -495,9 +495,9 @@ export async function processSQLQuery(
         criteriaText += `showing top ${limitMatch[1]} results `;
       }
       
-      // Add selection metadata to the result
+      // Add selection metadata to the result with full criteria details
       result.selectionMetadata = {
-        selectionCriteria: criteriaText || 'Based on the query parameters specified',
+        selectionCriteria: criteriaText.trim() || 'Based on the query parameters specified',
         originalQuery: query,
         generatedSql: sqlQuery
       };
