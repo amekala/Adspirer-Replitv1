@@ -237,20 +237,17 @@ export async function processSQLQuery(
           
           if (isNonSelectError) {
             console.log("Non-SELECT query detected, generating a proper SELECT statement...");
-            retryPrompt = `The previous response was not a proper SQL query. YOU MUST RETURN ONLY A VALID SQL QUERY that starts with SELECT. 
-            
-            For this request: "${query}"
-            
-            DO NOT:
-            - Return an analysis, explanation, or commentary
-            - Start with anything other than the SELECT keyword
-            - Include markdown or code blocks
-            - Return multiple queries
-            
-            Just the raw SQL statement like: SELECT... FROM... WHERE...`;
+            retryPrompt = "The previous response was not a proper SQL query. YOU MUST RETURN ONLY A VALID SQL QUERY that starts with SELECT.\n\n" +
+                       "For this request: \"" + query + "\"\n\n" +
+                       "DO NOT:\n" +
+                       "- Return an analysis, explanation, or commentary\n" +
+                       "- Start with anything other than the SELECT keyword\n" +
+                       "- Include markdown or code blocks\n" +
+                       "- Return multiple queries\n\n" +
+                       "Just the raw SQL statement like: SELECT... FROM... WHERE...";
           } else {
             console.log("SQL syntax error detected, attempting to generate a simpler query...");
-            retryPrompt = `The previous SQL query had a syntax error. Please generate a simpler query without UNION or complex joins for: "${query}"`;
+            retryPrompt = "The previous SQL query had a syntax error. Please generate a simpler query without UNION or complex joins for: \"" + query + "\"";
           }
           
           // Generate a new SQL query with a much stronger instruction
@@ -261,14 +258,14 @@ export async function processSQLQuery(
             console.log("Retry failed: Still not a proper SELECT statement");
             
             // Make a last attempt with a hardcoded basic query if everything else failed
-            const basicQuery = `SELECT campaign_id, SUM(impressions) as total_impressions, 
-                               SUM(clicks) as total_clicks, SUM(cost) as total_cost,
-                               (SUM(clicks)::float / NULLIF(SUM(impressions), 0)) * 100 as ctr
-                               FROM campaign_metrics 
-                               WHERE user_id = '${userId}'
-                               GROUP BY campaign_id
-                               ORDER BY total_impressions DESC
-                               LIMIT 10`;
+            const basicQuery = "SELECT campaign_id, SUM(impressions) as total_impressions, " +
+                               "SUM(clicks) as total_clicks, SUM(cost) as total_cost, " +
+                               "(SUM(clicks)::float / NULLIF(SUM(impressions), 0)) * 100 as ctr " +
+                               "FROM campaign_metrics " +
+                               "WHERE user_id = '" + userId + "' " +
+                               "GROUP BY campaign_id " +
+                               "ORDER BY total_impressions DESC " +
+                               "LIMIT 10";
                                
             console.log("Using basic fallback query instead:", basicQuery);
             
@@ -361,38 +358,34 @@ async function generateSQL(
   const openai = getOpenAIClient();
   
   // Format the input for the Responses API
+  const systemPrompt = "You are an AI specialized in converting natural language questions about advertising campaign data into PostgreSQL SQL queries.\n\n" +
+    "You have access to the following database schema:\n" + DB_SCHEMA + "\n\n" +
+    "CRITICAL INSTRUCTIONS:\n" + 
+    "1. Return ONLY the valid PostgreSQL SQL query - nothing else\n" +
+    "2. No explanations, no markdown, no prose, just the raw SQL\n" +
+    "3. Begin with SELECT keyword - NEVER return analysis or text without valid SQL\n" +
+    "4. Do not include backticks or code block markers\n" +
+    "5. NEVER respond with things like 'Here is the SQL query' or 'Let me analyze...'\n\n" +
+    "Query Security:\n" +
+    "1. Always include \"user_id = '" + userId + "'\" in WHERE clauses for security\n" +
+    "2. Only write SELECT statements (no INSERT, UPDATE, DELETE)\n\n" +
+    "Technical Guidelines:\n" +
+    "1. Join tables when necessary but keep queries efficient\n" +
+    "2. Handle time periods intelligently (e.g., last 7 days, last month)\n" +
+    "3. Format dates properly for PostgreSQL (use CURRENT_DATE for today)\n" +
+    "4. Use appropriate aggregations (SUM, AVG, COUNT) as needed\n" +
+    "5. Use snake_case for all column names (user_id, campaign_id, etc.)\n" +
+    "6. For CTR calculations, use (clicks::float / impressions) * 100\n" +
+    "7. For ROAS calculations, use (sales::float / cost) as a direct ratio\n" +
+    "8. When calculating average ROAS across multiple campaigns, use weighted averages based on cost\n" +
+    "9. If revenue information is mentioned in the context, use that value for the campaigns being discussed\n" +
+    "10. When specific campaign IDs are mentioned in the context, prioritize those campaigns in your results\n\n" +
+    "If the user is asking for a narrative or analysis instead of raw data, still return an appropriate SQL query that will fetch the data needed for that analysis. DO NOT WRITE THE ANALYSIS ITSELF.";
+
   const input = [
     {
       role: "developer",
-      content: `You are an AI specialized in converting natural language questions about advertising campaign data into PostgreSQL SQL queries.
-               
-               You have access to the following database schema:
-               ${DB_SCHEMA}
-               
-               CRITICAL INSTRUCTIONS:
-               1. Return ONLY the valid PostgreSQL SQL query - nothing else
-               2. No explanations, no markdown, no prose, just the raw SQL
-               3. Begin with SELECT keyword - NEVER return analysis or text without valid SQL
-               4. Do not include backticks (```) or "sql" markers
-               5. NEVER respond with things like "Here's the SQL query" or "Let me analyze..."
-               
-               Query Security:
-               1. Always include "user_id = '${userId}'" in WHERE clauses for security
-               2. Only write SELECT statements (no INSERT, UPDATE, DELETE)
-               
-               Technical Guidelines:
-               1. Join tables when necessary but keep queries efficient
-               2. Handle time periods intelligently (e.g., last 7 days, last month)
-               3. Format dates properly for PostgreSQL (use CURRENT_DATE for today)
-               4. Use appropriate aggregations (SUM, AVG, COUNT) as needed
-               5. Use snake_case for all column names (user_id, campaign_id, etc.)
-               6. For CTR (click-through rate) calculations, use (clicks::float / impressions) * 100
-               7. For ROAS (return on ad spend) calculations, use (sales::float / cost) as a direct ratio
-               8. When calculating average ROAS across multiple campaigns, use weighted averages based on cost
-               9. If revenue information is mentioned in the conversation context (e.g., "revenue is 200"), use that value for the campaigns being discussed
-               10. When specific campaign IDs are mentioned in the context, prioritize those campaigns in your query results
-               
-               If the user is asking for a narrative or analysis instead of raw data, still return an appropriate SQL query that will fetch the data needed for that analysis. DO NOT WRITE THE ANALYSIS ITSELF.`
+      content: systemPrompt
     }
   ];
   
@@ -400,7 +393,7 @@ async function generateSQL(
   if (conversationContext) {
     input.push({
       role: "developer",
-      content: `Conversation context (for reference only):\n${conversationContext}`
+      content: "Conversation context (for reference only):\n" + conversationContext
     });
   }
   
@@ -414,23 +407,19 @@ async function generateSQL(
   // Note: Input is already correctly formatted for the Responses API
   // The Responses API uses 'developer' for system prompts instead of 'system'
   
-  // Using Responses API
-  const response = await openai.responses.create({
+  // Using the OpenAI API - with correct parameters for the API version
+  const response = await openai.chat.completions.create({
     model: "gpt-4o",
-    input: input, // Use the original input array that's already properly formatted
+    messages: input.map(item => ({
+      role: item.role === "developer" ? "system" : item.role,
+      content: item.content
+    })),
     temperature: 0.1, // Lower temperature for more deterministic SQL generation
-    max_output_tokens: 500,
-    text: {
-      format: {
-        type: "text"
-      }
-    },
-    reasoning: {},
-    store: true
+    max_tokens: 500,
   });
   
   // Extract SQL from the response
-  let generatedSql = response.output_text?.trim() || '';
+  let generatedSql = response.choices[0]?.message?.content?.trim() || '';
   
   // Remove any markdown SQL code block formatting if present
   if (generatedSql.includes('```sql')) {
@@ -465,30 +454,33 @@ function ensureUserFilter(query: string, userId: string): string {
   const lowerQuery = query.toLowerCase();
   
   // If query already contains user_id filter, return as-is
-  if (lowerQuery.includes(`user_id = '${userId.toLowerCase()}'`) || 
-      lowerQuery.includes(`user_id='${userId.toLowerCase()}'`)) {
+  const lowerUserId = userId.toLowerCase();
+  if (lowerQuery.includes("user_id = '" + lowerUserId + "'") || 
+      lowerQuery.includes("user_id='" + lowerUserId + "'")) {
     return query;
   }
   
   // Add user_id filter based on query structure
+  const userIdFilter = "user_id = '" + userId + "'";
+  
   if (lowerQuery.includes('where')) {
     // Add to existing WHERE clause
-    return query.replace(/where\s+/i, `WHERE user_id = '${userId}' AND `);
+    return query.replace(/where\s+/i, "WHERE " + userIdFilter + " AND ");
   } else if (lowerQuery.includes('group by')) {
     // Add WHERE before GROUP BY
-    return query.replace(/group by/i, `WHERE user_id = '${userId}' GROUP BY`);
+    return query.replace(/group by/i, "WHERE " + userIdFilter + " GROUP BY");
   } else if (lowerQuery.includes('order by')) {
     // Add WHERE before ORDER BY
-    return query.replace(/order by/i, `WHERE user_id = '${userId}' ORDER BY`);
+    return query.replace(/order by/i, "WHERE " + userIdFilter + " ORDER BY");
   } else if (lowerQuery.includes('limit')) {
     // Add WHERE before LIMIT
-    return query.replace(/limit/i, `WHERE user_id = '${userId}' LIMIT`);
+    return query.replace(/limit/i, "WHERE " + userIdFilter + " LIMIT");
   } else {
     // No obvious place, add before end of query
     if (query.endsWith(';')) {
-      return query.replace(/;$/, ` WHERE user_id = '${userId}';`);
+      return query.replace(/;$/, " WHERE " + userIdFilter + ";");
     } else {
-      return `${query} WHERE user_id = '${userId}'`;
+      return query + " WHERE " + userIdFilter;
     }
   }
 }
