@@ -141,6 +141,62 @@ export async function processSQLQuery(
   try {
     console.log(`SQL Builder processing query from user ${userId}: "${query}"`);
     
+    // Initialize criteriaText variable to avoid undefined errors later
+    let criteriaText = '';
+    
+    // Extract structured context information from the conversation
+    let mentionedCampaignIds: string[] = [];
+    let timeFrames: {start?: string, end?: string, description?: string}[] = [];
+    let revenueInfo: {value: number, currency: string} | null = null;
+    let mentionedMetrics: string[] = [];
+    
+    if (conversationContext) {
+      // Parse the context for campaign IDs
+      const campaignIdRegex = /campaign[_\s]id.*?([A-Z0-9]{10,})/gi;
+      let match;
+      while ((match = campaignIdRegex.exec(conversationContext)) !== null) {
+        if (match[1] && !mentionedCampaignIds.includes(match[1])) {
+          mentionedCampaignIds.push(match[1]);
+        }
+      }
+      
+      // Parse for time frames
+      const timeFrameRegex = /(this|last|previous)\s+(week|month|quarter|year)|(\d+)\s+days?/gi;
+      let timeMatch;
+      while ((timeMatch = timeFrameRegex.exec(conversationContext)) !== null) {
+        const description = timeMatch[0].toLowerCase();
+        if (!timeFrames.some(tf => tf.description === description)) {
+          timeFrames.push({ description });
+        }
+      }
+      
+      // Parse for revenue information
+      const revenueRegex = /revenue.*?(\$?\d+\.?\d*)\s*(USD|dollars|€|EUR)?/i;
+      const revenueMatch = conversationContext.match(revenueRegex);
+      if (revenueMatch) {
+        const value = parseFloat(revenueMatch[1].replace('$', ''));
+        const currency = revenueMatch[2] ? (revenueMatch[2] === '€' || revenueMatch[2] === 'EUR' ? 'EUR' : 'USD') : 'USD';
+        revenueInfo = { value, currency };
+      }
+      
+      // Parse for mentioned metrics
+      const metricRegex = /(ctr|roas|impressions|clicks|conversions|cost|revenue|acos)/gi;
+      let metricMatch;
+      while ((metricMatch = metricRegex.exec(conversationContext)) !== null) {
+        const metric = metricMatch[1].toLowerCase();
+        if (!mentionedMetrics.includes(metric)) {
+          mentionedMetrics.push(metric);
+        }
+      }
+      
+      console.log('Extracted from context:', {
+        campaignIds: mentionedCampaignIds,
+        timeFrames,
+        revenue: revenueInfo,
+        metrics: mentionedMetrics
+      });
+    }
+    
     // Check if this is a complex query that should bypass caching and summaries
     const isComplex = QueryCache.isComplexQuery(query);
     

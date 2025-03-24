@@ -960,11 +960,18 @@ export async function getConversationHistory(
     const content = typeof msg.content === 'string' ? msg.content : 
                    (msg.content ? JSON.stringify(msg.content) : '');
     
-    return {
+    // Create the base message
+    const formattedMsg: OpenAIMessage = {
       role: msg.role === 'system' ? 'developer' as MessageRole : msg.role as MessageRole,
-      content: content,
-      metadata: msg.metadata // Preserve metadata
+      content: content
     };
+    
+    // Add metadata if it exists and is an object
+    if (msg.metadata && typeof msg.metadata === 'object') {
+      formattedMsg.metadata = msg.metadata as Record<string, any>;
+    }
+    
+    return formattedMsg;
   });
 
   // Calculate total number of exchanges (user + assistant message pairs)
