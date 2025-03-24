@@ -1,0 +1,119 @@
+    "role": "user",
+    "content": "my question is give me something useful and specific on how i can improve my campaigns at amazon conversions"
+  }
+]
+Stream created, sending chunks to client...
+Stream completed, saving response to database...
+12:24:56 AM [express] POST /api/chat/completions 200 in 5415ms
+AI response saved successfully with ID: d15c96a5-3acd-4d06-84e2-d6d463dbe2af
+12:24:56 AM [express] GET /api/chat/conversations/6df1b9bb-cb8d-457a-a95b-f791a0e899a4 200 in 253ms :…
+Creating user message with data: {
+  "conversationId": "6df1b9bb-cb8d-457a-a95b-f791a0e899a4",
+  "role": "user",
+  "content": "use the data i have to tell a story instead of sharing generic stuff"
+}
+User message saved with ID: 0e225558-e3c2-4ac2-ab52-815cc85542da
+12:25:15 AM [express] POST /api/chat/conversations/6df1b9bb-cb8d-457a-a95b-f791a0e899a4/messages 201 …
+12:25:17 AM [express] GET /api/chat/conversations/6df1b9bb-cb8d-457a-a95b-f791a0e899a4 200 in 251ms :…
+User authenticated: 903243fa-a65e-4d38-8236-798559b81941
+Generating chat completion for conversation: 6df1b9bb-cb8d-457a-a95b-f791a0e899a4
+Retrieved 12 messages for chat completion context
+Generating chat completion for conversation: 6df1b9bb-cb8d-457a-a95b-f791a0e899a4
+Retrieved 12 messages for chat completion context
+Routing decision for "use the data i have to tell a story instead of sharing generic stuff": DATA
+Handling data query: "use the data i have to tell a story instead of sharing generic stuff" with context
+Found campaign IDs in context: 5544332211, 6655443322
+SQL Builder processing query from user 903243fa-a65e-4d38-8236-798559b81941: "use the data i have to tell a story instead of sharing generic stuff"
+Cleaned SQL: Let's dive into your Amazon campaign data and uncover some insights:
+
+### Campaign Performance Overview
+
+1. **Campaign ID: sp-c-45678912**
+   - **Impressions:** 2500
+   - **Clicks:** 90
+   - **Cost:** $271.34
+   - **CTR:** 3.6%
+   - **Conversions:** 0
+
+2. **Campaign ID: sp-c-45678932**
+   - **Impressions:** 2490
+   - **Clicks:** 88
+   - **Cost:** $248.67
+   - **CTR:** 3.5%
+   - **Conversions:** 0
+
+3. **Campaign ID: sp-c-45678952**
+   - **Impressions:** 3780
+   - **Clicks:** 130
+   - **Cost:** $378.54
+   - **CTR:** 3.4%
+   - **Conversions:** 0
+
+### Story and Insights
+
+Your campaigns are generating a decent number of impressions and clicks, indicating that your ads are visible and engaging to some extent. However, the lack of conversions suggests a gap between interest and purchase.
+
+#### Key Observations:
+
+- **High CTR, No Conversions:** Despite a healthy CTR of around 3.5-3.6%, conversions are absent. This indicates that while users are interested enough to click, they are not completing purchases. 
+
+- **Cost Efficiency:** The costs are relatively controlled, but without conversions, the return on ad spend (ROAS) remains at zero. This highlights the need for strategic adjustments to convert clicks into sales.
+
+### Actionable Steps
+
+1. **Keyword Refinement:** Focus on refining your keyword strategy. Ensure that the keywords are not only driving clicks but are also relevant to the purchasing intent.
+
+2. **Product Page Optimization:** Review your product detail pages. Ensure they are compelling and provide all necessary information to convert interest into a purchase.
+
+3. **Audience Targeting:** Re-evaluate your audience segments. Ensure you are reaching the right demographics who are more likely to convert.
+
+4. **Bid Adjustments:** Consider adjusting bids on high-performing keywords to increase visibility and potential conversions.
+
+By focusing on these areas, you can bridge the gap between clicks and conversions, ultimately improving your campaign performance. Let me know if there's a specific area you'd like to explore further!
+Generated SQL: Let's dive into your Amazon campaign data and uncover some insights:
+
+### Campaign Performance Overview
+
+1. **Campaign ID: sp-c-45678912**
+   - **Impressions:** 2500
+   - **Clicks:** 90
+   - **Cost:** $271.34
+   - **CTR:** 3.6%
+   - **Conversions:** 0
+
+2. **Campaign ID: sp-c-45678932**
+   - **Impressions:** 2490
+   - **Clicks:** 88
+   - **Cost:** $248.67
+   - **CTR:** 3.5%
+   - **Conversions:** 0
+
+3. **Campaign ID: sp-c-45678952**
+   - **Impressions:** 3780
+   - **Clicks:** 130
+   - **Cost:** $378.54
+   - **CTR:** 3.4%
+   - **Conversions:** 0
+
+### Story and Insights
+
+Your campaigns are generating a decent number of impressions and clicks, indicating that your ads are visible and engaging to some extent. However, the lack of conversions suggests a gap between interest and purchase.
+
+#### Key Observations:
+
+- **High CTR, No Conversions:** Despite a healthy CTR of around 3.5-3.6%, conversions are absent. This indicates that while users are interested enough to click, they are not completing purchases. 
+
+- **Cost Efficiency:** The costs are relatively controlled, but without conversions, the return on ad spend (ROAS) remains at zero. This highlights the need for strategic adjustments to convert clicks into sales.
+
+### Actionable Steps
+
+1. **Keyword Refinement:** Focus on refining your keyword strategy. Ensure that the keywords are not only driving clicks but are also relevant to the purchasing intent.
+
+2. **Product Page Optimization:** Review your product detail pages. Ensure they are compelling and provide all necessary information to convert interest into a purchase.
+
+3. **Audience Targeting:** Re-evaluate your audience segments. Ensure you are reaching the right demographics who are more likely to convert.
+
+4. **Bid Adjustments:** Consider adjusting bids on high-performing keywords to increase visibility and potential conversions.
+
+By focusing on these areas, you can bridge the gap between clicks and conversions, ultimately improving your campaign performance. Let me know if there's a specific area you'd like to explore further!
+SQL execution error: Error: Only SELECT queries are allowed for security reasons

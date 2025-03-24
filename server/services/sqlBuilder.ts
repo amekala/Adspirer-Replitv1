@@ -67,6 +67,7 @@ export interface SQLBuilderResult {
   error?: string;
   fromCache?: boolean;
   fromSummary?: boolean;
+  fromFallback?: boolean;
 }
 
 /**
@@ -225,24 +226,78 @@ export async function processSQLQuery(
       error = `SQL execution error: ${err.message}`;
       console.error("SQL execution error:", err);
       
-      // If this was a syntax error, try a second approach with more careful query generation
-      if (err.message.includes("syntax error") && conversationContext) {
+      // Check if this is a "only SELECT queries allowed" error or a syntax error
+      const isNonSelectError = err.message.includes("Only SELECT queries are allowed");
+      const isSyntaxError = err.message.includes("syntax error");
+      
+      if ((isNonSelectError || isSyntaxError) && conversationContext) {
         try {
-          console.log("SQL syntax error detected, attempting to generate a simpler query...");
+          // Determine the appropriate retry approach
+          let retryPrompt = "";
           
-          // Generate a new, simpler query 
-          const retryPrompt = `The previous SQL query had a syntax error. Please generate a simpler query without UNION or complex joins for: "${query}"`;
+          if (isNonSelectError) {
+            console.log("Non-SELECT query detected, generating a proper SELECT statement...");
+            retryPrompt = `The previous response was not a proper SQL query. YOU MUST RETURN ONLY A VALID SQL QUERY that starts with SELECT. 
+            
+            For this request: "${query}"
+            
+            DO NOT:
+            - Return an analysis, explanation, or commentary
+            - Start with anything other than the SELECT keyword
+            - Include markdown or code blocks
+            - Return multiple queries
+            
+            Just the raw SQL statement like: SELECT... FROM... WHERE...`;
+          } else {
+            console.log("SQL syntax error detected, attempting to generate a simpler query...");
+            retryPrompt = `The previous SQL query had a syntax error. Please generate a simpler query without UNION or complex joins for: "${query}"`;
+          }
           
-          // Append this to the conversation context
-          const enhancedContext = conversationContext + "\n\n" + retryPrompt;
+          // Generate a new SQL query with a much stronger instruction
+          const simplifiedSql = await generateSQL(userId, retryPrompt, conversationContext);
           
-          // Generate a new SQL query
-          const simplifiedSql = await generateSQL(userId, retryPrompt, enhancedContext);
-          
-          // Ensure it's a SELECT and add userId filter
-          if (simplifiedSql.trim().toLowerCase().startsWith('select')) {
+          // Extra verification that we have a SELECT statement
+          if (!simplifiedSql.trim().toLowerCase().startsWith('select')) {
+            console.log("Retry failed: Still not a proper SELECT statement");
+            
+            // Make a last attempt with a hardcoded basic query if everything else failed
+            const basicQuery = `SELECT campaign_id, SUM(impressions) as total_impressions, 
+                               SUM(clicks) as total_clicks, SUM(cost) as total_cost,
+                               (SUM(clicks)::float / NULLIF(SUM(impressions), 0)) * 100 as ctr
+                               FROM campaign_metrics 
+                               WHERE user_id = '${userId}'
+                               GROUP BY campaign_id
+                               ORDER BY total_impressions DESC
+                               LIMIT 10`;
+                               
+            console.log("Using basic fallback query instead:", basicQuery);
+            
+            // Execute the basic query
+            const fallbackResult = await db.execute(sql.raw(basicQuery));
+            
+            // Extract rows
+            if (fallbackResult && typeof fallbackResult === 'object') {
+              if ('rows' in fallbackResult && Array.isArray(fallbackResult.rows)) {
+                data = fallbackResult.rows;
+              } else if (Array.isArray(fallbackResult)) {
+                data = fallbackResult;
+              }
+            }
+            
+            // Return the fallback results
+            if (data.length > 0) {
+              console.log(`Fallback query returned ${data.length} results`);
+              return {
+                data,
+                sql: basicQuery,
+                error: undefined,
+                fromFallback: true
+              };
+            }
+          } else {
+            // We have a proper SELECT, continue with normal flow
             const secureRetryQuery = ensureUserFilter(simplifiedSql, userId);
-            console.log(`Executing simplified SQL: ${secureRetryQuery}`);
+            console.log(`Executing retry SQL: ${secureRetryQuery}`);
             
             // Try executing the simplified query
             const retryResult = await db.execute(sql.raw(secureRetryQuery));
@@ -258,7 +313,7 @@ export async function processSQLQuery(
             
             // If successful, update the SQL query for the return value
             if (data.length > 0) {
-              console.log(`Simplified SQL query successful, returned ${data.length} results`);
+              console.log(`Retry SQL query successful, returned ${data.length} results`);
               error = undefined; // Clear the error since we succeeded
               return {
                 data,
@@ -267,8 +322,8 @@ export async function processSQLQuery(
               };
             }
           }
-        } catch (retryErr) {
-          console.error("Retry also failed:", retryErr.message);
+        } catch (retryErr: any) {
+          console.error("Retry also failed:", retryErr?.message || "Unknown error");
           // We keep the original error if the retry also fails
         }
       }
@@ -314,23 +369,30 @@ async function generateSQL(
                You have access to the following database schema:
                ${DB_SCHEMA}
                
-               Guidelines:
-               1. Return ONLY the SQL query without any explanation or markdown
-               2. Always include "user_id = '${userId}'" in WHERE clauses for security
-               3. Only write SELECT statements (no INSERT, UPDATE, DELETE)
-               4. Join tables when necessary but keep queries efficient
-               5. Handle time periods intelligently (e.g., last 7 days, last month)
-               6. Format dates properly for PostgreSQL (use CURRENT_DATE for today)
-               7. Use appropriate aggregations (SUM, AVG, COUNT) as needed
-               8. Use snake_case for all column names (user_id, campaign_id, etc.)
-               9. For CTR (click-through rate) calculations, use (clicks::float / impressions) * 100
-               10. For ROAS (return on ad spend) calculations, use (sales::float / cost) as a direct ratio, not as a percentage
-               11. When calculating average ROAS across multiple campaigns, use weighted averages based on cost
-               12. All ROAS calculations should be formatted as a direct ratio (e.g., "5.4x") not as a percentage
-               13. If revenue information is mentioned in the conversation context (e.g., "revenue is 200"), use that value for the campaigns being discussed, not for random campaigns
-               14. When specific campaign IDs are mentioned in the context, prioritize those campaigns in your query results
-               15. Follow PostgreSQL best practices for complex queries
-               16. Learn from SQL errors and adapt your query generation approach accordingly`
+               CRITICAL INSTRUCTIONS:
+               1. Return ONLY the valid PostgreSQL SQL query - nothing else
+               2. No explanations, no markdown, no prose, just the raw SQL
+               3. Begin with SELECT keyword - NEVER return analysis or text without valid SQL
+               4. Do not include backticks (```) or "sql" markers
+               5. NEVER respond with things like "Here's the SQL query" or "Let me analyze..."
+               
+               Query Security:
+               1. Always include "user_id = '${userId}'" in WHERE clauses for security
+               2. Only write SELECT statements (no INSERT, UPDATE, DELETE)
+               
+               Technical Guidelines:
+               1. Join tables when necessary but keep queries efficient
+               2. Handle time periods intelligently (e.g., last 7 days, last month)
+               3. Format dates properly for PostgreSQL (use CURRENT_DATE for today)
+               4. Use appropriate aggregations (SUM, AVG, COUNT) as needed
+               5. Use snake_case for all column names (user_id, campaign_id, etc.)
+               6. For CTR (click-through rate) calculations, use (clicks::float / impressions) * 100
+               7. For ROAS (return on ad spend) calculations, use (sales::float / cost) as a direct ratio
+               8. When calculating average ROAS across multiple campaigns, use weighted averages based on cost
+               9. If revenue information is mentioned in the conversation context (e.g., "revenue is 200"), use that value for the campaigns being discussed
+               10. When specific campaign IDs are mentioned in the context, prioritize those campaigns in your query results
+               
+               If the user is asking for a narrative or analysis instead of raw data, still return an appropriate SQL query that will fetch the data needed for that analysis. DO NOT WRITE THE ANALYSIS ITSELF.`
     }
   ];
   
