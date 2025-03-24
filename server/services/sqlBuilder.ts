@@ -68,6 +68,11 @@ export interface SQLBuilderResult {
   fromCache?: boolean;
   fromSummary?: boolean;
   fromFallback?: boolean;
+  selectionMetadata?: {
+    selectionCriteria: string;
+    originalQuery: string;
+    generatedSql: string;
+  };
 }
 
 /**
@@ -221,6 +226,99 @@ export async function processSQLQuery(
       
       console.log(`SQL query returned ${data.length} results`);
       
+      // Format ROAS values as ratios with 'x' suffix (e.g., "9.98x")
+      if (data && data.length > 0) {
+        data = data.map(item => {
+          const newItem = { ...item };
+          
+          // Format ROAS values if present
+          if (newItem.roas !== undefined && newItem.roas !== null) {
+            // Store the original value for calculations
+            newItem.roas_original = newItem.roas;
+            
+            // Format as a ratio with 'x' suffix
+            if (typeof newItem.roas === 'number') {
+              newItem.roas = newItem.roas.toFixed(2) + 'x';
+            } else if (typeof newItem.roas === 'string' && !newItem.roas.endsWith('x')) {
+              // Try to parse string to number and format
+              const roasNum = parseFloat(newItem.roas);
+              if (!isNaN(roasNum)) {
+                newItem.roas = roasNum.toFixed(2) + 'x';
+              }
+            }
+          }
+          
+          return newItem;
+        });
+      }
+      
+      // Add selection criteria metadata to explain why these campaigns were selected
+      // This will be used when users ask "why did you show me these campaigns?"
+      let selectionCriteria = '';
+      
+      if (data && data.length > 0) {
+        // Determine the selection criteria from the query and results
+        if (sqlQuery.toLowerCase().includes('order by')) {
+          // Extract the ORDER BY clause to understand the sorting criteria
+          const orderByMatch = sqlQuery.match(/order\s+by\s+([^)]*?)(?:limit|\s*$)/i);
+          if (orderByMatch && orderByMatch[1]) {
+            const orderByClause = orderByMatch[1].trim();
+            
+            if (orderByClause.includes('desc')) {
+              selectionCriteria += 'Campaigns sorted by highest ';
+              if (orderByClause.includes('impression')) selectionCriteria += 'impressions ';
+              if (orderByClause.includes('click')) selectionCriteria += 'clicks ';
+              if (orderByClause.includes('ctr')) selectionCriteria += 'click-through rate ';
+              if (orderByClause.includes('cost')) selectionCriteria += 'ad spend ';
+              if (orderByClause.includes('roas')) selectionCriteria += 'ROAS ';
+              if (orderByClause.includes('conversion')) selectionCriteria += 'conversions ';
+            } else {
+              selectionCriteria += 'Campaigns sorted by lowest ';
+              if (orderByClause.includes('impression')) selectionCriteria += 'impressions ';
+              if (orderByClause.includes('click')) selectionCriteria += 'clicks ';
+              if (orderByClause.includes('ctr')) selectionCriteria += 'click-through rate ';
+              if (orderByClause.includes('cost')) selectionCriteria += 'ad spend ';
+              if (orderByClause.includes('roas')) selectionCriteria += 'ROAS ';
+              if (orderByClause.includes('conversion')) selectionCriteria += 'conversions ';
+            }
+          }
+        }
+        
+        // Check for date range filters
+        if (sqlQuery.toLowerCase().includes('date')) {
+          const dateMatch = sqlQuery.match(/date\s*(>=|<=|=|>|<)\s*'([^']*?)'/i);
+          if (dateMatch && dateMatch[2]) {
+            selectionCriteria += `for time period including ${dateMatch[2]} `;
+          }
+          
+          const dateRangeMatch = sqlQuery.match(/date\s+between\s+'([^']*?)'\s+and\s+'([^']*?)'/i);
+          if (dateRangeMatch && dateRangeMatch[1] && dateRangeMatch[2]) {
+            selectionCriteria += `for date range ${dateRangeMatch[1]} to ${dateRangeMatch[2]} `;
+          }
+        }
+        
+        // Check for specific campaign filters
+        if (sqlQuery.toLowerCase().includes('campaign_id')) {
+          const campaignMatch = sqlQuery.match(/campaign_id\s*(=|IN)\s*(?:'([^']*?)'|\(([^)]*?)\))/i);
+          if (campaignMatch) {
+            selectionCriteria += 'filtered to specific campaign(s) mentioned ';
+          }
+        }
+        
+        // Add limit information
+        const limitMatch = sqlQuery.match(/limit\s+(\d+)/i);
+        if (limitMatch && limitMatch[1]) {
+          selectionCriteria += `showing top ${limitMatch[1]} results `;
+        }
+      }
+      
+      // Add selection criteria to the metadata
+      const selectionMetadata = {
+        selectionCriteria: selectionCriteria || 'Based on the query parameters specified',
+        originalQuery: query,
+        generatedSql: sqlQuery
+      };
+      
       // Step 5: Cache the result for future queries if successful
       if (!error && data.length > 0) {
         await QueryCache.cacheResponse(query, userId, {
@@ -336,14 +434,16 @@ export async function processSQLQuery(
     return {
       data,
       sql: sqlQuery,
-      error
+      error,
+      selectionMetadata: selectionCriteria ? selectionMetadata : undefined
     };
   } catch (err: any) {
     console.error("Error in SQL builder service:", err);
     return {
       data: [],
       sql: '',
-      error: `SQL builder error: ${err.message}`
+      error: `SQL builder error: ${err.message}`,
+      selectionMetadata: undefined
     };
   }
 }
