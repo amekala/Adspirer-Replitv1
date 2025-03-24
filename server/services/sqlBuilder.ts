@@ -490,7 +490,7 @@ export async function processSQLQuery(
     };
     
     // Extract selection criteria based on SQL query
-    let criteriaText = '';
+    criteriaText = ''; // Reset the criteriaText variable we initialized earlier
     
     if (data && data.length > 0) {
       // Determine selection criteria from the SQL query

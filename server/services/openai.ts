@@ -960,15 +960,25 @@ export async function getConversationHistory(
     const content = typeof msg.content === 'string' ? msg.content : 
                    (msg.content ? JSON.stringify(msg.content) : '');
     
-    // Create the base message
-    const formattedMsg: OpenAIMessage = {
+    // Create the message with proper typing for metadata
+    let formattedMsg: OpenAIMessage = {
       role: msg.role === 'system' ? 'developer' as MessageRole : msg.role as MessageRole,
       content: content
     };
     
     // Add metadata if it exists and is an object
     if (msg.metadata && typeof msg.metadata === 'object') {
-      formattedMsg.metadata = msg.metadata as Record<string, any>;
+      // Parse JSON metadata properly to avoid type issues
+      try {
+        const typedMetadata: Record<string, any> = 
+          typeof msg.metadata === 'string' 
+            ? JSON.parse(msg.metadata) 
+            : msg.metadata as Record<string, any>;
+        
+        formattedMsg.metadata = typedMetadata;
+      } catch (e) {
+        console.warn("Failed to parse message metadata:", e);
+      }
     }
     
     return formattedMsg;
