@@ -88,17 +88,30 @@ async function handleDataQuery(
   query: string,
   conversationContext?: string,
 ): Promise<void> {
-  console.log(
-    `Handling data query: "${query}" with ${conversationContext ? "context" : "no context"}`,
-  );
+  // Check if this is a meta-query asking about previous campaign selection
+  const isSelectionExplanationQuery = query.toLowerCase().match(/(why|how).*(pick|chose|select|unique|special|only|criteria)/);
+    
+  if (isSelectionExplanationQuery) {
+    console.log(`Handling selection explanation query: "${query}" with ${conversationContext ? "context" : "no context"}`);
+  } else {
+    console.log(`Handling data query: "${query}" with ${conversationContext ? "context" : "no context"}`);
+  }
 
   try {
-    // Send a thinking message to the client
-    res.write(
-      `data: ${JSON.stringify({
-        content: "I'm analyzing your campaign data...",
-      })}\n\n`,
-    );
+    // Send a thinking message to the client, with different wording based on query type
+    if (isSelectionExplanationQuery) {
+      res.write(
+        `data: ${JSON.stringify({
+          content: "I'm looking at the selection criteria behind these campaigns...",
+        })}\n\n`,
+      );
+    } else {
+      res.write(
+        `data: ${JSON.stringify({
+          content: "I'm analyzing your campaign data...",
+        })}\n\n`,
+      );
+    }
 
     // Parse the conversation context for revenue information
     let revenueInfo = null;
@@ -371,6 +384,9 @@ CONTEXTUAL AWARENESS:
 7. Acknowledge how new data relates to previously discussed insights
 8. When a user refers to "performance" without specifying metrics, ask which specific KPIs they're interested in
 9. If the user asks about "campaigns" without specifics, ask which campaigns they want to know about
+10. ALWAYS EXPLAIN YOUR REASONING when the user asks about your previous responses or selections
+11. When the user asks "why" questions about your previous responses, clearly explain the criteria or methodology you used
+12. If the user asks about your selection of campaigns or data points, explain exactly what factors guided that selection
 
 FORMATTING AND TECHNICAL GUIDELINES:
 1. ALWAYS present ROAS (Return on Ad Spend) as a ratio with the "x" suffix (e.g., "9.98x" not "998%")

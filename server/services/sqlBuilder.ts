@@ -100,7 +100,14 @@ export function isDataQuery(message: string): boolean {
     /(amazon|google).*(campaign|campaigns|ads|advertising)/,
     
     // Direct data questions
-    /how (are|is) my.*(campaign|campaigns|ads)/
+    /how (are|is) my.*(campaign|campaigns|ads)/,
+    
+    // Meta-queries about previous responses or selection criteria
+    /(why|how).*(pick|chose|select|decided|included|excluded|only)/,
+    /(why|what).*(criteria|methodology|factors|unique|special)/,
+    /explain.*(choice|selection|decision|why|how)/,
+    /reasoning/,
+    /what made you/
   ];
   
   // Check if any pattern matches
@@ -358,36 +365,63 @@ async function generateSQL(
   const openai = getOpenAIClient();
   
   // Format the input for the Responses API
-  const systemPrompt = "You are an AI specialized in converting natural language questions about advertising campaign data into PostgreSQL SQL queries.\n\n" +
-    "You have access to the following database schema:\n" + DB_SCHEMA + "\n\n" +
-    "CRITICAL INSTRUCTIONS:\n" + 
-    "1. Return ONLY the valid PostgreSQL SQL query - nothing else\n" +
-    "2. No explanations, no markdown, no prose, just the raw SQL\n" +
-    "3. Begin with SELECT keyword - NEVER return analysis or text without valid SQL\n" +
-    "4. Do not include backticks or code block markers\n" +
-    "5. NEVER respond with things like 'Here is the SQL query' or 'Let me analyze...'\n\n" +
-    "Query Security:\n" +
-    "1. Always include \"user_id = '" + userId + "'\" in WHERE clauses for security\n" +
-    "2. Only write SELECT statements (no INSERT, UPDATE, DELETE)\n\n" +
-    "Technical Guidelines:\n" +
-    "1. Join tables when necessary but keep queries efficient\n" +
-    "2. Handle time periods intelligently (e.g., last 7 days, last month)\n" +
-    "3. Format dates properly for PostgreSQL (use CURRENT_DATE for today)\n" +
-    "4. Use appropriate aggregations (SUM, AVG, COUNT) as needed\n" +
-    "5. Use snake_case for all column names (user_id, campaign_id, etc.)\n" +
-    "6. For CTR calculations, use (clicks::float / NULLIF(impressions, 0)) * 100\n" +
-    "7. For ROAS calculations, use ROUND((revenue::numeric / NULLIF(cost, 0))::numeric, 2) as roas - NEVER multiply by 100\n" +
-    "8. When calculating average ROAS across multiple campaigns, use weighted averages based on cost\n" +
-    "9. For all percentage calculations, round to at most 2 decimal places\n\n" +
-    
-    "CONTEXTUAL AWARENESS:\n" +
-    "1. If revenue information is mentioned in the context (e.g. 'revenue is $15'), use that value for campaigns mentioned in the query\n" +
-    "2. When specific campaign IDs are mentioned in the context, prioritize those campaigns in your results\n" +
-    "3. If the context refers to time periods like 'last week' or 'this month', honor those time frames in your query\n" +
-    "4. If the user refers to 'it' or 'this campaign', look for campaign IDs in the context\n" +
-    "5. For references to 'metrics' or 'performance', include key metrics (impressions, clicks, cost, CTR, ROAS)\n\n" +
-    
-    "If the user is asking for a narrative or analysis instead of raw data, still return an appropriate SQL query that will fetch the data needed for that analysis. DO NOT WRITE THE ANALYSIS ITSELF.";
+  // Check if this is a meta-query about why certain campaigns were selected
+  const isSelectionExplanationQuery = query.toLowerCase().match(/(why|how).*(pick|chose|select|unique|special|only|criteria)/);
+  
+  const systemPrompt = isSelectionExplanationQuery
+    ? "You are an AI specialized in explaining campaign selection criteria and generating SQL queries that return data to explain those selections.\n\n" +
+      "You have access to the following database schema:\n" + DB_SCHEMA + "\n\n" +
+      "The user is asking about why certain campaigns were selected in a previous response. To explain this:\n" +
+      "1. Return a SQL query that will fetch ALL campaigns with their key metrics, sorted by the most relevant metrics.\n" +
+      "2. Include campaign_id, impressions, clicks, CTR, cost, and other key metrics.\n" +
+      "3. Sort by the most relevant metric (e.g., impressions, clicks, CTR, or cost) that would highlight why certain campaigns stand out.\n" +
+      "4. Apply the same time filters as the original query if mentioned in the context.\n" +
+      "5. Make sure to return comprehensive data so the main AI assistant can explain the selection criteria.\n\n" +
+      
+      "CRITICAL INSTRUCTIONS:\n" + 
+      "1. Return ONLY the valid PostgreSQL SQL query - nothing else\n" +
+      "2. No explanations, no markdown, no prose, just the raw SQL\n" +
+      "3. Begin with SELECT keyword\n" +
+      "4. Always include \"user_id = '" + userId + "'\" in WHERE clauses for security\n" +
+      "5. Only write SELECT statements (no INSERT, UPDATE, DELETE)\n" +
+      "6. For ROAS calculations, use ROUND((revenue::numeric / NULLIF(cost, 0))::numeric, 2) as roas - NEVER multiply by 100\n" +
+      "7. For CTR calculations, use (clicks::float / NULLIF(impressions, 0)) * 100 as ctr\n\n" +
+      
+      "CONTEXTUAL AWARENESS:\n" +
+      "1. Look for campaign IDs in the context to understand which campaigns were previously selected\n" +
+      "2. If time periods were mentioned, use the same time periods\n" +
+      "3. Include all available metrics to provide a complete picture of why certain campaigns might be selected"
+      
+    : "You are an AI specialized in converting natural language questions about advertising campaign data into PostgreSQL SQL queries.\n\n" +
+      "You have access to the following database schema:\n" + DB_SCHEMA + "\n\n" +
+      "CRITICAL INSTRUCTIONS:\n" + 
+      "1. Return ONLY the valid PostgreSQL SQL query - nothing else\n" +
+      "2. No explanations, no markdown, no prose, just the raw SQL\n" +
+      "3. Begin with SELECT keyword - NEVER return analysis or text without valid SQL\n" +
+      "4. Do not include backticks or code block markers\n" +
+      "5. NEVER respond with things like 'Here is the SQL query' or 'Let me analyze...'\n\n" +
+      "Query Security:\n" +
+      "1. Always include \"user_id = '" + userId + "'\" in WHERE clauses for security\n" +
+      "2. Only write SELECT statements (no INSERT, UPDATE, DELETE)\n\n" +
+      "Technical Guidelines:\n" +
+      "1. Join tables when necessary but keep queries efficient\n" +
+      "2. Handle time periods intelligently (e.g., last 7 days, last month)\n" +
+      "3. Format dates properly for PostgreSQL (use CURRENT_DATE for today)\n" +
+      "4. Use appropriate aggregations (SUM, AVG, COUNT) as needed\n" +
+      "5. Use snake_case for all column names (user_id, campaign_id, etc.)\n" +
+      "6. For CTR calculations, use (clicks::float / NULLIF(impressions, 0)) * 100\n" +
+      "7. For ROAS calculations, use ROUND((revenue::numeric / NULLIF(cost, 0))::numeric, 2) as roas - NEVER multiply by 100\n" +
+      "8. When calculating average ROAS across multiple campaigns, use weighted averages based on cost\n" +
+      "9. For all percentage calculations, round to at most 2 decimal places\n\n" +
+      
+      "CONTEXTUAL AWARENESS:\n" +
+      "1. If revenue information is mentioned in the context (e.g. 'revenue is $15'), use that value for campaigns mentioned in the query\n" +
+      "2. When specific campaign IDs are mentioned in the context, prioritize those campaigns in your results\n" +
+      "3. If the context refers to time periods like 'last week' or 'this month', honor those time frames in your query\n" +
+      "4. If the user refers to 'it' or 'this campaign', look for campaign IDs in the context\n" +
+      "5. For references to 'metrics' or 'performance', include key metrics (impressions, clicks, cost, CTR, ROAS)\n\n" +
+      
+      "If the user is asking for a narrative or analysis instead of raw data, still return an appropriate SQL query that will fetch the data needed for that analysis. DO NOT WRITE THE ANALYSIS ITSELF.";
 
   const input = [
     {
