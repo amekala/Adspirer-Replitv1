@@ -137,7 +137,7 @@ export default function AuthPage() {
 
   useEffect(() => {
     if (user) {
-      setLocation("/dashboard");
+      setLocation("/chat");
     }
   }, [user, setLocation]);
 

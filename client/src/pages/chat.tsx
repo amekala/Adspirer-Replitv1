@@ -5,16 +5,19 @@ import { Textarea } from "@/components/ui/textarea";
 import { Separator } from "@/components/ui/separator";
 import { Chat } from "../components/chat";
 import { ChatSidebar } from "../components/chat-sidebar";
+import { ChatSettings } from "../components/chat-settings";
 import { useAuth } from "@/hooks/use-auth";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { Send, PlusCircle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { AnimatePresence, motion } from "framer-motion";
 
 export default function ChatPage() {
   const { user } = useAuth() || {};
   const { toast } = useToast();
   const [message, setMessage] = useState("");
   const [currentConversationId, setCurrentConversationId] = useState<string | null>(null);
+  const [showSettings, setShowSettings] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const chatContainerRef = useRef<HTMLDivElement>(null);
 
@@ -236,11 +239,26 @@ export default function ChatPage() {
   // Handle a new conversation
   const handleNewConversation = () => {
     createConversationMutation.mutate();
+    
+    // If settings are open, close them
+    if (showSettings) {
+      setShowSettings(false);
+    }
   };
 
   // Select a conversation
   const handleConversationSelect = (id: string) => {
     setCurrentConversationId(id);
+    
+    // If settings are open, close them
+    if (showSettings) {
+      setShowSettings(false);
+    }
+  };
+
+  // Toggle settings panel
+  const handleToggleSettings = () => {
+    setShowSettings(!showSettings);
   };
 
   // Handle sending a message
@@ -542,86 +560,107 @@ export default function ChatPage() {
   });
 
   return (
-    <div className="flex h-screen overflow-hidden">
-        <ChatSidebar 
-          conversations={conversations} 
-          currentConversationId={currentConversationId}
-          onConversationSelect={handleConversationSelect}
-          onNewConversation={handleNewConversation}
-          onRenameConversation={(id, title) => 
-            updateConversationMutation.mutate({ id, title })
-          }
-          onDeleteConversation={(id) => 
-            deleteConversationMutation.mutate(id)
-          }
-          isLoading={isLoadingConversations}
-        />
-        
-        <div className="flex flex-col flex-1 overflow-hidden">
-          <div 
-            ref={chatContainerRef}
-            className="flex-1 overflow-y-auto p-4 space-y-4"
-          >
-            {currentConversationId ? (
-              <>
-                {/* Adding debug info */}
-                <div className="hidden">
-                  <pre>{JSON.stringify(currentConversation, null, 2)}</pre>
-                </div>
-                <Chat
-                  conversation={currentConversation}
-                  isLoading={isLoadingConversation}
-                />
-              </>
-            ) : (
-              <div className="flex items-center justify-center h-full">
-                <div className="text-center space-y-4">
-                  <h2 className="text-2xl font-bold">Welcome to Adspirer AI Chat</h2>
-                  <p className="text-muted-foreground">
-                    Start a new conversation to get insights about your advertising campaigns
-                  </p>
-                  <Button 
-                    onClick={handleNewConversation}
-                    className="mt-4"
-                  >
-                    <PlusCircle className="mr-2 h-4 w-4" />
-                    New Conversation
-                  </Button>
-                </div>
+    <div className="flex h-screen overflow-hidden bg-background">
+      <ChatSidebar 
+        conversations={conversations} 
+        currentConversationId={currentConversationId}
+        onConversationSelect={handleConversationSelect}
+        onNewConversation={handleNewConversation}
+        onRenameConversation={(id, title) => 
+          updateConversationMutation.mutate({ id, title })
+        }
+        onDeleteConversation={(id) => 
+          deleteConversationMutation.mutate(id)
+        }
+        onOpenSettings={handleToggleSettings}
+        isLoading={isLoadingConversations}
+      />
+      
+      <div className="flex-1 flex flex-col overflow-hidden">
+        <AnimatePresence mode="wait" initial={false}>
+          {showSettings ? (
+            <motion.div 
+              key="settings"
+              className="flex-1 overflow-hidden"
+              initial={{ opacity: 0, x: 20 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: 20 }}
+              transition={{ duration: 0.2 }}
+            >
+              <ChatSettings onBack={() => setShowSettings(false)} />
+            </motion.div>
+          ) : (
+            <motion.div 
+              key="chat"
+              className="flex-1 flex flex-col overflow-hidden"
+              initial={{ opacity: 0, x: -20 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: -20 }}
+              transition={{ duration: 0.2 }}
+            >
+              <div 
+                ref={chatContainerRef}
+                className="flex-1 overflow-y-auto p-4 space-y-4"
+              >
+                {currentConversationId ? (
+                  <>
+                    <Chat
+                      conversation={currentConversation}
+                      isLoading={isLoadingConversation}
+                    />
+                  </>
+                ) : (
+                  <div className="flex items-center justify-center h-full">
+                    <div className="text-center space-y-4 max-w-md px-4">
+                      <h2 className="text-2xl font-bold">Welcome to Adspirer AI Chat</h2>
+                      <p className="text-muted-foreground">
+                        Start a new conversation to get insights about your advertising campaigns
+                      </p>
+                      <Button 
+                        onClick={handleNewConversation}
+                        className="mt-4"
+                      >
+                        <PlusCircle className="mr-2 h-4 w-4" />
+                        New Conversation
+                      </Button>
+                    </div>
+                  </div>
+                )}
               </div>
-            )}
-          </div>
-          
-          {currentConversationId && (
-            <>
-              <Separator />
-              <div className="p-4">
-                <div className="flex items-end space-x-2">
-                  <Textarea
-                    ref={textareaRef}
-                    value={message}
-                    onChange={(e) => setMessage(e.target.value)}
-                    onKeyDown={handleKeyDown}
-                    placeholder="Send a message..."
-                    className="min-h-[60px] resize-none overflow-hidden"
-                    rows={1}
-                  />
-                  <Button
-                    onClick={handleSendMessage}
-                    disabled={!message.trim() || sendMessageMutation.isPending}
-                    size="icon"
-                    aria-label="Send message"
-                  >
-                    <Send className="h-4 w-4" />
-                  </Button>
-                </div>
-                <p className="text-xs text-muted-foreground mt-2">
-                  Press Enter to send, Shift+Enter for a new line
-                </p>
-              </div>
-            </>
+              
+              {currentConversationId && (
+                <>
+                  <Separator />
+                  <div className="p-4">
+                    <div className="flex items-end space-x-2">
+                      <Textarea
+                        ref={textareaRef}
+                        value={message}
+                        onChange={(e) => setMessage(e.target.value)}
+                        onKeyDown={handleKeyDown}
+                        placeholder="Send a message..."
+                        className="min-h-[60px] resize-none overflow-hidden"
+                        rows={1}
+                      />
+                      <Button
+                        onClick={handleSendMessage}
+                        disabled={!message.trim() || sendMessageMutation.isPending}
+                        size="icon"
+                        aria-label="Send message"
+                      >
+                        <Send className="h-4 w-4" />
+                      </Button>
+                    </div>
+                    <p className="text-xs text-muted-foreground mt-2">
+                      Press Enter to send, Shift+Enter for a new line
+                    </p>
+                  </div>
+                </>
+              )}
+            </motion.div>
           )}
-        </div>
+        </AnimatePresence>
+      </div>
     </div>
   );
 }
