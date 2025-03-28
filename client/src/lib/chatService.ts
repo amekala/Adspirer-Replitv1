@@ -165,16 +165,17 @@ export async function sendMessage(
     
     // Step 2: Call the AI completions endpoint
     console.log('Calling AI completions endpoint...');
+    const token = localStorage.getItem('token');
     const completionResponse = await fetch('/api/chat/completions', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
       },
       body: JSON.stringify({
         conversationId: conversationId,
         message: messageContent
-      }),
-      credentials: 'include' // Include credentials for session authentication
+      })
     });
 
     if (!completionResponse.ok) {

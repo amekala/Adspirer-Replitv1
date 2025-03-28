@@ -1,21 +1,26 @@
-import passport from "passport";
+import { Express, Request, Response, NextFunction } from "express";
 import { Strategy as LocalStrategy } from "passport-local";
-import { Express } from "express";
-import session from "express-session";
+import { Strategy as JwtStrategy, ExtractJwt } from "passport-jwt";
+import passport from "passport";
+import jwt from "jsonwebtoken";
 import { scrypt, randomBytes, timingSafeEqual } from "crypto";
 import { promisify } from "util";
 import { storage } from "./storage";
 import { insertUserSchema, User as SelectUser } from "@shared/schema";
 
-declare global {
-  namespace Express {
-    interface User extends SelectUser {}
-  }
-}
+// JWT auth middleware
+export const authenticate = (req: Request, res: Response, next: NextFunction) => {
+  passport.authenticate('jwt', { session: false }, (err: any, user: any, info: any) => {
+    if (err) return next(err);
+    if (!user) return res.status(401).json({ message: 'Unauthorized' });
+    req.user = user;
+    next();
+  })(req, res, next);
+};
 
 const scryptAsync = promisify(scrypt);
 
-async function hashPassword(password: string) {
+export async function hashPassword(password: string) {
   const salt = randomBytes(16).toString("hex");
   const buf = (await scryptAsync(password, salt, 64)) as Buffer;
   return `${buf.toString("hex")}.${salt}`;
@@ -33,22 +38,9 @@ export function setupAuth(app: Express) {
     throw new Error("SESSION_SECRET environment variable is required");
   }
   
-  const sessionSettings: session.SessionOptions = {
-    secret: process.env.SESSION_SECRET,
-    resave: false,
-    saveUninitialized: false,
-    store: storage.sessionStore,
-    cookie: {
-      secure: process.env.NODE_ENV === "production",
-      sameSite: "lax"
-    }
-  };
+  const jwtSecret = process.env.SESSION_SECRET;
 
-  app.set("trust proxy", 1);
-  app.use(session(sessionSettings));
-  app.use(passport.initialize());
-  app.use(passport.session());
-
+  // Local strategy for username/password authentication
   passport.use(
     new LocalStrategy({
       usernameField: 'email',
@@ -66,15 +58,33 @@ export function setupAuth(app: Express) {
     }),
   );
 
-  passport.serializeUser((user, done) => done(null, user.id));
-  passport.deserializeUser(async (id: string, done) => {
-    try {
-      const user = await storage.getUser(id);
-      done(null, user);
-    } catch (error) {
-      done(error);
-    }
-  });
+  // JWT strategy for token authentication
+  passport.use(
+    new JwtStrategy({
+      jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
+      secretOrKey: jwtSecret,
+    }, async (payload, done) => {
+      try {
+        // Find the user by ID from the JWT payload
+        const user = await storage.getUser(payload.id);
+        if (!user) {
+          return done(null, false);
+        }
+        
+        // Check if token is expired
+        const now = Date.now() / 1000;
+        if (payload.exp && payload.exp < now) {
+          return done(null, false);
+        }
+        
+        return done(null, user);
+      } catch (error) {
+        return done(error);
+      }
+    })
+  );
+
+  passport.initialize();
 
   app.post("/api/register", async (req, res, next) => {
     try {
@@ -93,28 +103,53 @@ export function setupAuth(app: Express) {
         password: await hashPassword(result.data.password),
       });
 
-      req.login(user, (err) => {
-        if (err) return next(err);
-        res.status(201).json(user);
+      // Generate JWT token
+      const token = jwt.sign(
+        { id: user.id, email: user.email, role: user.role },
+        jwtSecret,
+        { expiresIn: '7d' }
+      );
+
+      // Return user details and token
+      const { password, ...userWithoutPassword } = user;
+      res.status(201).json({ 
+        user: userWithoutPassword,
+        token 
       });
     } catch (error) {
       next(error);
     }
   });
 
-  app.post("/api/login", passport.authenticate("local"), (req, res) => {
-    res.status(200).json(req.user);
-  });
-
-  app.post("/api/logout", (req, res, next) => {
-    req.logout((err) => {
+  app.post("/api/login", (req, res, next) => {
+    passport.authenticate('local', { session: false }, (err, user) => {
       if (err) return next(err);
-      res.sendStatus(200);
-    });
+      if (!user) return res.status(401).json({ message: 'Invalid email or password' });
+      
+      // Generate JWT token
+      const token = jwt.sign(
+        { id: user.id, email: user.email, role: user.role },
+        jwtSecret,
+        { expiresIn: '7d' }
+      );
+
+      // Return user details and token
+      const { password, ...userWithoutPassword } = user;
+      return res.json({ 
+        user: userWithoutPassword,
+        token 
+      });
+    })(req, res, next);
   });
 
-  app.get("/api/user", (req, res) => {
-    if (!req.isAuthenticated()) return res.sendStatus(401);
-    res.json(req.user);
+  // Simple logout endpoint (client should discard the token)
+  app.post("/api/logout", (req, res) => {
+    res.status(200).json({ message: 'Logged out successfully' });
+  });
+
+  // Get current user endpoint (requires valid JWT)
+  app.get("/api/user", authenticate, (req, res) => {
+    const { password, ...userWithoutPassword } = req.user as SelectUser;
+    res.json(userWithoutPassword);
   });
 }

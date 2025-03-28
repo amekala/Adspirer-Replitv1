@@ -12,17 +12,16 @@ import {
   queryCacheEntries
 } from "@shared/schema";
 import session from "express-session";
-import { drizzle } from "drizzle-orm/postgres-js";
-import postgres from "postgres";
 import { and, eq, gte, lte, desc, or, sql } from "drizzle-orm";
 import connectPg from "connect-pg-simple";
 import { nanoid } from "nanoid";
 import crypto from "crypto";
+import dotenv from "dotenv";
+import { db } from "./db";
+
+dotenv.config();
 
 const PostgresSessionStore = connectPg(session);
-
-const queryClient = postgres(process.env.DATABASE_URL!);
-const db = drizzle(queryClient);
 
 export interface IStorage {
   // User management
@@ -111,12 +110,8 @@ export class DatabaseStorage implements IStorage {
   sessionStore: session.Store;
 
   constructor() {
-    this.sessionStore = new PostgresSessionStore({
-      conObject: {
-        connectionString: process.env.DATABASE_URL,
-      },
-      createTableIfMissing: true,
-    });
+    // No longer using session store with JWT authentication
+    this.sessionStore = null as any;
   }
 
   async getUser(id: string): Promise<User | undefined> {

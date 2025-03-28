@@ -55,6 +55,12 @@ export async function setupVite(app: Express, server: Server) {
         "index.html",
       );
 
+      // Check if the file exists before trying to read it
+      if (!fs.existsSync(clientTemplate)) {
+        log(`Template file not found at ${clientTemplate}`);
+        return next(new Error(`Could not find index.html at ${clientTemplate}`));
+      }
+
       // always reload the index.html file from disk incase it changes
       let template = await fs.promises.readFile(clientTemplate, "utf-8");
       template = template.replace(
@@ -64,6 +70,7 @@ export async function setupVite(app: Express, server: Server) {
       const page = await vite.transformIndexHtml(url, template);
       res.status(200).set({ "Content-Type": "text/html" }).end(page);
     } catch (e) {
+      log(`Error serving client template: ${(e as Error).message}`);
       vite.ssrFixStacktrace(e as Error);
       next(e);
     }
@@ -71,18 +78,35 @@ export async function setupVite(app: Express, server: Server) {
 }
 
 export function serveStatic(app: Express) {
-  const distPath = path.resolve(__dirname, "public");
-
+  // For local development, we need to check multiple possible locations
+  let distPath = path.resolve(__dirname, "public");
+  
+  // Check if directory exists at the primary location
   if (!fs.existsSync(distPath)) {
-    throw new Error(
-      `Could not find the build directory: ${distPath}, make sure to build the client first`,
-    );
+    // Try an alternative location (common in local development)
+    const altDistPath = path.resolve(__dirname, "..", "dist");
+    if (fs.existsSync(altDistPath)) {
+      log(`Using alternative build directory: ${altDistPath}`);
+      distPath = altDistPath;
+    } else {
+      throw new Error(
+        `Could not find the build directory at ${distPath} or ${altDistPath}. Make sure to build the client first with 'npm run build'`,
+      );
+    }
   }
 
+  log(`Serving static files from: ${distPath}`);
   app.use(express.static(distPath));
 
   // fall through to index.html if the file doesn't exist
   app.use("*", (_req, res) => {
-    res.sendFile(path.resolve(distPath, "index.html"));
+    const indexPath = path.resolve(distPath, "index.html");
+    
+    if (!fs.existsSync(indexPath)) {
+      log(`ERROR: index.html not found at ${indexPath}`);
+      return res.status(500).send("Server error: Could not find index.html file. Please rebuild the client.");
+    }
+    
+    res.sendFile(indexPath);
   });
 }

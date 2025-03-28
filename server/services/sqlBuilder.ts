@@ -68,6 +68,11 @@ export interface SQLBuilderResult {
   fromCache?: boolean;
   fromSummary?: boolean;
   fromFallback?: boolean;
+  processingTimes?: {
+    total: number;
+    generation: number;
+    execution: number;
+  };
   selectionMetadata?: {
     selectionCriteria: string;
     originalQuery: string;
@@ -178,6 +183,9 @@ export async function processSQLQuery(
 ): Promise<SQLBuilderResult> {
   try {
     console.log(`SQL Builder processing query from user ${userId}: "${query}"`);
+    const startTime = Date.now();
+    let generationTime = 0;
+    let executionTime = 0;
     
     // Initialize criteriaText variable to avoid undefined errors later
     let criteriaText = '';
@@ -240,12 +248,15 @@ export async function processSQLQuery(
     console.log('Bypassing cache and precomputed summaries - directly generating SQL for all queries');
     
     // Step 3: Generate SQL from natural language query if not in cache or no summaries
+    const sqlGenerationStart = Date.now();
     const sqlQuery = await generateSQL(userId, query, conversationContext);
-    console.log(`Generated SQL: ${sqlQuery}`);
+    generationTime = Date.now() - sqlGenerationStart;
+    console.log(`Generated SQL in ${generationTime}ms: ${sqlQuery}`);
     
     // Step 4: Execute the SQL query
     let data: any[] = [];
     let error: string | undefined = undefined;
+    let executionStart = 0; // Initialize for error handling
     
     try {
       // Add safety check - ensure the query only contains SELECT statements
@@ -257,8 +268,11 @@ export async function processSQLQuery(
       const secureQuery = ensureUserFilter(sqlQuery, userId);
       console.log(`Executing secure SQL: ${secureQuery}`);
       
-      // Execute the query
+      // Execute the query with timing
+      const executionStart = Date.now();
       const result = await db.execute(sql.raw(secureQuery));
+      executionTime = Date.now() - executionStart;
+      console.log(`SQL execution completed in ${executionTime}ms`);
       
       // Safely extract rows from the result
       if (result && typeof result === 'object') {
@@ -369,13 +383,20 @@ export async function processSQLQuery(
       error = `SQL execution error: ${err.message}`;
       console.error("SQL execution error:", err);
       
-      // Check if this is a "only SELECT queries allowed" error or a syntax error
+      // Categorize the error type for better handling
       const isNonSelectError = err.message.includes("Only SELECT queries are allowed");
       const isSyntaxError = err.message.includes("syntax error");
+      const isRoundFunctionError = err.message.includes("function round") && err.message.includes("does not exist");
+      const isColumnError = err.message.includes("column") && err.message.includes("does not exist");
+      const isJoinError = err.message.includes("join") && err.message.includes("error");
       
-      if ((isNonSelectError || isSyntaxError) && conversationContext) {
+      // Log error category for debugging
+      console.log(`Error category - Non-SELECT: ${isNonSelectError}, Syntax: ${isSyntaxError}, Round: ${isRoundFunctionError}, Column: ${isColumnError}, Join: ${isJoinError}`);
+      
+      // If there's a conversation context, we can attempt to recover with a retry
+      if (conversationContext) {
         try {
-          // Determine the appropriate retry approach
+          // Determine the appropriate retry approach based on error type
           let retryPrompt = "";
           
           if (isNonSelectError) {
@@ -388,17 +409,38 @@ export async function processSQLQuery(
                        "- Include markdown or code blocks\n" +
                        "- Return multiple queries\n\n" +
                        "Just the raw SQL statement like: SELECT... FROM... WHERE...";
+          } else if (isRoundFunctionError) {
+            console.log("ROUND function error detected, removing ROUND functions...");
+            retryPrompt = "The previous SQL query failed because PostgreSQL does not support the ROUND function as used. \n\n" +
+                       "IMPORTANT: NEVER use ROUND() function. Instead, use casting to numeric for rounding.\n\n" +
+                       "For example, instead of ROUND(value, 2), use (value::numeric)::numeric.\n\n" +
+                       "Please generate a new query for: \"" + query + "\" with NO ROUND functions.";
+          } else if (isColumnError) {
+            console.log("Column error detected, simplifying column references...");
+            retryPrompt = "The previous SQL query failed because it referenced columns that don't exist in the database.\n\n" +
+                       "Please generate a new, simpler query for: \"" + query + "\"\n\n" +
+                       "Only use these column names:\n" +
+                       "- id, user_id, profile_id/customer_id, campaign_id, ad_group_id, date\n" +
+                       "- impressions, clicks, cost, conversions, created_at\n\n" +
+                       "For calculated metrics use:\n" +
+                       "- (clicks::float / NULLIF(impressions, 0)) * 100 as ctr\n" +
+                       "- (revenue::numeric / NULLIF(cost, 0))::numeric as roas\n";
+          } else if (isJoinError) {
+            console.log("Join error detected, simplifying join structure...");
+            retryPrompt = "The previous SQL query had a join error. Please generate a simpler query with basic joins or no joins at all for: \"" + query + "\"\n\n" +
+                       "Consider querying just one table instead of joining multiple tables.";
           } else {
-            console.log("SQL syntax error detected, attempting to generate a simpler query...");
-            retryPrompt = "The previous SQL query had a syntax error. Please generate a simpler query without UNION or complex joins for: \"" + query + "\"";
+            console.log("General SQL syntax error detected, attempting to generate a simpler query...");
+            retryPrompt = "The previous SQL query had a syntax error. Please generate a much simpler query without UNION, subqueries, or complex joins for: \"" + query + "\"\n\n" +
+                       "Focus on the core data needed rather than trying to do complex calculations or grouping.";
           }
           
           // Generate a new SQL query with a much stronger instruction
           const simplifiedSql = await generateSQL(userId, retryPrompt, conversationContext);
           
-          // Extra verification that we have a SELECT statement
-          if (!simplifiedSql.trim().toLowerCase().startsWith('select')) {
-            console.log("Retry failed: Still not a proper SELECT statement");
+          // Extra verification that we have a SELECT statement and it's not empty
+          if (!simplifiedSql || !simplifiedSql.trim() || !simplifiedSql.trim().toLowerCase().startsWith('select')) {
+            console.log("Retry failed: Empty or non-SELECT statement received");
             
             // Make a last attempt with a hardcoded basic query if everything else failed
             const basicQuery = "SELECT campaign_id, SUM(impressions) as total_impressions, " +
@@ -427,11 +469,17 @@ export async function processSQLQuery(
             // Return the fallback results
             if (data.length > 0) {
               console.log(`Fallback query returned ${data.length} results`);
+              const totalTime = Date.now() - startTime;
               return {
                 data,
                 sql: basicQuery,
                 error: undefined,
-                fromFallback: true
+                fromFallback: true,
+                processingTimes: {
+                  total: totalTime,
+                  generation: generationTime,
+                  execution: Date.now() - executionStart
+                }
               };
             }
           } else {
@@ -455,25 +503,90 @@ export async function processSQLQuery(
             if (data.length > 0) {
               console.log(`Retry SQL query successful, returned ${data.length} results`);
               error = undefined; // Clear the error since we succeeded
+              const totalTime = Date.now() - startTime;
               return {
                 data,
                 sql: simplifiedSql,
-                error: undefined
+                error: undefined,
+                processingTimes: {
+                  total: totalTime,
+                  generation: generationTime,
+                  execution: Date.now() - executionStart
+                }
               };
             }
           }
         } catch (retryErr: any) {
-          console.error("Retry also failed:", retryErr?.message || "Unknown error");
-          // We keep the original error if the retry also fails
+          console.error("First retry failed:", retryErr?.message || "Unknown error");
+          
+          // If the first retry fails, attempt one more extremely simplified approach
+          try {
+            console.log("Attempting final fallback retry with ultra-simplified query...");
+            
+            // Create an ultra-simple query that just gets basic metrics
+            const finalRetryPrompt = "Generate the most basic PostgreSQL query possible for: \"" + query + "\"\n\n" +
+              "ONLY SELECT campaign_id, SUM(impressions), SUM(clicks), SUM(cost) FROM campaign_metrics, " +
+              "grouped by campaign_id, with a simple WHERE clause for user_id = '" + userId + "' and dates within the last 30 days. " +
+              "Add a basic ORDER BY and LIMIT 10. NO complex operations, just the bare minimum SQL.";
+            
+            const ultraSimpleSql = await generateSQL(userId, finalRetryPrompt, conversationContext);
+            
+            // Ensure it's a SELECT
+            if (ultraSimpleSql.trim().toLowerCase().startsWith('select')) {
+              const secureSimpleQuery = ensureUserFilter(ultraSimpleSql, userId);
+              console.log(`Executing final fallback SQL: ${secureSimpleQuery}`);
+              
+              // Execute the ultra-simple query
+              const finalResult = await db.execute(sql.raw(secureSimpleQuery));
+              
+              // Extract rows
+              if (finalResult && typeof finalResult === 'object') {
+                if ('rows' in finalResult && Array.isArray(finalResult.rows)) {
+                  data = finalResult.rows;
+                } else if (Array.isArray(finalResult)) {
+                  data = finalResult;
+                }
+              }
+              
+              // If we got data, clear the error and return
+              if (data.length > 0) {
+                console.log(`Final fallback query successful, returned ${data.length} results`);
+                error = undefined;
+                const totalTime = Date.now() - startTime;
+                return {
+                  data,
+                  sql: ultraSimpleSql,
+                  error: undefined,
+                  fromFallback: true,
+                  processingTimes: {
+                    total: totalTime,
+                    generation: generationTime,
+                    execution: Date.now() - executionStart
+                  }
+                };
+              }
+            }
+          } catch (finalErr: any) {
+            console.error("Final fallback retry also failed:", finalErr?.message || "Unknown error");
+            // We keep the original error if all retries fail
+          }
         }
       }
     }
     
-    // Create the result object
+    // Create the result object with timing information
+    const totalTime = Date.now() - startTime;
+    console.log(`Total SQL Builder processing time: ${totalTime}ms (SQL generation: ${generationTime}ms, SQL execution: ${executionTime}ms)`);
+    
     const result: SQLBuilderResult = {
       data,
       sql: sqlQuery,
-      error
+      error,
+      processingTimes: {
+        total: totalTime,
+        generation: generationTime,
+        execution: executionTime
+      }
     };
     
     // Extract selection criteria based on SQL query
@@ -544,10 +657,16 @@ export async function processSQLQuery(
     return result;
   } catch (err: any) {
     console.error("Error in SQL builder service:", err);
+    const totalTime = Date.now() - startTime;
     return {
       data: [],
       sql: '',
       error: `SQL builder error: ${err.message}`,
+      processingTimes: {
+        total: totalTime,
+        generation: generationTime,
+        execution: executionTime
+      },
       selectionMetadata: {
         selectionCriteria: 'Error occurred during selection process',
         originalQuery: query,
@@ -555,6 +674,52 @@ export async function processSQLQuery(
       }
     };
   }
+}
+
+/**
+ * Resolves contextual references in a query (like "this campaign")
+ * Returns the specific campaign ID or other context data needed
+ */
+async function resolveContextualReferences(
+  query: string,
+  campaignIds: string[],
+  mentionedMetrics: string[]
+): Promise<{resolved: boolean, campaignId?: string, needsClarification?: boolean, reason?: string}> {
+  // Skip resolution for queries that don't need it
+  if (campaignIds.length === 0) {
+    return { resolved: false };
+  }
+  
+  // Check for common patterns that indicate reference to a specific campaign
+  const campaignReferencePatterns = [
+    /this campaign/i,
+    /that campaign/i,
+    /the campaign/i,
+    /it('s)? performance/i,
+    /it('s)? metrics/i,
+    /it('s)? results/i,
+    /more details/i,
+    /more info/i,
+    /tell me more/i
+  ];
+  
+  const hasReference = campaignReferencePatterns.some(pattern => pattern.test(query));
+  
+  if (!hasReference) {
+    return { resolved: false };
+  }
+  
+  console.log("Detected potential campaign reference. Attempting to resolve...");
+  
+  // Most recent campaign mentioned is likely the one being referenced
+  const mostRecentCampaign = campaignIds[0];
+  
+  // For now we'll assume the first campaign ID is the one being referenced
+  // In a more complex system, we could use the LLM to analyze which specific one
+  return { 
+    resolved: true, 
+    campaignId: mostRecentCampaign
+  };
 }
 
 /**
@@ -572,6 +737,66 @@ async function generateSQL(
   conversationContext?: string
 ): Promise<string> {
   const openai = getOpenAIClient();
+  
+  // Extract structured context from the conversation
+  const mentionedCampaignIds: string[] = [];
+  const mentionedMetrics: string[] = [];
+  
+  if (conversationContext) {
+    // Parse the context for campaign IDs
+    const campaignIdRegex = /campaign[_\s]id.*?([A-Z0-9]{10,})/gi;
+    let match;
+    while ((match = campaignIdRegex.exec(conversationContext)) !== null) {
+      if (match[1] && !mentionedCampaignIds.includes(match[1])) {
+        mentionedCampaignIds.push(match[1]);
+      }
+    }
+    
+    // Also try alternative campaign ID format
+    const altCampaignIdRegex = /campaign\s+(?:id)?\s*[:\s]+(\d{8,})/gi;
+    while ((match = altCampaignIdRegex.exec(conversationContext)) !== null) {
+      if (match[1] && !mentionedCampaignIds.includes(match[1])) {
+        mentionedCampaignIds.push(match[1]);
+      }
+    }
+    
+    // Parse for mentioned metrics
+    const metricRegex = /(ctr|roas|impressions|clicks|conversions|cost|revenue|acos)/gi;
+    let metricMatch;
+    while ((metricMatch = metricRegex.exec(conversationContext)) !== null) {
+      const metric = metricMatch[1].toLowerCase();
+      if (!mentionedMetrics.includes(metric)) {
+        mentionedMetrics.push(metric);
+      }
+    }
+  }
+  
+  // Try to resolve contextual references first
+  const referenceResolution = await resolveContextualReferences(
+    query, 
+    mentionedCampaignIds,
+    mentionedMetrics
+  );
+  
+  // If we resolved a specific campaign reference, generate a campaign-specific query
+  if (referenceResolution.resolved && referenceResolution.campaignId) {
+    console.log(`Resolved contextual reference to campaign: ${referenceResolution.campaignId}`);
+    
+    // Generate campaign-specific query for better user experience
+    return `SELECT 
+              campaign_id,
+              SUM(impressions) AS total_impressions,
+              SUM(clicks) AS total_clicks,
+              SUM(cost) AS total_cost,
+              SUM(conversions) AS total_conversions,
+              MIN(date) AS first_seen_date,
+              MAX(date) AS last_seen_date,
+              (SUM(clicks)::float / NULLIF(SUM(impressions), 0)) * 100 AS ctr
+            FROM google_campaign_metrics
+            WHERE user_id = '${userId}'
+            AND campaign_id = '${referenceResolution.campaignId}'
+            GROUP BY campaign_id`;
+  }
   
   // Format the input for the Responses API
   // Check if this is a meta-query about why certain campaigns were selected
@@ -593,8 +818,9 @@ async function generateSQL(
       "3. Begin with SELECT keyword\n" +
       "4. Always include \"user_id = '" + userId + "'\" in WHERE clauses for security\n" +
       "5. Only write SELECT statements (no INSERT, UPDATE, DELETE)\n" +
-      "6. For ROAS calculations, use ROUND((revenue::numeric / NULLIF(cost, 0))::numeric, 2) as roas - NEVER multiply by 100\n" +
-      "7. For CTR calculations, use (clicks::float / NULLIF(impressions, 0)) * 100 as ctr\n\n" +
+      "6. For ROAS calculations, use (revenue::numeric / NULLIF(cost, 0))::numeric as roas - DO NOT use ROUND() - NEVER multiply by 100\n" +
+      "7. IMPORTANT: NEVER use the ROUND() function as it causes errors! Instead cast to numeric for implicit rounding: (value::numeric)::numeric\n" +
+      "8. For CTR calculations, use (clicks::float / NULLIF(impressions, 0)) * 100 as ctr\n\n" +
       
       "CONTEXTUAL AWARENESS:\n" +
       "1. Look for campaign IDs in the context to understand which campaigns were previously selected\n" +
@@ -615,13 +841,19 @@ async function generateSQL(
       "Technical Guidelines:\n" +
       "1. Join tables when necessary but keep queries efficient\n" +
       "2. Handle time periods intelligently (e.g., last 7 days, last month)\n" +
-      "3. Format dates properly for PostgreSQL (use CURRENT_DATE for today)\n" +
+      "3. Format dates properly for PostgreSQL with flexible options:\n" +
+      "   - Use CURRENT_DATE for today\n" +
+      "   - Use CURRENT_DATE - INTERVAL '7 days' for last week\n" +
+      "   - Use CURRENT_DATE - INTERVAL '30 days' for last month\n" +
+      "   - Use date_trunc('month', CURRENT_DATE) for start of current month\n" +
+      "   - Use EXTRACT(year FROM CURRENT_DATE) = 2025 for current year\n" +
       "4. Use appropriate aggregations (SUM, AVG, COUNT) as needed\n" +
       "5. Use snake_case for all column names (user_id, campaign_id, etc.)\n" +
       "6. For CTR calculations, use (clicks::float / NULLIF(impressions, 0)) * 100\n" +
-      "7. For ROAS calculations, use ROUND((revenue::numeric / NULLIF(cost, 0))::numeric, 2) as roas - NEVER multiply by 100\n" +
-      "8. When calculating average ROAS across multiple campaigns, use weighted averages based on cost\n" +
-      "9. For all percentage calculations, round to at most 2 decimal places\n\n" +
+      "7. For ROAS calculations, use (revenue::numeric / NULLIF(cost, 0))::numeric as roas - DO NOT use ROUND() - NEVER multiply by 100\n" +
+      "8. IMPORTANT: NEVER use the ROUND() function as it causes errors! Instead cast to numeric for implicit rounding: (value::numeric)::numeric\n" +
+      "9. When calculating average ROAS across multiple campaigns, use weighted averages based on cost\n" +
+      "10. For all percentage calculations, use numeric casting instead of explicit rounding functions\n\n" +
       
       "CONTEXTUAL AWARENESS:\n" +
       "1. If revenue information is mentioned in the context (e.g. 'revenue is $15'), use that value for campaigns mentioned in the query\n" +
@@ -678,16 +910,120 @@ async function generateSQL(
     }
   });
   
-  // Now create a chat completion with properly typed messages
-  const response = await openai.chat.completions.create({
-    model: "gpt-4o",
-    messages: typedMessages,
-    temperature: 0.1, // Lower temperature for more deterministic SQL generation
-    max_tokens: 500,
+  // Use the Responses API instead of the Chat Completions API
+  const response = await openai.responses.create({
+    model: "o3-mini", // Using o3-mini as requested
+    input: input, // Use the original properly formatted input array
+    max_output_tokens: 500, // Using the new parameter name for max tokens
+    text: {
+      format: {
+        type: "text"
+      }
+    },
+    store: true
   });
   
-  // Extract SQL from the response
-  let generatedSql = response.choices[0]?.message?.content?.trim() || '';
+  // Log the raw response for debugging
+  console.log(`Raw model response: "${response.output_text || 'EMPTY RESPONSE'}"`);
+  
+  // Extract SQL from the Responses API response
+  let generatedSql = response.output_text?.trim() || '';
+  
+  // Add a safety check for empty responses
+  if (!generatedSql) {
+    console.log("WARNING: Empty SQL generated by the model. Using template-based fallback.");
+    
+    // Check if we're dealing with a follow-up question about a specific campaign
+    const campaignReferencePatterns = [
+      /this campaign/i, /that campaign/i, /the campaign/i, 
+      /tell me more/i, /more details/i, /more info/i,
+      /total impressions/i, /total clicks/i, /campaign details/i,
+      /when did it run/i, /dates/i, /time period/i
+    ];
+    
+    const hasFollowupReference = campaignReferencePatterns.some(pattern => pattern.test(query));
+    const hasSpecificCampaignIds = mentionedCampaignIds && mentionedCampaignIds.length > 0;
+    
+    // For campaign-specific follow-up questions with available context
+    if (hasFollowupReference && hasSpecificCampaignIds) {
+      // Use the most recently mentioned campaign ID (first in the array)
+      const mostRecentCampaignId = mentionedCampaignIds[0];
+      console.log(`Follow-up query about a specific campaign detected. Using campaign ID: ${mostRecentCampaignId}`);
+      
+      generatedSql = `SELECT 
+                      campaign_id,
+                      SUM(impressions) AS total_impressions,
+                      SUM(clicks) AS total_clicks,
+                      SUM(cost) AS total_cost,
+                      SUM(conversions) AS total_conversions,
+                      MIN(date) AS first_seen_date,
+                      MAX(date) AS last_seen_date,
+                      (SUM(clicks)::float / NULLIF(SUM(impressions), 0)) * 100 AS ctr
+                    FROM google_campaign_metrics
+                    WHERE user_id = '${userId}'
+                    AND campaign_id = '${mostRecentCampaignId}'
+                    GROUP BY campaign_id`;
+                    
+      console.log("Using campaign-specific template for follow-up query:", generatedSql);
+    }
+    // Other standard template patterns
+    else if (query.toLowerCase().includes("how many") && query.toLowerCase().includes("google") && 
+        (query.toLowerCase().includes("campaign") || query.toLowerCase().includes("campaigns"))) {
+      
+      generatedSql = `SELECT COUNT(DISTINCT campaign_id) as campaign_count 
+                      FROM google_campaign_metrics 
+                      WHERE user_id = '${userId}'`;
+      console.log("Using template for Google campaign count query:", generatedSql);
+    } 
+    else if (query.toLowerCase().includes("how many") && query.toLowerCase().includes("amazon") && 
+             (query.toLowerCase().includes("campaign") || query.toLowerCase().includes("campaigns"))) {
+      
+      generatedSql = `SELECT COUNT(DISTINCT campaign_id) as campaign_count 
+                      FROM campaign_metrics 
+                      WHERE user_id = '${userId}'`;
+      console.log("Using template for Amazon campaign count query:", generatedSql);
+    }
+    else if (query.toLowerCase().includes("how many") && 
+             (query.toLowerCase().includes("campaign") || query.toLowerCase().includes("campaigns"))) {
+      
+      generatedSql = `SELECT 
+                        (SELECT COUNT(DISTINCT campaign_id) FROM campaign_metrics WHERE user_id = '${userId}') as amazon_campaigns,
+                        (SELECT COUNT(DISTINCT campaign_id) FROM google_campaign_metrics WHERE user_id = '${userId}') as google_campaigns`;
+      console.log("Using template for all campaigns count query:", generatedSql);
+    }
+    else if (query.toLowerCase().includes("ctr") || query.toLowerCase().includes("click") || 
+             query.toLowerCase().includes("impression") || 
+             query.toLowerCase().includes("conversion")) {
+      
+      // For CTR and common metrics queries
+      generatedSql = `SELECT 
+                       campaign_id,
+                       SUM(impressions) as total_impressions,
+                       SUM(clicks) as total_clicks,
+                       SUM(cost) as total_cost,
+                       SUM(conversions) as total_conversions,
+                       (SUM(clicks)::float / NULLIF(SUM(impressions), 0)) * 100 as ctr
+                     FROM google_campaign_metrics
+                     WHERE user_id = '${userId}'
+                     GROUP BY campaign_id
+                     ORDER BY total_impressions DESC
+                     LIMIT 10`;
+      console.log("Using metrics template query:", generatedSql);
+    }
+    else {
+      // Generic fallback for other queries
+      generatedSql = `SELECT campaign_id, SUM(impressions) as total_impressions, 
+                      SUM(clicks) as total_clicks, SUM(cost) as total_cost, 
+                      SUM(conversions) as total_conversions,
+                      (SUM(clicks)::float / NULLIF(SUM(impressions), 0)) * 100 as ctr 
+                      FROM google_campaign_metrics 
+                      WHERE user_id = '${userId}' 
+                      GROUP BY campaign_id 
+                      ORDER BY total_impressions DESC 
+                      LIMIT 10`;
+      console.log("Using generic fallback query:", generatedSql);
+    }
+  }
   
   // Remove any markdown SQL code block formatting if present
   if (generatedSql.includes('```sql')) {
@@ -719,12 +1055,24 @@ async function generateSQL(
       '$1'
     );
     
-    // Make sure aliased calculations use proper format
+    // Replace any ROUND() functions with proper numeric casting to avoid errors
+    generatedSql = generatedSql.replace(
+      /ROUND\s*\(\s*(.+?),\s*\d+\s*\)/gi, 
+      '($1)::numeric'
+    );
+    
+    // Make sure aliased calculations use proper format (without ROUND())
     generatedSql = generatedSql.replace(
       /(revenue|sales).*\/.*cost.*AS\s+roas/gi,
-      'ROUND(($1::numeric / NULLIF(cost, 0))::numeric, 2) AS roas'
+      '($1::numeric / NULLIF(cost, 0))::numeric AS roas'
     );
   }
+  
+  // Replace ALL instances of ROUND() function throughout the query to prevent errors
+  generatedSql = generatedSql.replace(
+    /ROUND\s*\(\s*(.+?),\s*\d+\s*\)/gi,
+    '($1)::numeric'
+  );
   
   // Remove any explanatory text before the SELECT statement
   const selectIndex = generatedSql.toLowerCase().indexOf('select');

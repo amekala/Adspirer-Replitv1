@@ -1,6 +1,6 @@
 import { Express, Request, Response } from "express";
 import { createServer, type Server } from "http";
-import { setupAuth } from "./auth";
+import { setupAuth, authenticate } from "./auth";
 import { storage } from "./storage";
 import { openai } from "@ai-sdk/openai";
 import { streamText } from "ai";
@@ -379,8 +379,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   setupAuth(app);
 
   // Amazon OAuth endpoints
-  app.post("/api/amazon/connect", async (req: Request, res: Response) => {
-    if (!req.isAuthenticated()) return res.sendStatus(401);
+  app.post("/api/amazon/connect", authenticate, async (req: Request, res: Response) => {
     const { code } = req.body;
 
     if (!code) {
@@ -475,15 +474,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/amazon/status", async (req: Request, res: Response) => {
-    if (!req.isAuthenticated()) return res.sendStatus(401);
+  app.get("/api/amazon/status", authenticate, async (req: Request, res: Response) => {
 
     const token = await storage.getAmazonToken(req.user!.id);
     res.json({ connected: !!token });
   });
 
-  app.get("/api/amazon/profiles", async (req: Request, res: Response) => {
-    if (!req.isAuthenticated()) return res.sendStatus(401);
+  app.get("/api/amazon/profiles", authenticate, async (req: Request, res: Response) => {
 
     try {
       const advertisers = await storage.getAdvertiserAccounts(req.user!.id);
@@ -494,8 +491,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.delete("/api/amazon/disconnect", async (req: Request, res: Response) => {
-    if (!req.isAuthenticated()) return res.sendStatus(401);
+  app.delete("/api/amazon/disconnect", authenticate, async (req: Request, res: Response) => {
 
     await storage.deleteAmazonToken(req.user!.id);
     await storage.deleteAdvertiserAccounts(req.user!.id);
@@ -503,8 +499,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Google OAuth endpoints
-  app.post("/api/google/connect", async (req: Request, res: Response) => {
-    if (!req.isAuthenticated()) return res.sendStatus(401);
+  app.post("/api/google/connect", authenticate, async (req: Request, res: Response) => {
     const { code } = req.body;
 
     if (!code) {
@@ -582,15 +577,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/google/status", async (req: Request, res: Response) => {
-    if (!req.isAuthenticated()) return res.sendStatus(401);
+  app.get("/api/google/status", authenticate, async (req: Request, res: Response) => {
 
     const token = await storage.getGoogleToken(req.user!.id);
     res.json({ connected: !!token });
   });
 
-  app.get("/api/google/accounts", async (req: Request, res: Response) => {
-    if (!req.isAuthenticated()) return res.sendStatus(401);
+  app.get("/api/google/accounts", authenticate, async (req: Request, res: Response) => {
 
     try {
       const accounts = await storage.getGoogleAdvertiserAccounts(req.user!.id);
@@ -604,8 +597,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.delete("/api/google/disconnect", async (req: Request, res: Response) => {
-    if (!req.isAuthenticated()) return res.sendStatus(401);
+  app.delete("/api/google/disconnect", authenticate, async (req: Request, res: Response) => {
 
     await storage.deleteGoogleToken(req.user!.id);
     await storage.deleteGoogleAdvertiserAccounts(req.user!.id);
@@ -613,8 +605,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // API key management
-  app.post("/api/keys", async (req: Request, res: Response) => {
-    if (!req.isAuthenticated()) return res.sendStatus(401);
+  app.post("/api/keys", authenticate, async (req: Request, res: Response) => {
 
     const result = insertApiKeySchema.safeParse(req.body);
     if (!result.success) {
@@ -625,22 +616,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
     res.status(201).json(apiKey);
   });
 
-  app.get("/api/keys", async (req: Request, res: Response) => {
-    if (!req.isAuthenticated()) return res.sendStatus(401);
+  app.get("/api/keys", authenticate, async (req: Request, res: Response) => {
 
     const keys = await storage.getApiKeys(req.user!.id);
     res.json(keys);
   });
 
-  app.delete("/api/keys/:id", async (req: Request, res: Response) => {
-    if (!req.isAuthenticated()) return res.sendStatus(401);
+  app.delete("/api/keys/:id", authenticate, async (req: Request, res: Response) => {
 
     await storage.deactivateApiKey(parseInt(req.params.id), req.user!.id);
     res.sendStatus(200);
   });
 
-  app.post("/api/amazon/campaigns/sync", async (req: Request, res: Response) => {
-    if (!req.isAuthenticated()) return res.sendStatus(401);
+  app.post("/api/amazon/campaigns/sync", authenticate, async (req: Request, res: Response) => {
 
     let token = await storage.getAmazonToken(req.user!.id);
     if (!token) {
@@ -747,8 +735,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // OpenAI client is now imported from @ai-sdk/openai at the top of the file
 
   // Chat endpoints
-  app.get("/api/chat/conversations", async (req: Request, res: Response) => {
-    if (!req.isAuthenticated()) return res.sendStatus(401);
+  app.get("/api/chat/conversations", authenticate, async (req: Request, res: Response) => {
     try {
       const conversations = await storage.getChatConversations(req.user!.id);
       return res.json(conversations);
@@ -758,8 +745,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/chat/conversations", async (req: Request, res: Response) => {
-    if (!req.isAuthenticated()) return res.sendStatus(401);
+  app.post("/api/chat/conversations", authenticate, async (req: Request, res: Response) => {
     
     const { title = "New conversation", generateWelcome = true } = req.body;
     
@@ -795,8 +781,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/chat/conversations/:id", async (req: Request, res: Response) => {
-    if (!req.isAuthenticated()) return res.sendStatus(401);
+  app.get("/api/chat/conversations/:id", authenticate, async (req: Request, res: Response) => {
     
     try {
       const conversation = await storage.getChatConversation(req.params.id);
@@ -817,8 +802,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.put("/api/chat/conversations/:id", async (req: Request, res: Response) => {
-    if (!req.isAuthenticated()) return res.sendStatus(401);
+  app.put("/api/chat/conversations/:id", authenticate, async (req: Request, res: Response) => {
     
     const { title } = req.body;
     if (!title) {
@@ -844,8 +828,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.delete("/api/chat/conversations/:id", async (req: Request, res: Response) => {
-    if (!req.isAuthenticated()) return res.sendStatus(401);
+  app.delete("/api/chat/conversations/:id", authenticate, async (req: Request, res: Response) => {
     
     try {
       const conversation = await storage.getChatConversation(req.params.id);
@@ -866,8 +849,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/chat/conversations/:id/messages", async (req: Request, res: Response) => {
-    if (!req.isAuthenticated()) return res.sendStatus(401);
+  app.post("/api/chat/conversations/:id/messages", authenticate, async (req: Request, res: Response) => {
     
     // Add conversationId to the request body
     const messageData = {
@@ -904,11 +886,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Chat completion endpoint with streaming
-  app.post("/api/chat/completions", async (req: Request, res: Response) => {
-    if (!req.isAuthenticated() || !req.user) {
-      console.log('Unauthorized request to chat completions endpoint - user not authenticated');
-      return res.status(401).send("Unauthorized");
-    }
+  app.post("/api/chat/completions", authenticate, async (req: Request, res: Response) => {
     
     console.log('User authenticated:', req.user.id);
 

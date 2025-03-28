@@ -3,6 +3,10 @@
   import { setupVite, serveStatic, log } from "./vite";
   import { request, IncomingMessage } from "http";
   import { startScheduledTasks } from "./maintenance/scheduleTasks";
+  import dotenv from "dotenv";
+  
+  // Load environment variables from .env file
+  dotenv.config();
 
   const app = express();
   app.use(express.json());
@@ -64,10 +68,12 @@
     }
 
     // Use the port provided by environment variable or default to 5000
-    // Bind to 0.0.0.0 to allow external connections (required for Replit)
     const port = process.env.PORT ? parseInt(process.env.PORT) : 5000;
     
-    // Create a health check ping to keep the port active
+    // For local development, we don't need frequent health checks
+    // But keep a simpler version for basic monitoring
+    const healthCheckInterval = 30000; // 30 seconds
+    
     setInterval(() => {
       try {
         const req = request({
@@ -88,36 +94,17 @@
       } catch (error) {
         log(`Error sending health check: ${error}`);
       }
-    }, 5000);
+    }, healthCheckInterval);
 
-    server.listen(port, "0.0.0.0", () => {
+    server.listen(port, "localhost", () => {
       log(`Server is running on port ${port}`);
       
-      // Log messages specifically for Replit workflow detection
-      console.log(`🚀 Server ready at http://0.0.0.0:${port}`);
-      console.log(`Server listening on port ${port}`);
+      // More descriptive logs for local development
+      console.log(`🚀 Server ready at http://localhost:${port}`);
+      console.log(`API available at http://localhost:${port}/api`);
+      console.log(`Health check at http://localhost:${port}/health`);
       
       // Start scheduled maintenance tasks
       startScheduledTasks();
-      
-      // Add initial health check
-      setTimeout(() => {
-        try {
-          const req = request({
-            host: 'localhost',
-            port: port,
-            path: '/health',
-            method: 'GET'
-          }, (res: IncomingMessage) => {
-            console.log(`Initial health check: ${res.statusCode}`);
-          });
-          req.on('error', (e: Error) => {
-            console.error(`Initial health check error: ${e.message}`);
-          });
-          req.end();
-        } catch (error) {
-          console.error(`Initial health check failed: ${error}`);
-        }
-      }, 1000);
     });
   })();

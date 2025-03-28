@@ -140,8 +140,11 @@ export default function ChatPage() {
               
               // Fetch the conversation with messages
               try {
+                const token = localStorage.getItem('token');
                 const response = await fetch(`/api/chat/conversations/${newConversation.id}`, {
-                  credentials: 'include'
+                  headers: {
+                    'Authorization': `Bearer ${token}`
+                  }
                 });
                 
                 if (response.ok) {
@@ -313,16 +316,17 @@ export default function ChatPage() {
         
         // Step 2: Call the AI completions endpoint
         console.log('Calling AI completions endpoint...');
+        const token = localStorage.getItem('token');
         const completionResponse = await fetch('/api/chat/completions', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
           },
           body: JSON.stringify({
             conversationId: currentConversationId,
             message: messageContent
-          }),
-          credentials: 'include' // Include credentials for session authentication
+          })
         });
 
         if (!completionResponse.ok) {

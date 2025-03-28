@@ -32,9 +32,15 @@ export interface ResponseFinishEvent {
 }
 
 export type ResponseStreamEvent = ResponseTextDeltaEvent | ResponseFinishEvent;
+// Interface for messages to be sent to OpenAI API
 export interface OpenAIMessage {
   role: MessageRole;
   content: string;
+  // Removed metadata field as it's not supported by OpenAI API
+}
+
+// Interface for our internal message tracking that can include metadata
+export interface InternalMessage extends OpenAIMessage {
   metadata?: Record<string, any>;
 }
 
@@ -1014,26 +1020,15 @@ export async function getConversationHistory(
     const content = typeof msg.content === 'string' ? msg.content : 
                    (msg.content ? JSON.stringify(msg.content) : '');
     
-    // Create the message with proper typing for metadata
-    let formattedMsg: OpenAIMessage = {
+    // Create the message with only role and content (no metadata for OpenAI API)
+    // The OpenAI API doesn't accept metadata fields
+    const formattedMsg: OpenAIMessage = {
       role: msg.role === 'system' ? 'developer' as MessageRole : msg.role as MessageRole,
       content: content
     };
     
-    // Add metadata if it exists and is an object
-    if (msg.metadata && typeof msg.metadata === 'object') {
-      // Parse JSON metadata properly to avoid type issues
-      try {
-        const typedMetadata: Record<string, any> = 
-          typeof msg.metadata === 'string' 
-            ? JSON.parse(msg.metadata) 
-            : msg.metadata as Record<string, any>;
-        
-        formattedMsg.metadata = typedMetadata;
-      } catch (e) {
-        console.warn("Failed to parse message metadata:", e);
-      }
-    }
+    // We keep metadata for our own tracking but don't send it to the API
+    // This avoids the "Unknown parameter: 'input[1].metadata'" error
     
     return formattedMsg;
   });
