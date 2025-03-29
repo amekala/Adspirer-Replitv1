@@ -118,7 +118,7 @@ export function ChatSidebar({
   };
 
   return (
-    <div className="min-w-[300px] border-r border-border h-full flex flex-col">
+    <div className="min-w-[300px] border-r border-slate-200 dark:border-slate-800 h-full flex flex-col bg-white dark:bg-transparent">
       {/* Delete Confirmation Dialog */}
       <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
         <AlertDialogContent>
@@ -142,10 +142,10 @@ export function ChatSidebar({
       </AlertDialog>
       
       {/* New Chat Button */}
-      <div className="p-3 border-b">
+      <div className="p-3 border-b border-slate-200 dark:border-slate-800">
         <Button
           onClick={onNewConversation}
-          className="w-full justify-start"
+          className="w-full justify-start text-slate-700 dark:text-slate-200"
           variant="outline"
           aria-label="New Chat"
         >
@@ -155,12 +155,12 @@ export function ChatSidebar({
       </div>
 
       {/* Search Box */}
-      <div className="p-3 border-b">
+      <div className="p-3 border-b border-slate-200 dark:border-slate-800">
         <div className="relative">
-          <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+          <Search className="absolute left-2 top-2.5 h-4 w-4 text-slate-400 dark:text-muted-foreground" />
           <Input
             placeholder="Search conversations..."
-            className="pl-8"
+            className="pl-8 bg-white dark:bg-transparent text-slate-900 dark:text-slate-200 border-slate-200 dark:border-slate-700"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
           />
@@ -182,7 +182,7 @@ export function ChatSidebar({
                   </div>
                 ))
             ) : filteredConversations.length === 0 ? (
-              <div className="p-3 text-center text-muted-foreground">
+              <div className="p-3 text-center text-slate-500 dark:text-muted-foreground">
                 {searchTerm ? "No conversations found" : "No conversations yet"}
               </div>
             ) : (
@@ -196,8 +196,8 @@ export function ChatSidebar({
                     key={conversation.id}
                     data-testid="conversation-item"
                     className={`group flex items-center justify-between rounded-md p-2 ${
-                      isActive ? "bg-muted" : "hover:bg-muted/50"
-                    } cursor-pointer`}
+                      isActive ? "bg-slate-100 dark:bg-muted" : "hover:bg-slate-50 dark:hover:bg-muted/50"
+                    } cursor-pointer text-slate-700 dark:text-slate-300`}
                     onClick={() => !isEditing && onConversationSelect(conversation.id)}
                   >
                     <div className="flex items-center flex-1 min-w-0">
@@ -216,7 +216,7 @@ export function ChatSidebar({
                               }
                             }}
                             autoFocus
-                            className="h-7 text-sm"
+                            className="h-7 text-sm bg-white dark:bg-transparent text-slate-900 dark:text-slate-200 border-slate-200 dark:border-slate-700"
                           />
                           <Button
                             size="icon"
@@ -247,7 +247,7 @@ export function ChatSidebar({
                             <Button
                               size="icon"
                               variant="ghost"
-                              className="h-7 w-7"
+                              className="h-7 w-7 text-slate-500 dark:text-slate-400"
                               onClick={(e) => e.stopPropagation()}
                             >
                               <ChevronRight className="h-4 w-4" />
@@ -287,23 +287,23 @@ export function ChatSidebar({
       </div>
       
       {/* Bottom Navigation Buttons */}
-      <div className="p-3 border-t mt-auto">
+      <div className="p-3 border-t border-slate-200 dark:border-slate-800 mt-auto">
         <div className="space-y-2">
           <Button
             variant="outline"
-            className="w-full justify-start"
+            className="w-full justify-start text-slate-700 dark:text-slate-200"
             onClick={onOpenSettings}
           >
             <Settings className="mr-2 h-4 w-4" />
             Settings
           </Button>
           
-          <Separator className="my-2" />
+          <Separator className="my-2 bg-slate-200 dark:bg-slate-700" />
           
           <Link href="/">
             <Button
               variant="outline"
-              className="w-full justify-start"
+              className="w-full justify-start text-slate-700 dark:text-slate-200"
             >
               <Home className="mr-2 h-4 w-4" />
               Home
@@ -312,7 +312,7 @@ export function ChatSidebar({
           
           <Button
             variant="outline"
-            className="w-full justify-start text-destructive hover:text-destructive"
+            className="w-full justify-start text-destructive"
             onClick={handleLogout}
             disabled={logoutMutation.isPending}
           >

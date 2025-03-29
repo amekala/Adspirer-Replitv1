@@ -1,0 +1,270 @@
+---
+description: 
+globs: 
+alwaysApply: true
+---
+Okay, let's integrate example AI/User chat conversations into each Job Step, showing how the information for the API calls would be gathered.
+
+Job Step 1: Build Campaign Structure (Example: Sponsored Products)
+
+Goal: Create the foundational container for the ads.
+
+Example AI/User Chat Conversation:
+
+AI: Hi there! Ready to set up a new advertising campaign?
+
+User: Yes, let's create a new sponsored product campaign.
+
+AI: Great! We'll set this up in your Amazon Ads account. First, what would you like to name this Sponsored Products campaign?
+
+User: Let's call it "Q3 Running Gear Launch SP".
+
+AI: Got it: "Q3 Running Gear Launch SP". What's the maximum daily budget you want to set for this campaign?
+
+User: $40 per day.
+
+AI: Okay, $40 daily budget. When should the campaign start? You can say 'today' or provide a date like YYYY-MM-DD.
+
+User: Start it tomorrow, so 2025-07-16.
+
+AI: Perfect, starting 2025-07-16. Does it need a specific end date, or should it run continuously?
+
+User: No end date for now.
+
+AI: Alright. And should the campaign start active ('enabled') or paused?
+
+User: Start it enabled.
+
+AI: One last thing for the basic setup: for Sponsored Products, do you want Amazon's 'Automatic' targeting (they find relevant searches/products) or 'Manual' targeting (you provide keywords/products)?
+
+User: Let's start with Manual targeting.
+
+AI: Okay! To recap: We're setting up a **Manual Sponsored Products** campaign named **"Q3 Running Gear Launch SP"**, starting **2025-07-16**, with a **$40 daily budget**, running **continuously**, and it will start **enabled**. Sound good?
+
+User: Yes, looks perfect.
+
+AI: Excellent. I'll create the main campaign structure now.
+
+
+API Endpoint: POST https://advertising-api.amazon.com/sp/campaigns
+
+Required Headers:
+
+Authorization: Bearer <USER_ACCESS_TOKEN_FROM_LWA>
+Amazon-Advertising-API-ClientId: <YOUR_APP_CLIENT_ID>
+Amazon-Advertising-API-Scope: <ADVERTISER_PROFILE_ID>
+Content-Type: application/json
+IGNORE_WHEN_COPYING_START
+content_copy
+download
+Use code with caution.
+IGNORE_WHEN_COPYING_END
+
+Example API Call Body (JSON) - Based on conversation:
+
+{
+  "name": "Q3 Running Gear Launch SP",
+  "campaignType": "sponsoredProducts",
+  "targetingType": "manual",
+  "state": "enabled",
+  "dailyBudget": 40.00,
+  "startDate": "20250716" // YYYYMMDD format
+  // "endDate": null, // Omitted or null for no end date
+  // "bidding": { ... } // Assume default or ask separately
+}
+IGNORE_WHEN_COPYING_START
+content_copy
+download
+Use code with caution.
+Json
+IGNORE_WHEN_COPYING_END
+
+Missing Data = API Error: As before, missing required fields or headers leads to errors.
+
+Output Needed for Next Steps: The campaignId from the API response.
+
+Job Step 2: Configure Targeting Parameters (Example: Manual SP)
+
+Goal: Create Ad Group, add Products, add Keywords within the campaign created in Step 1.
+
+Example AI/User Chat Conversation:
+
+AI: Okay, the campaign shell "Q3 Running Gear Launch SP" is created (ID: 987654321098765). Now we need to set up an Ad Group inside it. What would you like to name this first Ad Group?
+
+User: Call it "Mens Trail Runners".
+
+AI: "Mens Trail Runners" - got it. What default bid amount should we set for the keywords in this Ad Group? This is the max you'd pay per click unless you set a specific bid for a keyword later.
+
+User: Set the default bid to $1.15.
+
+AI: $1.15 default bid. Now, which specific products (ASINs or SKUs) do you want to advertise within the "Mens Trail Runners" ad group? Please list them.
+
+User: B0EXAMPLEASIN1, B0EXAMPLEASIN2, and SKU-XYZ-789
+
+AI: Thanks! Adding those three products. Now for the keywords. What search terms should trigger ads for these trail runners? Please list the keywords.
+
+User: trail running shoes, mens trail shoes, offroad running sneakers
+
+AI: Okay, got those keywords. What match type should we use for them? [Suggestion Chips: Broad, Phrase, Exact]
+
+User: Let's use Phrase match for all of them for now.
+
+AI: Phrase match it is. Lastly, are there any negative keywords? Terms you definitely *don't* want ads showing for? (e.g., 'kids', 'womens', 'free')
+
+User: Yes, add 'womens' and 'kids' as negative phrase match.
+
+AI: Perfect. So, for Ad Group "Mens Trail Runners" (inside campaign 987654321098765), we have: default bid $1.15, products B0EXAMPLEASIN1, B0EXAMPLEASIN2, SKU-XYZ-789, keywords 'trail running shoes', 'mens trail shoes', 'offroad running sneakers' (all Phrase match), and negative keywords 'womens', 'kids' (Negative Phrase match). Ready to set this up?
+
+User: Yes, proceed.
+
+AI: Working on it... Setting up the Ad Group, adding products, and keywords now.
+IGNORE_WHEN_COPYING_START
+content_copy
+download
+Use code with caution.
+IGNORE_WHEN_COPYING_END
+
+API Endpoints & Details: (Requires campaignId from Step 1)
+
+Create Ad Group: POST /sp/adGroups (Requires headers, campaignId, name="Mens Trail Runners", defaultBid=1.15, state="enabled"). Output: adGroupId.
+
+Add Product Ads: POST /sp/productAds (Requires headers, campaignId, adGroupId, state="enabled", asin/sku). Call 3 times, once for each product.
+
+Add Keywords: POST /sp/keywords (Requires headers, campaignId, adGroupId, state="enabled", keywordText, matchType="phrase"). Call 3 times, once for each keyword. Output: keywordId(s).
+
+Add Negative Keywords: POST /sp/negativeKeywords (Requires headers, campaignId, adGroupId, state="enabled", keywordText, matchType="negativePhrase"). Call 2 times, once for each negative keyword. Output: negativeKeywordId(s).
+
+Job Step 3: Set Up Tracking and Attribution
+
+Goal: Confirm tracking (usually automatic) and optionally assign to a portfolio.
+
+Example AI/User Chat Conversation:
+
+AI: Great, the "Mens Trail Runners" ad group, products, and keywords are all set up! Just so you know, Amazon Ads automatically tracks clicks and attributes sales for this campaign based on their standard attribution windows.
+
+User: Okay, good.
+
+AI: For organizational purposes, do you want to add this new campaign ("Q3 Running Gear Launch SP") to one of your existing Portfolios? I can show you your list if you like.
+
+User: Yes, please add it to my "Footwear Q3" portfolio.
+
+AI: Okay, I see the "Footwear Q3" portfolio (ID: 123456789012345). I will assign the campaign to it now.
+
+User: Thanks.
+IGNORE_WHEN_COPYING_START
+content_copy
+download
+Use code with caution.
+IGNORE_WHEN_COPYING_END
+
+API Endpoint (Optional Portfolio Assignment): PUT https://advertising-api.amazon.com/sp/campaigns
+
+Required Headers: Standard Auth/Client/Scope headers.
+
+Example API Call Body (JSON) - Based on conversation:
+
+[
+  {
+    "campaignId": 987654321098765, // Campaign ID from Step 1
+    "portfolioId": 123456789012345 // Portfolio ID identified by the AI
+  }
+]
+IGNORE_WHEN_COPYING_START
+content_copy
+download
+Use code with caution.
+Json
+IGNORE_WHEN_COPYING_END
+
+Notes: If the user said "No" or didn't have portfolios, this API call would be skipped. The AI might need to first call GET /portfolios to fetch the list if the user asks to see them.
+
+Job Step 4: Create and Upload Creative Assets (Example: SB Logo)
+
+Goal: Get creative elements ready (using SB as example). Assume we started an SB campaign instead of SP.
+
+Example AI/User Chat Conversation:
+
+AI: We're setting up your Sponsored Brands campaign "Summer Apparel SB". Now we need the creative elements. First, what headline should the ad have?
+
+User: "Shop Our New Summer Collection - Free Shipping!"
+
+AI: Got the headline. We also need your brand logo. Do you want to upload a new logo file, or select one you've used before?
+
+User: I need to upload a new one.
+
+AI: Okay, please use this secure link to upload your logo image: [Link to secure upload component/modal generated by Adspirer] Let me know once it's uploaded.
+
+User: (User clicks link, uploads logo via the component) Okay, done.
+
+AI: Thanks! The system confirms the logo (Asset ID: amzn1.assetlibrary.asset.ABC123XYZ...) is uploaded. Now, please provide at least 3 ASINs of the products you want to feature prominently in this ad.
+
+User: B0SUMMERTEE1, B0SUMMERSHORT2, B0SUMMERHAT3
+
+AI: Excellent. So the creative will have the headline "Shop Our New Summer Collection - Free Shipping!", use the logo you just uploaded, and feature ASINs B0SUMMERTEE1, B0SUMMERSHORT2, B0SUMMERHAT3. Ready to submit this creative for review?
+
+User: Yes, submit it.
+
+AI: Okay, submitting the creative to Amazon for approval.
+IGNORE_WHEN_COPYING_START
+content_copy
+download
+Use code with caution.
+IGNORE_WHEN_COPYING_END
+
+API Endpoints & Details:
+
+Upload Asset: POST /media/upload (Handled by the linked component, requires headers, returns assetId).
+
+Submit SB Creative: POST /sb/creatives (Requires headers, campaignId/adGroupId for the SB campaign, headline, brandLogoAssetID from upload, list of asins). See previous response for example body structure. Assumes landing page details were gathered earlier or use defaults.
+
+Job Step 5: Establish Bidding Strategies and Budget Controls
+
+Goal: Define bidding behaviour. Budget was set in Step 1. Focus on Campaign Strategy (SP/SB) or Ad Group Optimization (SD).
+
+Example AI/User Chat Conversation (Continuing SP example from Step 1):
+
+AI: Before we created the campaign "Q3 Running Gear Launch SP", we set the targeting to Manual. We also need to set a campaign-level bidding strategy. How do you want Amazon to manage your bids? Options are typically:
+*   **Dynamic bids - down only:** Lowers bids in real-time if less likely to convert.
+*   **Dynamic bids - up and down:** Adjusts bids higher (up to 100%) or lower based on conversion likelihood.
+*   **Fixed bids:** Uses your default or keyword-specific bids without real-time changes.
+[Suggestion Chips: Down Only, Up and Down, Fixed Bids]
+
+User: Let's go with "Dynamic bids - down only".
+
+AI: Okay, setting the campaign bidding strategy to "Dynamic bids - down only". Just confirming, the $40 daily budget and the $1.15 default bid for the "Mens Trail Runners" ad group we set earlier still look correct?
+
+User: Yes, that's right.
+
+AI: Perfect. The bidding strategy is now applied to the campaign.
+IGNORE_WHEN_COPYING_START
+content_copy
+download
+Use code with caution.
+IGNORE_WHEN_COPYING_END
+
+API Endpoint & Details:
+
+This strategy (autoForSales in the API for "down only") would ideally be included in the initial POST /sp/campaigns call (Step 1).
+
+If it needs to be updated after creation, use PUT /sp/campaigns.
+
+Required Headers: Standard Auth/Client/Scope headers.
+
+Example API Call Body (for PUT):
+
+[
+  {
+    "campaignId": 987654321098765, // Campaign ID from Step 1
+    "bidding": {
+      "strategy": "autoForSales" // API value for "Dynamic bids - down only"
+    }
+  }
+]
+IGNORE_WHEN_COPYING_START
+content_copy
+download
+Use code with caution.
+Json
+IGNORE_WHEN_COPYING_END
+
+Notes: The conversation confirms settings established earlier (budget, default bid) and gathers the specific bidding strategy choice, which is then passed via the appropriate API call (either during creation or update). For SD, the conversation would focus on bidOptimization at the Ad Group level (e.g., "Optimize for Clicks (CPC)", "Optimize for Conversions").

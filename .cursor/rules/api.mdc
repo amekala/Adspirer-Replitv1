@@ -1,0 +1,403 @@
+---
+description: 
+globs: 
+alwaysApply: false
+---
+
+The report will include tables, code samples, pseudocode where applicable, and links to official documentation. I’ll make sure to treat all three platforms with equal depth and prioritize clarity and developer usability for your intended audience.
+
+I’ll let you know as soon as the report is ready.
+
+...targeting strategy, etc. A **profileId** (account) isn’t part of the campaign JSON since it’s specified via headers. An example profile JSON shows account info (country, currency) ([Amazon Ads to Redshift: 2 Easy Steps | Hevo](mdc:https:/hevodata.com/learn/amazon-ads-to-redshift/#:~:text=,America%2FLos_Angeles)) which is useful for context but not part of campaign entity data.  
+  - Meta campaign objects include fields like `id` (string), `name`, `objective` (e.g. "CONVERSIONS"), `status` ("ACTIVE" or "PAUSED"), `effective_status`, `daily_budget` (if using campaign budget optimization), `buying_type` ("AUCTION"), etc. Ad sets have their own fields (targeting, bid_amount, etc.) and contain a reference to the campaign (`campaign_id`). The relationships are one-to-many (one campaign to many ad sets, one ad set to many ads) and those IDs link the data.  
+  - Google campaign objects have `id` (int64) and a resource name (`customers/{cid}/campaigns/{id}`) ([Building custom tools with the Google Ads API. — Pete Bowen](mdc:https:/pete-bowen.com/building-custom-tools-with-the-google-ads-api#:~:text=At%20the%20very%20least%20you%E2%80%99ll,%28More%20on%20this%20later)), `name`, `status` (ENABLED/PAUSED/REMOVED), `advertising_channel_type` (SEARCH, DISPLAY, etc.), and reference fields like `campaign_budget` (which is the resource name of the budget entity). Ad groups similarly have an `id` and `campaign` reference, and ads have an `ad_group` reference. Most Google entities use a hierarchical key structure: to identify an ad you need Customer ID + Ad Group ID + Ad ID. The API often returns the fully qualified resource name which encodes the hierarchy. The tool might store these IDs separately for ease.
+
+**Shared Identifiers & Keys:** Each platform has different identifier scopes. In a unified database, we often create composite keys:
+- For Amazon, a combination of `profileId` and `campaignId` can uniquely identify a campaign globally. Same for other entities (e.g., keywordId by itself might be unique only within a profile, though likely globally unique across your data since profile IDs differ).
+- For Facebook, `campaign_id` is globally unique (for all practical purposes, as they are big numbers), but it’s safer to scope by ad account. Typically store the `ad_account_id` with each campaign to avoid any ambiguity. Ad set and ad IDs are unique across the account (and likely globally), but storing the parent IDs too can help with querying hierarchy.
+- For Google, an `id` is only unique within its customer account. So the tool should always pair IDs with `customer_id` (or store the full resource name). For instance, a table of ad groups would have a compound key (customer_id, ad_group_id). Alternatively, generate an internal surrogate key for each entity and map it to the platform identifiers.
+- When combining data, one might use a unified key convention like “AMZ-<profileId>-<campaignId>” vs “FB-<accountId>-<campaignId>” vs “GOOG-<customerId>-<campaignId>” to distinguish campaigns from each source.
+
+**Storage of Structured Data:** We will likely use a relational database or a structured NoSQL store to keep campaign hierarchy and performance metrics:
+- A possible schema is to have tables for **Accounts**, **Campaigns**, **AdSets/AdGroups**, **Ads**, **Keywords** etc. Each table would include a column for the platform (or separate tables per platform if the schema differs greatly). However, since campaigns share common attributes (name, status, budget) across platforms, a unified Campaign table with columns for common fields and some JSON or extra fields for platform-specific ones could work. For example, Google’s campaign might have `advertising_channel` which isn’t relevant to Amazon or FB; Amazon campaigns might have `targetingType` (Auto/Manual) that doesn’t apply elsewhere. These can be stored in optional columns or a JSON blob of “additional_data”.
+- **Performance Metrics**: Given the volume of daily metrics, a separate fact table for metrics is ideal. For instance, a **DailyPerformance** table with columns: date, platform, campaign_id, adset/adgroup_id, ad_id, impressions, clicks, spend, conversions, sales, etc. The tool would populate this by pulling from each API’s reporting endpoint. Not all metrics exist on all platforms (e.g., Amazon has “sales” and ACOS, Facebook and Google have “conversions” which could map to sales or leads depending on what is tracked). We may define a normalized set of metrics: impressions, clicks, cost, and then platform-specific ones like Amazon’s `attributed_sales` can be stored separately or mapped to a generic `revenue` metric for comparison (with caution). It may also be useful to store metric breakdowns (e.g., by device or region) if the tool provides deep analytics, but that can be derived as needed from raw data.
+- **Hierarchical Relationships**: We should maintain foreign keys or references: e.g., a Campaign record has a pointer to the Account record (so we know which account it belongs to), an Ad Set/Group record links to its parent Campaign, and Ad to Ad Set. This makes queries like “get all ads under Campaign X” or “aggregate spend per campaign” possible from the database without always calling the API. Essentially, mirror the hierarchy in storage.
+
+**Storage of Unstructured Assets:** Creatives like images and videos present a different challenge:
+- **Don’t store large binaries in a core relational DB** – instead, use cloud storage (S3, etc.) or the platforms’ own storage and keep references. For example, when a user uploads an image via the unified tool, the tool can store the original file in an S3 bucket (to reuse or for record) and then call each API to upload to their ad account. The returned IDs (Facebook image hash, Amazon assetId, Google asset resource name) are stored in a table mapping `our_asset_id` -> `fb_hash`/`amz_assetId`/`goog_asset`. That way, if the user wants to reuse the same creative in another campaign or platform, the tool knows it’s already uploaded and can just use the ID (or avoid duplicate uploads).
+- **Metadata**: Store metadata like asset type (image/video), dimensions, duration (for video), etc., and perhaps a URL to the stored asset or a thumbnail. This helps with creative management features (e.g., showing a gallery of uploaded images in the tool’s UI).
+- In the case of text (ad copy, headlines), that’s structured and small, so it can be stored directly in the DB as part of ad definitions or templates the tool might maintain.
+- **Creative Templates**: Some advanced tools let users create templates (like a responsive ad template with placeholders). If our tool does that, we’d store those separately and then generate platform-specific ads on the fly. But sticking to raw assets: keep them accessible and referenceable.
+- One must also consider **asset permissions and expiration**: Facebook image hashes never expire and can be reused as long as the image stays in the account’s library. Google’s assets are permanent once in the account. Amazon assetIds similarly remain available. So caching them long-term is fine. However, if a user deletes an asset in the native platform, our stored ID might become invalid. The tool could periodically refresh asset lists or handle errors when using an asset (if invalid, prompt re-upload).
+
+**Normalization vs. Denormalization:** To present a unified view, some denormalization might be helpful. For instance, a unified “Campaign” view in the tool’s UI might want to show platform, campaign name, status, and primary KPIs (impressions, clicks, cost). The tool could either join the campaign data with the latest performance data from the performance table on the fly, or maintain a summary table (e.g., `CampaignStats` with rolling totals). The latter can speed up UI load (at the cost of ETL complexity). Given large advertisers might have thousands of campaigns, pre-aggregating yesterday’s metrics per campaign might be worth it. On the other hand, detailed reporting will query the fact table.
+
+**Handling Disparate Schemas:** There will be fields that don’t translate across platforms. For example, Amazon’s concept of **ACOS** (Advertising Cost of Sales) = spend/sales – not natively present in Google or Facebook (though one could compute a similar metric if revenue is tracked). The tool’s storage could either:
+  - Compute such derived metrics on the fly for Amazon only,
+  - Or store them in the performance table when pulling Amazon reports (since Amazon’s report API might directly provide ACOS and ROAS). Amazon reports also provide metric **attribution windows** (like 7-day sales), which don’t apply to Google in the same way. It may be prudent to store raw metrics (clicks, cost, sales) and compute ratios (ACOS, CTR, CPC) in queries or application logic for consistency.
+  
+**Example Storage Approach:** For clarity, imagine we design relational tables:
+
+- **Accounts**: columns: internal_id, platform, account_id (or profileId), name, currency, timezone, etc. e.g., (`1, "AMZ", 888888888, "Vendor_Acme_US", "USD", "America/Los_Angeles"`) ([Amazon Ads to Redshift: 2 Easy Steps | Hevo](mdc:https:/hevodata.com/learn/amazon-ads-to-redshift/#:~:text=,America%2FLos_Angeles)), (`2, "FB", act_12345, "Acme Corp FB Ads", "USD", ...), (3, "GOOG", 123-456-7890, "Acme Google MCC - Client", "USD", ...)`.
+- **Campaigns**: internal_id, platform, account_id (FK to Accounts), campaign_id, name, status, objective_type, daily_budget, etc., plus maybe a JSON blob for platform-specific extras. Index on (platform, campaign_id) for quick lookup. 
+- **AdGroups/AdSets**: internal_id, platform, campaign_internal_id (FK), adgroup_id/adset_id, name, status, targeting_json (could store targeting as JSON string for FB), bid_amount, daily_budget (if ad set budget).
+- **Ads**: internal_id, platform, adgroup_internal_id (FK), ad_id, name (or creative label), status, creative_type, creative_json (e.g., store the creative details like headline, link, asset references).
+- **Keywords/Targets** (for platforms that have them): internal_id, adgroup_internal_id, keyword_text or audience_name, type (BROAD, EXACT, etc., or audience type), bid, status, etc.
+- **CustomAudiences** (for FB): internal_id, account_internal_id, audience_id, name, size, type (lookalike or custom), etc., if the tool manages audiences.
+
+- **Performance (Daily/Weekly)**: platform, entity_type (campaign/adset/ad/keyword), entity_id (or internal_id reference), date, impressions, clicks, spend, conversions, revenue, etc. A composite primary key (entity_id, date) or similar. This table can get very large (millions of rows for fine granularity), so consider indexing by date and entity. Alternatively, one table per entity_type (CampaignPerformance, AdPerformance) if that simplifies use.
+
+- **Creative Assets**: internal_id, platform, account_id, asset_id (platform’s ID), type (image/video), name or hash, original_url or our storage link, meta (width, height, duration). Possibly store one row per platform per asset; or a unified asset with multiple platform IDs if the same creative is uploaded to all (mapping through a link table).
+
+**Data Updates & Consistency:** The tool will regularly fetch updates from the APIs:
+- **Polling vs. webhooks**: Amazon and Google do not have webhooks for campaign changes, so the tool might periodically call APIs to sync any structural changes (new campaigns created outside the tool, status changes, etc.). Facebook has webhooks for some things (ad creative, lead events), but generally one might also poll the `/campaigns` and others to catch changes. This means our stored data can drift if not updated. A strategy is to do a nightly full sync of all active objects (or use the last change time field if provided – Google has `last_modified_time` on some resources).
+- The tool should also update the DB immediately when it makes a change via API. For instance, if the user pauses a campaign through the tool, after a successful API response, mark that campaign’s status as paused in the DB. This way the UI and DB stay in sync without waiting for the next poll.
+- **Rate Limit Data**: Sometimes we might store API usage or errors for monitoring, but that’s more internal. Not critical to unify.
+
+**Combining Data Across Platforms:** If the tool aims to show combined cross-platform results (e.g., total spend across Amazon, FB, Google), it will pull from each and sum. Ensuring consistent **time zones** and **attribution windows** is important. For example, Amazon reports are often in daily UTC or account timezone; Facebook insights can be pulled in the account timezone. The tool might normalize everything to UTC date internally, or store the raw date with timezone info. A safe approach: store date as UTC date (since metrics are usually daily totals, UTC vs local can shift a bit – one has to be careful to align how each platform defines “day”). Alternatively, store a timestamp for each metric record if doing hourly pulls. 
+
+**Unstructured Data Storage (continued):** Apart from creatives:
+- **Audience lists** (customer emails, etc.): If our tool handles uploading customer lists to Facebook (Custom Audience) or similar, storing the raw PII is sensitive and generally **not allowed** by platform policies (Facebook requires hashing PII before sending and discourages storing it). A best practice is to hash on the client side or on ingestion and either not store it at all, or store only hashes. Many tools avoid storing such data altogether for compliance; they just pass it through to the API. 
+- **Logs and History**: Storing a history of changes (e.g., bid changes, budget changes) is useful for audit and maybe rollback. A table for change history can record what the tool did via API and when. This is structured (date, entity, old value, new value, user who initiated or rule name if automated).
+
+In conclusion, **the storage architecture** should mirror the hierarchical nature of ad data and accommodate large time-series datasets. A combination of relational tables for entity metadata and a fact table for metrics is a common approach. Some companies use a data warehouse (like BigQuery or Redshift) for the metrics and a transactional DB for the app’s state (campaign metadata). The unified tool must also handle **data type differences** (e.g., big integers for IDs, decimal vs integer for money – Google reports in micros, Facebook in minor units (cents), Amazon in dollars or maybe minor units depending on context). It should convert and store them in a uniform way (e.g., store all money as micros or as a decimal in dollars to one standard).
+
+By thoughtfully designing the storage, the tool can quickly answer questions like “What’s my total spend today across all platforms?” or “Which ad had the best CTR last week?” without hitting the APIs in real-time (which would be slow and rate-limited). Instead, the APIs are used to refresh the database, and the tool’s frontend or analysis layer queries the database. This ensures both performance and that cross-platform insights can be derived (since the data resides together).
+
+## 5. Advertiser Jobs-to-be-Done (JTBD)
+
+Large-scale advertisers use these ad platforms to accomplish key business objectives. A unified management tool should help them achieve the common **jobs-to-be-done (JTBD)** more efficiently by leveraging each platform’s API. Here are some common JTBD for advertisers across Amazon, Meta, and Google Ads:
+
+- **Cross-Platform Campaign Launch:** Advertisers often run a new promotion or product launch across multiple channels simultaneously. The job is to set up corresponding campaigns on Amazon (e.g., Sponsored Products for the new product), Facebook/Instagram (perhaps a campaign to drive traffic or awareness), and Google (Search ads for the product keywords, YouTube or Display ads for awareness). The tool should allow creating these parallel campaigns together, ensuring consistent messaging and timing. The JTBD is *“quickly launch a coordinated campaign across all my ad channels.”*
+
+- **ROAS/ACOS Optimization:** Advertisers need to continuously optimize for profitability. On Amazon, this might be managing ACOS (Advertising Cost of Sales) to a target (e.g., 20%). On Google/Facebook, it’s optimizing ROAS (Return on Ad Spend) or CPA (Cost per Acquisition). This job entails analyzing performance data and adjusting bids, budgets, and targeting to improve the ratio of revenue (or conversion value) to ad spend. For example, *“increase bids on keywords with ROAS > 5, decrease on ROAS < 2”* or *“manage my Amazon keyword bids to hit a 15% ACOS.”* This is often an ongoing, automated job.
+
+- **Budget Allocation & Pacing:** Given a fixed total budget, an advertiser wants to allocate it across platforms and campaigns for the best results. This involves deciding how much to spend on Amazon vs Facebook vs Google, as well as how to distribute budget among campaigns within each platform. It also includes pacing the spend so it doesn’t all exhaust too early in the month. The JTBD here is *“allocate my monthly budget across channels and ensure each campaign spends its budget efficiently without overspending or underspending.”* The tool might do things like automatically reduce budgets on underperforming campaigns and reallocate to better ones (even across platforms, if one channel is yielding better ROI).
+
+- **Multi-Platform Performance Monitoring (Issues & Alerts):** Advertisers need to keep an eye on campaign health and get alerted to any issues. For example, *“notify me if any campaign suddenly has a huge drop in impressions or if Facebook rejects my ad due to policy, or if an Amazon campaign ran out of budget.”* Monitoring JTBD includes checking delivery (are ads running?), detecting anomalies (CPM spike, conversion drop), and ensuring budgets and bids are in safe ranges. A unified dashboard and alert system is valuable so the advertiser doesn’t have to manually check each platform’s reports daily.
+
+- **Consolidated Reporting & Attribution:** Attributing results (sales, leads) back to the ad efforts in one place. The job is *“understand my advertising performance holistically* – e.g., see total spend, total conversions across all platforms, and also break it down by platform or campaign.” Advertisers want a unified report for executives that might say: Amazon yielded X sales for $Y spend, Facebook Y sales for $Z spend, etc., possibly with blended metrics. They may also want to attribute offline or cross-channel conversions: e.g., using Amazon Attribution to see if Google or Facebook ads led to Amazon purchases (a tricky but desired insight). Essentially, aggregate and compare performance across channels.
+
+- **Automation & Scaling:** Large advertisers (or agencies managing many accounts) rely on automation to scale operations that would be tedious manually. JTBD examples: *“automatically pause keywords that spend $x without sales in Amazon and Google”*, *“bulk create thousands of ad variations based on a product feed”*, *“schedule ads to turn on/off at specific times (dayparting)”*, or *“use rules to raise budgets by 20% on campaigns meeting certain KPI thresholds.”* The tool should allow custom rules or even use AI to manage campaigns at a scale beyond human capacity. This job is essentially *“manage my campaigns at scale through automation to save time and improve performance.”*
+
+- **Creative Testing & Refresh:** Creative fatigue is a concern, especially on Facebook and Display ads. Advertisers constantly test new creatives (images, videos, headlines) to improve engagement. The JTBD: *“easily test multiple ad creatives and identify winners.”* This involves uploading creative variants, deploying them in a controlled experiment (A/B test or multi-armed bandit), and then analyzing results to keep the best and rotate out the rest. On Amazon, this might be testing different Sponsored Brands banners or product images; on Facebook, different ad copies or videos; on Google, perhaps different ad headlines (RSA assets) or YouTube video ads. The tool should streamline the creation and measurement of these tests.
+
+- **Product Feed Management & Ads Synchronization:** Especially for retail/e-commerce advertisers, keeping product info in sync across ads is a job. For instance, *“if my product goes out of stock or price changes, update or pause ads for it.”* On Amazon, Sponsored Product ads automatically reflect stock (they won’t show an unavailable product), but on Google (Shopping campaigns) and Facebook (Dynamic Ads), the product feed updates need to align with ads. The unified tool might monitor feed and performance – ensuring that ads are promoting in-stock items, and perhaps creating new ads when new products are added. The JTBD is *“ensure my advertising always reflects my current product catalog and promotions.”*
+
+- **Sales or Outcome Attribution:** Going beyond immediate metrics, advertisers want to link ad spend to actual business outcomes (sales revenue, Amazon ranking boosts, lifetime value). One JTBD: *“understand how my Facebook and Google ads contribute to Amazon sales”*. Using Amazon Attribution (which provides conversion data for external traffic) is one solution – the tool can integrate that. Another: *“Import offline sales into Google to close the loop”* – e.g., using the Google Ads API to upload offline conversions. In general, connecting the dots between ad clicks and eventual sales (possibly on another platform or in-store) is a complex but important job. A unified tool can assist by aggregating data from sources (maybe pulling Shopify or CRM data to attribute to campaigns).
+
+- **Unified Audience Management:** Advertisers often have customer data and want to reuse audiences across platforms (where possible). JTBD: *“retarget my past purchasers on all platforms”*. That might mean uploading the purchaser list to Facebook Custom Audiences, Google Customer Match, and creating a similar audience on Amazon DSP or using Amazon’s audience if available. Another aspect is lookalike modeling across platforms – an advanced tool might compare performance of lookalikes or create similar segment strategies on each. While each platform has its silo, the job for the tool is to simplify multi-platform audience targeting for the advertiser’s customer segments.
+
+These are just some of the high-value jobs. Ultimately, advertisers using a unified tool want to **drive better performance with less effort**. They want to launch campaigns faster, respond to market changes immediately (through automation or alerts), and squeeze more ROI by optimizing bids and creatives continuously. They also want insights that are hard to get when looking at each channel in isolation – e.g., marginal return by channel, or which channel is more cost-effective for a given product or audience.
+
+By focusing on these JTBD, the tool can prioritize which API capabilities to implement and present: for example, emphasize cross-platform reporting for the consolidated reporting job, or build a rules engine on top of bid update endpoints for the automation job.
+
+## 6. Mapping API Capabilities to JTBD
+
+Now let's map how specific API endpoints and features enable the above Jobs-to-be-Done, often with automation or pseudocode examples to illustrate. Each JTBD may touch multiple platforms’ APIs in parallel:
+
+- **JTBD: Cross-Platform Campaign Launch** – *“Launch a new product campaign on Amazon, Facebook, and Google simultaneously.”*  
+  **Mapping & Flow:** The tool would use the **campaign creation endpoints** on each platform’s API:
+  - **Amazon:** `POST /v2/sp/campaigns` (and perhaps `/adGroups` and `/ads` for the ad group and ad) to create a Sponsored Products campaign for the product. Also `POST /v2/sp/keywords` to add initial keywords (maybe pulled from the product or provided by the user). If doing Sponsored Brands, also upload creative assets via Creative Asset API and then create a Sponsored Brands campaign with those assets. 
+  - **Facebook:** `POST /act_{account_id}/campaigns` to create the campaign with the desired objective (e.g., Traffic or Conversions). Then `POST /act_{account_id}/adsets` to define the targeting and placement, and `POST /act_{account_id}/ads` along with an `ad_creative` (which might involve a preceding `POST /act_{account_id}/adcreatives` if a new creative is needed). 
+  - **Google:** Use `CampaignBudgetService` to create a budget, then `CampaignService.MutateCampaigns` to create a new campaign (setting network settings, objective, etc.). Follow with `AdGroupService` to create an ad group, `AdGroupAdService` to add ads (e.g., text ads or responsive search ads), and `AdGroupCriterionService` to add keywords for Search. For Display or YouTube campaigns, the process differs in details but similarly involves calling respective mutate methods for each entity.
+  
+  These calls can be orchestrated sequentially or in parallel. Here’s a pseudocode snippet for creating a search campaign across all three: 
+
+  ```python
+  # Pseudocode for cross-platform campaign creation
+  new_campaign_name = "New Product Launch"
+  budget = 500  # daily budget in platform's currency units
+  
+  # Amazon Sponsored Products campaign creation
+  amz_campaign = amazon_api.create_campaign({
+      "name": new_campaign_name,
+      "campaignType": "sponsoredProducts",
+      "targetingType": "manual", 
+      "dailyBudget": budget,
+      "startDate": today,
+      "state": "enabled"
+  })
+  amz_ad_group = amazon_api.create_ad_group({
+      "campaignId": amz_campaign.id,
+      "name": "Default Ad Group",
+      "defaultBid": 1.5,
+      "state": "enabled"
+  })
+  amazon_api.add_product_ads(amz_ad_group.id, product_asins=[ASIN1, ASIN2])
+  amazon_api.add_keywords(amz_ad_group.id, keywords=[{"keywordText": "new gadget", "matchType": "exact", "bid": 1.0}, ...])
+  
+  # Facebook campaign creation
+  fb_campaign = fb_api.create_campaign({
+      "name": new_campaign_name,
+      "objective": "CONVERSIONS",
+      "status": "PAUSED"  # create paused, will enable after full setup
+  })
+  fb_adset = fb_api.create_adset({
+      "name": "Target Audience 1",
+      "campaign_id": fb_campaign.id,
+      "daily_budget": budget * 100,  # Facebook in cents
+      "start_time": today_iso,
+      "optimization_goal": "PURCHASE",
+      "targeting": {...},  # e.g., demographic/interest targeting
+      "status": "PAUSED"
+  })
+  fb_creative = fb_api.create_ad_creative({
+      "object_story_spec": {...}  # details like page_id, image_hash, message, link
+  })
+  fb_ad = fb_api.create_ad({
+      "name": "New Product Ad 1",
+      "adset_id": fb_adset.id,
+      "creative": {"creative_id": fb_creative.id},
+      "status": "PAUSED"
+  })
+  
+  # Google campaign creation (using hypothetical client library calls)
+  g_budget = google_api.create_budget(amount=budget, delivery_method="STANDARD")
+  g_campaign = google_api.create_campaign({
+      "name": new_campaign_name,
+      "campaign_budget": g_budget.resource_name,
+      "advertising_channel_type": "SEARCH",
+      "status": "PAUSED"
+  })
+  g_ad_group = google_api.create_ad_group({
+      "campaign": g_campaign.resource_name,
+      "name": "Ad Group 1",
+      "cpc_bid_micros": 1500000,  # $1.5 in micros
+      "status": "ENABLED"
+  })
+  google_api.create_ads(ad_group=g_ad_group.resource_name, ads=[ {...ad data...} ])
+  google_api.add_keywords(ad_group=g_ad_group.resource_name, keywords=["new gadget"], match_type="EXACT", bid=1.0)
+  
+  # After setup, activate campaigns
+  fb_api.update_campaign(fb_campaign.id, status="ACTIVE")
+  fb_api.update_adset(fb_adset.id, status="ACTIVE")
+  fb_api.update_ad(fb_ad.id, status="ACTIVE")
+  amazon_api.update_campaign(amz_campaign.id, state="enabled")
+  # Google campaign was created paused; let's enable it
+  google_api.update_campaign(g_campaign.resource_name, status="ENABLED")
+  ```
+  
+  In practice, one would include error handling (roll back if one API fails) and adjust for each platform’s requirements. The above pseudocode shows how each API’s endpoints are used in concert to accomplish the job of launching multi-channel campaigns.
+
+- **JTBD: ROAS/ACOS Optimization** – *“Optimize bids to achieve target efficiency (e.g., ACOS <= 20% on Amazon, maximize ROAS on Google).”*  
+  **Mapping & Flow:** This involves using **reporting endpoints** to get performance and then **bidding endpoints** to adjust:
+  - Pull recent performance metrics from each platform. For Amazon, use the `/reports` API to get spend and sales by keyword or product target. For Google, use GAQL to get cost and conversion value by keyword. For Facebook, use the Insights API to get spend and conversions (or value) by ad or ad set.
+  - Compute efficiency metrics (ROAS = revenue/spend, ACOS = spend/revenue).
+  - Use the API to update bids accordingly: Amazon’s `PUT /sp/keywords/{keywordId}` to set a new bid, Google’s `AdGroupCriterionService` to update keyword max CPC, Facebook doesn’t have keyword bids, but if optimizing ROI on FB, one might adjust budget or use automated rules since Facebook is optimized via its algorithms rather than manual bids per se. However, one could adjust an ad set’s bid cap or cost target if using those.
+
+  Example pseudocode for Amazon bid optimization based on ACOS:
+  ```python
+  # Pseudocode: Optimize Amazon keyword bids based on target ACOS
+  report = amazon_api.get_keyword_performance(profile_id, date_range="LAST_7_DAYS")
+  target_acos = 0.20  # 20%
+  for keyword in report.keywords:
+      if keyword.sales == 0:
+          continue  # no sales data (perhaps new or non-converting)
+      acos = keyword.spend / keyword.sales
+      if acos > target_acos:
+          # ACOS too high, reduce bid by 10%
+          new_bid = keyword.bid * 0.9
+      elif acos < target_acos * 0.5:
+          # ACOS is very low (very efficient), we can raise bid to get more volume
+          new_bid = keyword.bid * 1.1
+      else:
+          continue  # bid is fine
+      amazon_api.update_keyword_bid(keyword.id, new_bid)
+  ```
+  This loop fetches keyword stats, calculates ACOS, and adjusts the bid down or up by 10% depending on performance. Using Amazon’s API, this corresponds to calling the Sponsored Products Keywords endpoint for each adjustment (it supports batching, so the tool could batch multiple updates in one request).
+
+  For Google, a similar approach:
+  ```python
+  # Pseudocode: Optimize Google keyword bids based on ROAS
+  results = google_api.query("""
+      SELECT campaign.id, ad_group.id, metrics.conversions_value, metrics.cost_micros, metrics.conversions 
+      FROM keyword_view
+      WHERE segments.date DURING LAST_7_DAYS AND metrics.conversions > 0
+  """)
+  target_roas = 5.0  # want $5 revenue per $1 spend
+  for row in results:
+      conv_value = row.metrics.conversions_value
+      cost = row.metrics.cost_micros / 1e6  # convert micros to currency
+      if cost == 0:
+          continue
+      roas = conv_value / cost
+      criterion = row.keyword_view.resource_name  # resource name of the keyword
+      if roas < target_roas:
+          # low ROAS, lower bid
+          google_api.update_keyword_bid(criterion, adjustment="-10%")
+      elif roas > target_roas * 2:
+          # high ROAS, we can afford to bid more
+          google_api.update_keyword_bid(criterion, adjustment="+10%")
+  ```
+  In Google’s case, one might use a more advanced algorithm (like a target CPA formula or bid simulator data), but this illustrates using the API data and then the `AdGroupCriterionService` to apply changes. We might not literally send “-10%” as an update; instead we retrieve current bid and apply math similarly to Amazon.
+
+  For **Facebook**, optimization often means relying on Facebook’s learning algorithm (which auto-optimizes ads for a given goal), so manual bid adjustments are less frequent unless using cost caps. However, the tool could shift budget between ad sets or pause poor ads:
+  - Use Insights API to get cost per result per ad. If an ad’s cost per conversion is too high, call `POST /{ad_id}` with `status=PAUSED` to pause it ([Facebook Ads API Guide from A to Z | Coupler.io Blog](mdc:https:/blog.coupler.io/facebook-ads-api/#:~:text=%60%2F%7Bad,previews%20from%20the%20existing%20Ad)).
+  - Or if an ad set has low ROI, reduce its budget via `POST /{adset_id}` with a new `daily_budget`.
+  
+  This job showcases a closed-loop: **reporting** APIs provide metrics, logic decides changes, and **management** APIs apply those changes. The scale can be hundreds or thousands of adjustments, so the tool would utilize bulk operations (Amazon’s batch update, Google’s batch jobs, or Facebook’s batch API) as needed.
+
+- **JTBD: Budget Allocation & Pacing** – *“Allocate budget across campaigns/platforms for optimal use and adjust pacing.”*  
+  **Mapping & Flow:** This may involve both reporting and high-level budget controls:
+  - The tool could use each platform’s API to get year-to-date or month-to-date spend per campaign (Insights for FB, GAQL for Google, reports for Amazon).
+  - Suppose one platform is significantly under-spending while another is overspending relative to plan. The tool could adjust budgets via API: e.g., increase a Facebook Campaign or Ad Set budget by calling the `/adset` update, reduce an Amazon campaign dailyBudget via `PUT /campaigns/{id}`, etc.
+  - For pacing, if mid-month spend is only 30% of budget, the tool might increase bids or broaden targeting to spend more (that ties into optimization). Or if spend is 90% of monthly budget and we still have 10 days left, the tool might dial back budgets or bids to avoid burning out (pacing).
+  - Example: *Consolidated budget view*: The tool sums spend across channels and compares to a monthly goal. It might then decide to reallocate the remainder. While direct reallocation between platforms is manual (the tool can’t transfer budget, but it can suggest moving $X from Google to Amazon by adjusting those budgets accordingly).
+
+  Pseudocode for a simple reallocation rule:
+  ```python
+  # Get month-to-date spend
+  mtd = {
+      "Amazon": amazon_api.get_spend(profile_id, date_range="MTD"),
+      "Facebook": fb_api.get_spend(ad_account_id, date_range="THIS_MONTH"),
+      "Google": google_api.get_spend(customer_id, date_range="THIS_MONTH")
+  }
+  total_spend = sum(mtd.values())
+  # Suppose we have a monthly budget of $10000 across all
+  remaining = 10000 - total_spend
+  if remaining < 0:
+      # over budget: cut budgets
+      for platform, spend in mtd.items():
+          if spend > (10000 * 0.33):  # if platform took more than 1/3 of total budget (arbitrary threshold)
+              tool.reduce_platform_budget(platform, percentage=10)
+  else:
+      # under budget: allocate remaining proportionally to best ROAS platform
+      roas = {
+          "Amazon": calc_roas(amazon_metrics),
+          "Facebook": calc_roas(fb_metrics),
+          "Google": calc_roas(google_metrics)
+      }
+      best = max(roas, key=roas.get)
+      tool.increase_platform_budget(best, amount=remaining * 0.5)
+  ```
+  Here `tool.reduce_platform_budget` and `increase_platform_budget` would internally use platform-specific calls:
+  - For Amazon, perhaps distribute cuts across top campaigns via `PUT /campaigns` on their budgets or using Portfolio budget if one is in use.
+  - For Facebook, adjust the campaign or ad set daily budgets (e.g., reduce by 10%).
+  - For Google, adjust shared budgets or campaign budgets via CampaignBudgetService.
+  
+  Pacing within a campaign: e.g., use Google’s `pace_fraction` from the API (Google provides some pacing info in the Delivery data via their API or one can calculate expected vs actual spend). If a campaign is ahead of pace, tool could slightly lower its budget or pause it for a day. This is advanced and requires forecasting, which might be beyond direct API usage – but data from the API (like % of budget spent, days elapsed) feed the logic.
+
+  The job also might involve scheduling: using the APIs to schedule budgets or dayparting. Google allows ad scheduling (CampaignCriterion for dayparts), Facebook ad sets have scheduling if lifetime budget is used (you can set times to run), Amazon currently doesn’t have dayparting in API (one could emulate by programmatically enabling/disabling campaigns at certain hours via API calls). The tool can implement a dayparting job like *“pause campaigns at midnight via API, resume in morning”* to pace spend.
+
+- **JTBD: Performance Monitoring & Issue Alerting** – *“Monitor campaigns and alert on issues (e.g., zero impressions, disapprovals, budget cap reached).”*  
+  **Mapping & Flow:** The tool will periodically call certain endpoints to check status:
+  - **Delivery metrics:** Use reporting endpoints to check if a campaign or ad got impressions in the last X hours. If a campaign’s impressions drop to 0 suddenly, the tool might call the API for more info: e.g., check campaign `status` (maybe it got paused or ended) or check if budget is exhausted. On Amazon, hitting daily budget could be seen in campaign status (it has a status for paused vs enabled, but budget exhaustion might not be directly flagged via API except spend = budget). On Google, one can query `campaign.explicitly_limited` and `metrics.search_impression_share` or look at `campaign.status`. For FB, if a campaign is active but zero impressions, maybe the ad got disapproved or the audience is too narrow.
+  - **Disapprovals and Errors:** Facebook’s Marketing API provides an endpoint to get ad creative review feedback (or you notice an ad’s status becomes “DISAPPROVED”). The tool can call `GET {ad_id}?fields=effective_status,issues_info` to see if any policy issues are listed. Google’s API surfaces disapproval reasons in the `AdGroupAdPolicySummary`. Amazon returns a status in the ad object (e.g., ads can have state “eligible” or “paused”; for policy issues Amazon might not have a straightforward API alert – one might infer if an ad isn’t serving).
+  - **Budget limit:** Use budget endpoints. For Google, `CampaignBudget` has fields like `amount` and you can query spend via reporting to see % used. For Facebook, if using lifetime budgets, the API provides delivery insights. For Amazon, you’d compare reported spend with budget.
+  - **Alerts Implementation:** The tool might not rely on the API to push alerts (as these APIs are mostly pull), so it sets up a scheduler to poll data. E.g., every hour, run `google_api.query(...)` to get campaigns with zero impressions today but were active, or `fb_api.get_insights` for today’s spend. Then trigger notifications accordingly (outside scope of API).
+
+  For example, to detect and fix an issue automatically: if Facebook ad is disapproved, the tool could catch that and possibly switch in a backup creative (using the creative API to make a new ad) – though often it alerts a human to address content. If an Amazon campaign spent 100% of budget by noon, the tool could automatically increase the budget via API or alert the user that the campaign is limited.
+
+  Pseudocode for a simple check:
+  ```python
+  # Pseudocode: Monitor and auto-pause overspending campaigns
+  for platform in ["Amazon", "Facebook", "Google"]:
+      spend = tool.get_today_spend(platform)
+      if spend > tool.daily_limit(platform):
+          tool.send_alert(f"{platform} spend ${spend} exceeded daily limit!")
+          # auto-pause all campaigns for rest of day
+          if platform == "Amazon":
+              for camp in amazon_api.list_campaigns(state="enabled"):
+                  amazon_api.update_campaign(camp.id, state="paused")
+          elif platform == "Facebook":
+              fb_api.pause_campaigns(fb_api.get_active_campaigns())
+          elif platform == "Google":
+              google_api.update_campaigns(query='WHERE status = "ENABLED"', new_status="PAUSED")
+  ```
+  This uses list/get and update endpoints accordingly. 
+
+  Another scenario: alert if any ad set has no impressions in 24h:
+  ```python
+  zero_ads = fb_api.query_insights(fields=["impressions"], filter="impressions:0", level="adset", date_preset="today")
+  for adset in zero_ads:
+      details = fb_api.get_object(adset.id, fields=["effective_status", "configured_status"])
+      if details["configured_status"] == "ACTIVE":
+          tool.send_alert(f"Ad Set {adset.id} active but zero impressions today.")
+  ```
+  And similarly for Google, using GAQL to find active ad groups with zero impressions. 
+
+  In effect, this JTBD doesn’t introduce many new API calls beyond those already discussed; it’s more about using them in monitoring mode and possibly using **meta-data endpoints**: e.g., Google’s `PolicyTopicEntry` in ad object for disapproval reasons, or Facebook’s `issues_info`. The unified tool might maintain an “alert rules” configuration and run these queries regularly.
+
+- **JTBD: Consolidated Reporting & Attribution** – *“Report on overall performance and attribute sales to campaigns across platforms.”*  
+  **Mapping & Flow:** This mostly leverages **reporting APIs**:
+  - The tool will fetch data from each platform (as in JTBD 2 and 3) but then aggregate. There’s no single API call for cross-platform data (by definition), but the tool’s backend can merge results. For example, fetch Amazon sales, Facebook conversion values, and Google conversion values to compute total revenue. 
+  - If using Amazon Attribution: The Amazon Ads API’s Attribution endpoints (if available in the API) would allow retrieving metrics for clicks coming from outside Amazon. For instance, you could create attribution tags for Facebook and Google campaigns and then use Amazon’s Attribution API to get sales attributed to those clicks ([Amazon Ads API Essentials](mdc:https:/rollout.com/integration-guides/amazon-advertising/api-essentials#:~:text=Amazon%20Attribution)). This would truly cross-connect the platforms: the tool might call Amazon’s API with an attribution tag ID and get back how many Amazon purchases happened from that source. This data can then be presented alongside the cost from Facebook/Google to compute cross-ROAS.
+  - Another use-case is combining Google Analytics or another tracking: though not asked, an advanced unified tool might call Google Analytics Reporting API or similar to attribute e.g. Facebook campaign to site purchases, but that’s beyond the three ad APIs in question. Within scope, Amazon Attribution is the key to linking external ads to Amazon sales.
+  
+  In terms of code, consolidated reporting is more about data integration than calling new endpoints. For example:
+  ```python
+  # Pseudocode: Consolidated ROI report
+  amazon_metrics = amazon_api.get_summary(profile_id, date_range="LAST_MONTH")  # returns {"spend":..., "sales":..., "acos":...}
+  fb_metrics = fb_api.get_insights(level="account", time_range=last_month, fields=["spend", "offsite_conversions.value"])
+  goog_metrics = google_api.query("SELECT metrics.cost_micros, metrics.conversions_value FROM customer WHERE segments.date DURING LAST_MONTH")
+  
+  total_spend = amazon_metrics.spend + fb_metrics.spend + (goog_metrics.cost_micros/1e6)
+  total_revenue = amazon_metrics.sales + fb_metrics.offsite_conversion_value + goog_metrics.conversions_value
+  total_roas = total_revenue / total_spend if total_spend > 0 else None
+  tool.generate_report({
+      "Amazon Spend": amazon_metrics.spend, "Amazon Sales": amazon_metrics.sales, 
+      "Facebook Spend": fb_metrics.spend, "Facebook Conv Value": fb_metrics.offsite_conversion_value,
+      "Google Spend": goog_metrics.cost_micros/1e6, "Google Conv Value": goog_metrics.conversions_value,
+      "Total Spend": total_spend, "Total Revenue": total_revenue, "Total ROAS": total_roas
+  })
+  ```
+  The above pulls summary data (assuming the tool has methods to get it easily; in reality might need to sum over campaigns). The result is a combined dictionary of metrics which can be output or visualized. 
+
+  For attribution specifics: say we have Amazon Attribution set up for a Facebook campaign with an attribution tag ID. The tool would call Amazon’s Attribution API endpoint, which might look like:
+  ```python
+  amazon_attribution_data = amazon_api.get_attribution(tag_id="abc123", date_range="LAST_MONTH")
+  # amazon_attribution_data might include fields like clicks, attributedPurchases, attributedSales
+  fb_campaign = "My FB Campaign 1"
+  print(f"In {fb_campaign}, Facebook reported {fb_metrics.conversions} conversions on site, and Amazon Attribution shows {amazon_attribution_data.attributedSales} in Amazon sales from it.")
+  ```
+  This would require that the advertiser tagged their Facebook ad with Amazon’s tracking link. The unified tool could facilitate that by generating Amazon Attribution tags via API and providing them to use in Facebook ads (this would use both APIs: Amazon’s to create a tracking tag, and then the user would insert it in the Facebook ad URL via the tool’s UI or manually).
+
+  Ultimately, the heavy lifting for consolidated reporting is on the tool’s side to merge the data from the separate API calls. The APIs give the raw metrics in JSON which the tool aggregates.
+
+- **JTBD: Automation (Rules & Bulk Ops)** – *“Automate routine tasks and apply bulk changes.”*  
+  **Mapping & Flow:** This is more of an internal tool function, but enabled by the APIs’ bulk capabilities:
+  - The tool can allow user-defined rules (if CPC > $X and no conversions, pause keyword). Each rule corresponds to certain API actions. The evaluation of conditions uses data from APIs (likely cached in the tool’s DB or fetched on demand).
+  - When a rule triggers, the tool executes the appropriate API calls. E.g., a rule to pause low-performing ads will call Facebook’s `POST ad_id status=PAUSED`, Google’s `MutateAdGroupAds` setting status REMOVED for those ads, Amazon’s `archiveAd`. 
+  - Bulk operations: The tool will group changes into batches. Google’s BatchJobService can take thousands of operations (the tool would craft a batch job with multiple mutate operations – e.g., pause 1000 keywords). Amazon’s API allows up to (for example) 100 changes per call in some endpoints – the tool will send batches of 100. Facebook can accept batched requests (up to 50 calls in one HTTP request).
+  - **Example Automation:** *Scheduled actions* – user wants all campaigns paused on weekends. The tool’s scheduler will use each API to set status = paused for those campaigns on Saturday morning, and resume on Monday. This is straightforward: iterate campaigns, call update. Or use a stored list of campaign IDs to pause, feed into one batch API call per platform.
+  
+  Pseudocode for a generic rule engine tick:
+  ```python
+  for rule in tool.rules:
+      entities = tool.fetch_entities_matching(rule.condition)  # uses stored data or API to find matches
+      for entity in entities:
+          if rule.action == "pause":
+              if entity.platform == "Amazon":
+                  amazon_api.update_campaign(entity.id, state="paused")
+              elif entity.platform == "Facebook":
+                  fb_api.update_object(entity.id, params={"status":"PAUSED"})
+              elif entity.platform == "Google":
+                  google_api.update_campaign(entity.resource_name, status="PAUSED")
+          elif rule.action == "raise_bid_10":
+              # e.g., rule to raise bid
+              current_bid = tool.get_bid(entity)
+              new_bid = current_bid * 1.10
+              tool.set_bid(entity, new_bid)
+  ```
+  In reality, we’d likely batch those updates by platform:
+  - For Amazon, accumulate all campaign IDs to pause, then call one `POST /v2/sp/campaigns` with a list of updates.
+  - For Google, create a BatchJob with multiple operations.
+  - For FB, use batch API or iterate if not too many.
+
+  Bulk editing interfaces on the tool (like uploading a spreadsheet of changes) would similarly translate to a series of API calls. For instance, if a user uploads 100 new keywords for Google across various ad groups, the tool could use a single `mutateAdGroupCriteria` request with 100 create operations (the Google API allows that many ops in one call up to its limits) ([Storebuilder Blueprint  |  Google for Developers](mdc:https:/developers.google.com/merchant/storebuilder/online/sections/4_0_4_access_levels#:~:text=,To%20apply%2C%20see%20%2065)). For Amazon, maybe 100 keywords at a time via `POST /v2/sp/keywords`. For FB, no direct "bulk create 100 ads" in one call (unless using batch), so the tool might either sequentially call or break into smaller batches.
+
+  Another automation is **bid algorithms** (like portfolio optimization using external data). For example, if the tool integrates weather or inventory data to adjust bids via API. The mapping is straightforward: after computing the new bids, call the respective update endpoints. The sophistication lies in the computation; the API part is still “call update bid”.
+
+  **Summary**: We see each JTBD ties back to specific API calls:
+  - Launch → create Campaigns/AdSets/Ads (multiple POST calls across APIs).
+  - Optimize ROAS → get Reports (GET) + set Bids/Budgets (POST updates).
+  - Budget & Pace → get spend (GET) + adjust budgets (POST update budgets).
+  - Monitoring → get status and metrics (GET) + possibly update status (POST) for auto-fix.
+  - Reporting → heavy use of GET on insights/metrics endpoints.
+  - Automation → orchestrated GET + conditional POST (batch) at potentially large scale.
+
+Each API’s features (OAuth, rate limit, endpoint structure) influence how we implement these. But by leveraging the strengths of each (e.g., Google’s bulk jobs, Facebook’s powerful targeting spec, Amazon’s sales attribution data), the tool can fulfill those advertiser jobs in one place. 
+
+Throughout this, we embedded links to official documentation and used consistent structures. The key differences (like how each handles bulk, or real-time stream vs polling) have been highlighted, so a developer can clearly see how to proceed with integration for each platform’s portion of the workflow.
+

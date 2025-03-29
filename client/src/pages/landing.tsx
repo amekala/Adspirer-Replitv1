@@ -13,6 +13,7 @@ import { AnimatedFeatures } from "@/components/animated-features";
 import { DemoRequestForm } from "@/components/demo-request-form";
 import { motion } from "framer-motion";
 import { AnimatedCard, AnimatedCardContent } from "@/components/ui/animated-card";
+import { ThemeToggle } from "@/components/ui/theme-toggle";
 
 export default function LandingPage() {
   const { user, isLoading } = useAuth();
@@ -27,11 +28,11 @@ export default function LandingPage() {
 
   return (
     <ThemeProvider>
-      <div className="relative min-h-screen overflow-hidden bg-slate-950">
+      <div className="relative min-h-screen overflow-hidden bg-slate-50 text-slate-900 dark:bg-slate-950 dark:text-slate-50">
         <AnimatedBackground />
         
         {/* Navigation */}
-        <header className="fixed top-0 left-0 right-0 z-50 border-b border-slate-800/70 bg-black/10 backdrop-blur-xl">
+        <header className="fixed top-0 left-0 right-0 z-50 border-b border-slate-200/70 dark:border-slate-800/70 bg-black/10 backdrop-blur-xl">
           <div className="container mx-auto px-4 py-4 flex justify-between items-center">
             <h1 className="text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-indigo-400 to-violet-400">
               Adspirer
@@ -39,18 +40,19 @@ export default function LandingPage() {
             
             <div className="flex items-center gap-4">
               <div className="hidden md:flex items-center space-x-6">
-                <Link href="/about" className="text-slate-300 hover:text-white transition-colors">
+                <Link href="/about" className="text-slate-700 hover:text-slate-900 dark:text-slate-300 dark:hover:text-white transition-colors">
                   About Us
                 </Link>
-                <Link href="/privacy" className="text-slate-300 hover:text-white transition-colors">
+                <Link href="/privacy" className="text-slate-700 hover:text-slate-900 dark:text-slate-300 dark:hover:text-white transition-colors">
                   Privacy
                 </Link>
                 <button 
                   onClick={scrollToDemo} 
-                  className="text-slate-300 hover:text-white transition-colors"
+                  className="text-slate-700 hover:text-slate-900 dark:text-slate-300 dark:hover:text-white transition-colors"
                 >
                   Contact Us
                 </button>
+                <ThemeToggle />
                 {isLoading ? (
                   <div className="h-9 w-9 rounded-md bg-slate-800/50 animate-pulse"></div>
                 ) : user ? (
@@ -71,18 +73,18 @@ export default function LandingPage() {
                     <Menu className="h-5 w-5" />
                   </AnimatedButton>
                 </SheetTrigger>
-                <SheetContent side="right" className="bg-slate-900/90 backdrop-blur-xl border-slate-800/50">
+                <SheetContent side="right" className="bg-slate-50/90 dark:bg-slate-900/90 backdrop-blur-xl border-slate-200/50 dark:border-slate-800/50">
                   <SheetHeader>
-                    <SheetTitle className="text-left text-white">Menu</SheetTitle>
+                    <SheetTitle className="text-left text-slate-900 dark:text-white">Menu</SheetTitle>
                   </SheetHeader>
                   <div className="flex flex-col gap-4 mt-8">
-                    <Link href="/" onClick={closeSheet} className="text-slate-300 hover:text-white transition-colors">
+                    <Link href="/" onClick={closeSheet} className="text-slate-700 hover:text-slate-900 dark:text-slate-300 dark:hover:text-white transition-colors">
                       Home
                     </Link>
-                    <Link href="/about" onClick={closeSheet} className="text-slate-300 hover:text-white transition-colors">
+                    <Link href="/about" onClick={closeSheet} className="text-slate-700 hover:text-slate-900 dark:text-slate-300 dark:hover:text-white transition-colors">
                       About Us
                     </Link>
-                    <Link href="/privacy" onClick={closeSheet} className="text-slate-300 hover:text-white transition-colors">
+                    <Link href="/privacy" onClick={closeSheet} className="text-slate-700 hover:text-slate-900 dark:text-slate-300 dark:hover:text-white transition-colors">
                       Privacy
                     </Link>
                     <button 
@@ -90,16 +92,20 @@ export default function LandingPage() {
                         scrollToDemo();
                         closeSheet();
                       }} 
-                      className="text-left text-slate-300 hover:text-white transition-colors"
+                      className="text-left text-slate-700 hover:text-slate-900 dark:text-slate-300 dark:hover:text-white transition-colors"
                     >
                       Contact Us
                     </button>
+                    <div className="flex items-center space-x-2 py-2">
+                      <span className="text-slate-700 dark:text-slate-300">Theme:</span>
+                      <ThemeToggle size="default" />
+                    </div>
                     {user ? (
-                      <Link href="/chat" onClick={closeSheet} className="text-slate-300 hover:text-white transition-colors">
+                      <Link href="/chat" onClick={closeSheet} className="text-slate-700 hover:text-slate-900 dark:text-slate-300 dark:hover:text-white transition-colors">
                         Go to Chat
                       </Link>
                     ) : (
-                      <Link href="/auth" onClick={closeSheet} className="text-slate-300 hover:text-white transition-colors">
+                      <Link href="/auth" onClick={closeSheet} className="text-slate-700 hover:text-slate-900 dark:text-slate-300 dark:hover:text-white transition-colors">
                         Get Started
                       </Link>
                     )}
@@ -176,8 +182,8 @@ export default function LandingPage() {
                   <div className="inline-flex h-14 w-14 rounded-full bg-gradient-to-br from-indigo-600 to-violet-600 items-center justify-center mb-4 shadow-[0_0_15px_rgba(99,102,241,0.5)]">
                     <span className="text-lg font-bold text-white">{item.step}</span>
                   </div>
-                  <h3 className="text-xl font-semibold mb-2 text-white">{item.title}</h3>
-                  <p className="text-slate-400">{item.description}</p>
+                  <h3 className="text-xl font-semibold mb-2 text-slate-900 dark:text-white">{item.title}</h3>
+                  <p className="text-slate-600 dark:text-slate-400">{item.description}</p>
                 </motion.div>
               ))}
             </div>
@@ -196,7 +202,7 @@ export default function LandingPage() {
                 Ready to Transform Your Ad Strategy?
               </motion.h2>
               <motion.p
-                className="text-lg md:text-xl text-slate-400"
+                className="text-lg md:text-xl text-slate-600 dark:text-slate-400"
                 initial={{ opacity: 0, y: 20 }}
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true }}
@@ -228,8 +234,8 @@ export default function LandingPage() {
                 >
                   <AnimatedCard variant="outline" hoverEffect="border">
                     <AnimatedCardContent className="p-6">
-                      <h3 className="text-xl font-semibold mb-4 text-white">Why Request a Demo?</h3>
-                      <ul className="space-y-3 text-slate-300">
+                      <h3 className="text-xl font-semibold mb-4 text-slate-900 dark:text-white">Why Request a Demo?</h3>
+                      <ul className="space-y-3 text-slate-700 dark:text-slate-300">
                         <li className="flex items-start gap-2">
                           <span className="text-indigo-400">•</span>
                           <span>See our AI-powered platform in action with your campaigns</span>
@@ -259,8 +265,8 @@ export default function LandingPage() {
                 >
                   <AnimatedCard variant="outline" hoverEffect="border">
                     <AnimatedCardContent className="p-6">
-                      <h3 className="text-xl font-semibold mb-4 text-white">Already a Customer?</h3>
-                      <p className="text-slate-300 mb-4">
+                      <h3 className="text-xl font-semibold mb-4 text-slate-900 dark:text-white">Already a Customer?</h3>
+                      <p className="text-slate-700 dark:text-slate-300 mb-4">
                         If you're an existing customer and need assistance, our customer success team is here to help.
                       </p>
                       <AnimatedButton variant="outline" gradient="accent" className="w-full">
@@ -275,22 +281,22 @@ export default function LandingPage() {
           </section>
         </main>
 
-        <footer className="border-t border-slate-800/70 py-12 mt-12">
+        <footer className="border-t border-slate-200/70 dark:border-slate-800/70 py-12 mt-12">
           <div className="container mx-auto px-4">
             <div className="flex flex-col md:flex-row justify-between items-center">
-              <p className="text-slate-400 text-sm mb-4 md:mb-0">
+              <p className="text-slate-600 dark:text-slate-400 text-sm mb-4 md:mb-0">
                 © {new Date().getFullYear()} Adspirer. All rights reserved.
               </p>
               <div className="flex gap-6">
-                <Link href="/about" className="text-sm text-slate-400 hover:text-white transition-colors">
+                <Link href="/about" className="text-sm text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white transition-colors">
                   About
                 </Link>
-                <Link href="/privacy" className="text-sm text-slate-400 hover:text-white transition-colors">
+                <Link href="/privacy" className="text-sm text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white transition-colors">
                   Privacy
                 </Link>
                 <button 
                   onClick={scrollToDemo}
-                  className="text-sm text-slate-400 hover:text-white transition-colors"
+                  className="text-sm text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white transition-colors"
                 >
                   Contact
                 </button>

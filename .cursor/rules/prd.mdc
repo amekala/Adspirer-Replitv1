@@ -1,0 +1,86 @@
+---
+description: 
+globs: 
+alwaysApply: true
+---
+# Research Notes: Chat-First Interface Design for Campaign Management
+
+## ChatGPT Interface Analysis
+
+### Core Structure
+- **Clean, minimalist design** with focus on the chat interaction
+- **Central chat area** dominates the interface
+- **Input field** at bottom with attachment and voice options
+- **Minimal top navigation** with just essential controls
+- **Context maintained** throughout conversation
+
+### Key Design Elements
+- Large, clear input area with prompt text
+- Minimal visual distractions
+- Clear visual distinction between user and system messages
+- Rich content cards embedded within conversation flow
+- Suggestion chips for quick actions
+
+### User Experience Flow
+- Conversation history scrolls vertically
+- New messages appear at bottom
+- Previous context maintained and referenced
+- Ability to start new conversations while preserving history
+
+## Advertising Platform Research
+
+### Common Interface Elements in Ad Platforms
+- **Dashboard view** with key metrics and performance indicators
+- **Campaign listing** with status indicators and quick filters
+- **Detailed analytics** with visualizations and data tables
+- **Creation wizards** for setting up new campaigns
+- **Budget management tools** with allocation controls
+
+### User Pain Points in Traditional Ad Platforms
+- Complex navigation requiring multiple clicks
+- Disconnected workflows between creation and analysis
+- Steep learning curve for new users
+- Information overload with too many metrics
+- Difficulty in getting quick insights and recommendations
+
+### Jobs-to-be-Done for Campaign Managers
+1. Monitor campaign performance across multiple platforms
+2. Quickly identify issues requiring attention
+3. Optimize budget allocation based on performance
+4. Create and launch new campaigns efficiently
+5. Generate reports for stakeholders
+6. Analyze competitor performance
+7. Test and iterate on creative assets
+8. Manage approvals and collaboration with team members
+
+## Chat-First Interface Advantages for Campaign Management
+
+### Key Benefits
+- **Natural language interaction** reduces learning curve
+- **Contextual assistance** provides help when needed
+- **Guided workflows** for complex tasks
+- **Embedded rich content** within conversation flow
+- **Personalized recommendations** based on data analysis
+
+### Implementation Considerations
+- Balance between chat and visual elements
+- Ensuring critical data is easily accessible
+- Maintaining context across different campaign views
+- Providing efficient navigation between campaigns
+- Supporting both quick actions and deep analysis
+
+## Design Direction for Campaign Management Chat Interface
+
+### Primary Interface Components
+1. **Chat-centric main area** with embedded rich cards for campaign data
+2. **Collapsible campaign navigator** for quick switching between campaigns
+3. **Context-aware suggestion chips** based on current conversation
+4. **Embedded data visualizations** within conversation flow
+5. **Natural language query capability** for data analysis
+
+### Landing Page Focus
+1. **Clear value proposition** highlighting chat-first advantage
+2. **Visual demonstration** of interface in action
+3. **Key benefits** for different user roles
+4. **Testimonials** from campaign managers
+5. **Simple onboarding process** with quick start guide
