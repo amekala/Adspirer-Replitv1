@@ -9,7 +9,10 @@ import {
   users, amazonTokens, apiKeys, advertiserAccounts, tokenRefreshLog, 
   campaignMetrics, googleTokens, googleAdvertiserAccounts, googleCampaignMetrics, 
   chatConversations, chatMessages, campaignMetricsSummary, googleCampaignMetricsSummary,
-  queryCacheEntries
+  queryCacheEntries,
+  Campaign, AdGroup, ProductAd, Keyword, NegativeKeyword,
+  InsertCampaign, InsertAdGroup, InsertProductAd, InsertKeyword, InsertNegativeKeyword,
+  campaigns, adGroups, productAds, keywords, negativeKeywords
 } from "@shared/schema";
 import session from "express-session";
 import { and, eq, gte, lte, desc, or, sql } from "drizzle-orm";
@@ -102,6 +105,30 @@ export interface IStorage {
   getQueryCacheEntry(userId: string, queryHash: string): Promise<QueryCacheEntry | undefined>;
   updateQueryCacheHitCount(id: number): Promise<QueryCacheEntry>;
   invalidateQueryCache(userId: string, olderThan?: Date): Promise<void>;
+  
+  // Campaign management methods
+  createCampaign(campaign: Omit<InsertCampaign, "userId"> & { userId: string }): Promise<Campaign>;
+  getCampaign(id: number): Promise<Campaign | undefined>;
+  getCampaigns(userId: string, profileId?: string): Promise<Campaign[]>;
+  updateCampaignState(id: number, state: string): Promise<Campaign>;
+  
+  // Ad group management methods
+  createAdGroup(adGroup: Omit<InsertAdGroup, "userId"> & { userId: string }): Promise<AdGroup>;
+  getAdGroup(id: number): Promise<AdGroup | undefined>;
+  getAdGroups(campaignId: number): Promise<AdGroup[]>;
+  updateAdGroupState(id: number, state: string): Promise<AdGroup>;
+  
+  // Product ad management methods
+  createProductAd(productAd: Omit<InsertProductAd, "userId"> & { userId: string }): Promise<ProductAd>;
+  getProductAds(adGroupId: number): Promise<ProductAd[]>;
+  
+  // Keyword management methods
+  createKeyword(keyword: Omit<InsertKeyword, "userId"> & { userId: string }): Promise<Keyword>;
+  getKeywords(adGroupId: number): Promise<Keyword[]>;
+  
+  // Negative keyword management methods
+  createNegativeKeyword(negativeKeyword: Omit<InsertNegativeKeyword, "userId"> & { userId: string }): Promise<NegativeKeyword>;
+  getNegativeKeywords(adGroupId: number): Promise<NegativeKeyword[]>;
   
   sessionStore: session.Store;
 }
@@ -935,6 +962,122 @@ export class DatabaseStorage implements IStorage {
       console.error('Error invalidating query cache:', error);
       throw error;
     }
+  }
+
+  // Campaign management methods
+  async createCampaign(campaign: Omit<InsertCampaign, "userId"> & { userId: string }): Promise<Campaign> {
+    const [result] = await db.insert(campaigns).values({
+      ...campaign,
+      createdAt: new Date(),
+      updatedAt: new Date()
+    }).returning();
+    return result;
+  }
+  
+  async getCampaign(id: number): Promise<Campaign | undefined> {
+    const [result] = await db.select().from(campaigns).where(eq(campaigns.id, id));
+    return result;
+  }
+  
+  async getCampaigns(userId: string, profileId?: string): Promise<Campaign[]> {
+    let query = db.select()
+      .from(campaigns)
+      .where(eq(campaigns.userId, userId));
+      
+    if (profileId) {
+      query = query.where(eq(campaigns.profileId, profileId));
+    }
+    
+    return query.orderBy(desc(campaigns.createdAt));
+  }
+  
+  async updateCampaignState(id: number, state: string): Promise<Campaign> {
+    const [result] = await db.update(campaigns)
+      .set({ 
+        state,
+        updatedAt: new Date()
+      })
+      .where(eq(campaigns.id, id))
+      .returning();
+    return result;
+  }
+  
+  // Ad group management methods
+  async createAdGroup(adGroup: Omit<InsertAdGroup, "userId"> & { userId: string }): Promise<AdGroup> {
+    const [result] = await db.insert(adGroups).values({
+      ...adGroup,
+      createdAt: new Date(),
+      updatedAt: new Date()
+    }).returning();
+    return result;
+  }
+  
+  async getAdGroup(id: number): Promise<AdGroup | undefined> {
+    const [result] = await db.select().from(adGroups).where(eq(adGroups.id, id));
+    return result;
+  }
+  
+  async getAdGroups(campaignId: number): Promise<AdGroup[]> {
+    return db.select()
+      .from(adGroups)
+      .where(eq(adGroups.campaignId, campaignId))
+      .orderBy(desc(adGroups.createdAt));
+  }
+  
+  async updateAdGroupState(id: number, state: string): Promise<AdGroup> {
+    const [result] = await db.update(adGroups)
+      .set({ 
+        state,
+        updatedAt: new Date()
+      })
+      .where(eq(adGroups.id, id))
+      .returning();
+    return result;
+  }
+  
+  // Product ad management methods
+  async createProductAd(productAd: Omit<InsertProductAd, "userId"> & { userId: string }): Promise<ProductAd> {
+    const [result] = await db.insert(productAds).values({
+      ...productAd,
+      createdAt: new Date()
+    }).returning();
+    return result;
+  }
+  
+  async getProductAds(adGroupId: number): Promise<ProductAd[]> {
+    return db.select()
+      .from(productAds)
+      .where(eq(productAds.adGroupId, adGroupId));
+  }
+  
+  // Keyword management methods
+  async createKeyword(keyword: Omit<InsertKeyword, "userId"> & { userId: string }): Promise<Keyword> {
+    const [result] = await db.insert(keywords).values({
+      ...keyword,
+      createdAt: new Date()
+    }).returning();
+    return result;
+  }
+  
+  async getKeywords(adGroupId: number): Promise<Keyword[]> {
+    return db.select()
+      .from(keywords)
+      .where(eq(keywords.adGroupId, adGroupId));
+  }
+  
+  // Negative keyword management methods
+  async createNegativeKeyword(negativeKeyword: Omit<InsertNegativeKeyword, "userId"> & { userId: string }): Promise<NegativeKeyword> {
+    const [result] = await db.insert(negativeKeywords).values({
+      ...negativeKeyword,
+      createdAt: new Date()
+    }).returning();
+    return result;
+  }
+  
+  async getNegativeKeywords(adGroupId: number): Promise<NegativeKeyword[]> {
+    return db.select()
+      .from(negativeKeywords)
+      .where(eq(negativeKeywords.adGroupId, adGroupId));
   }
 }
 

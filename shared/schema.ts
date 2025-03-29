@@ -323,3 +323,119 @@ export type QueryCacheEntry = typeof queryCacheEntries.$inferSelect;
 export type InsertCampaignMetricsSummary = z.infer<typeof insertCampaignMetricsSummarySchema>;
 export type InsertGoogleCampaignMetricsSummary = z.infer<typeof insertGoogleCampaignMetricsSummarySchema>;
 export type InsertQueryCache = z.infer<typeof insertQueryCacheSchema>;
+
+// Campaign management tables
+export const campaigns = pgTable("campaigns", {
+  id: serial("id").primaryKey(),
+  userId: uuid("user_id").notNull().references(() => users.id),
+  profileId: text("profile_id").notNull(),
+  campaignId: text("campaign_id").notNull(),
+  name: text("name").notNull(),
+  campaignType: text("campaign_type").notNull(), // 'sponsoredProducts', 'sponsoredBrands', 'sponsoredDisplay'
+  targetingType: text("targeting_type").notNull(), // 'manual', 'automatic'
+  dailyBudget: numeric("daily_budget").notNull(),
+  startDate: date("start_date").notNull(),
+  endDate: date("end_date"),
+  state: text("state").notNull(), // 'enabled', 'paused', 'archived'
+  bidding: json("bidding"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
+export const adGroups = pgTable("ad_groups", {
+  id: serial("id").primaryKey(),
+  userId: uuid("user_id").notNull().references(() => users.id),
+  campaignId: integer("campaign_id").notNull().references(() => campaigns.id),
+  profileId: text("profile_id").notNull(),
+  adGroupId: text("ad_group_id").notNull(),
+  name: text("name").notNull(),
+  defaultBid: numeric("default_bid").notNull(),
+  state: text("state").notNull(), // 'enabled', 'paused', 'archived'
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
+export const productAds = pgTable("product_ads", {
+  id: serial("id").primaryKey(),
+  userId: uuid("user_id").notNull().references(() => users.id),
+  adGroupId: integer("ad_group_id").notNull().references(() => adGroups.id),
+  asin: text("asin"),
+  sku: text("sku"),
+  state: text("state").notNull(), // 'enabled', 'paused', 'archived'
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+export const keywords = pgTable("keywords", {
+  id: serial("id").primaryKey(),
+  userId: uuid("user_id").notNull().references(() => users.id),
+  adGroupId: integer("ad_group_id").notNull().references(() => adGroups.id),
+  keywordId: text("keyword_id"),
+  keywordText: text("keyword_text").notNull(),
+  matchType: text("match_type").notNull(), // 'broad', 'phrase', 'exact', 'negative'
+  bid: numeric("bid"),
+  state: text("state").notNull(), // 'enabled', 'paused', 'archived'
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+export const negativeKeywords = pgTable("negative_keywords", {
+  id: serial("id").primaryKey(),
+  userId: uuid("user_id").notNull().references(() => users.id),
+  adGroupId: integer("ad_group_id").notNull().references(() => adGroups.id),
+  keywordId: text("keyword_id"),
+  keywordText: text("keyword_text").notNull(),
+  matchType: text("match_type").notNull(), // 'negativePhrase', 'negativeExact'
+  state: text("state").notNull(), // 'enabled', 'paused', 'archived'
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+// Insert schemas with validation
+export const insertCampaignSchema = createInsertSchema(campaigns, {
+  name: z.string().min(1, "Campaign name is required"),
+  campaignType: z.enum(["sponsoredProducts", "sponsoredBrands", "sponsoredDisplay"]),
+  targetingType: z.enum(["manual", "automatic"]),
+  dailyBudget: z.number().positive("Budget must be greater than 0"),
+  startDate: z.coerce.date(),
+  state: z.enum(["enabled", "paused", "archived"]),
+  bidding: z.record(z.any()).optional(),
+}).omit({ id: true, createdAt: true, updatedAt: true });
+
+export const insertAdGroupSchema = createInsertSchema(adGroups, {
+  name: z.string().min(1, "Ad group name is required"),
+  defaultBid: z.number().positive("Default bid must be greater than 0"),
+  state: z.enum(["enabled", "paused", "archived"]),
+}).omit({ id: true, createdAt: true, updatedAt: true });
+
+export const insertProductAdSchema = createInsertSchema(productAds, {
+  asin: z.string().optional(),
+  sku: z.string().optional(),
+  state: z.enum(["enabled", "paused", "archived"]),
+}).omit({ id: true, createdAt: true })
+.refine(data => data.asin || data.sku, {
+  message: "Either ASIN or SKU must be provided",
+  path: ["asin"],
+});
+
+export const insertKeywordSchema = createInsertSchema(keywords, {
+  keywordText: z.string().min(1, "Keyword text is required"),
+  matchType: z.enum(["broad", "phrase", "exact", "negative"]),
+  bid: z.number().positive("Bid must be greater than 0").optional(),
+  state: z.enum(["enabled", "paused", "archived"]),
+}).omit({ id: true, createdAt: true });
+
+export const insertNegativeKeywordSchema = createInsertSchema(negativeKeywords, {
+  keywordText: z.string().min(1, "Keyword text is required"),
+  matchType: z.enum(["negativePhrase", "negativeExact"]),
+  state: z.enum(["enabled", "paused", "archived"]),
+}).omit({ id: true, createdAt: true });
+
+// Export additional types
+export type Campaign = typeof campaigns.$inferSelect;
+export type AdGroup = typeof adGroups.$inferSelect;
+export type ProductAd = typeof productAds.$inferSelect;
+export type Keyword = typeof keywords.$inferSelect;
+export type NegativeKeyword = typeof negativeKeywords.$inferSelect;
+export type InsertCampaign = z.infer<typeof insertCampaignSchema>;
+export type InsertAdGroup = z.infer<typeof insertAdGroupSchema>;
+export type InsertProductAd = z.infer<typeof insertProductAdSchema>;
+export type InsertKeyword = z.infer<typeof insertKeywordSchema>;
+export type InsertNegativeKeyword = z.infer<typeof insertNegativeKeywordSchema>;

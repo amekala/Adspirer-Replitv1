@@ -10,7 +10,12 @@ import {
   insertDemoRequestSchema,
   insertChatConversationSchema,
   insertChatMessageSchema,
-  campaignMetrics 
+  campaignMetrics,
+  insertCampaignSchema,
+  insertAdGroupSchema,
+  insertProductAdSchema,
+  insertKeywordSchema,
+  insertNegativeKeywordSchema
 } from "@shared/schema";
 
 interface AmazonToken {
@@ -716,6 +721,323 @@ export async function registerRoutes(app: Express): Promise<Server> {
     })().catch(console.error);
   });
 
+  // Campaign management endpoints
+  app.post("/api/campaigns", authenticate, async (req: Request, res: Response) => {
+    const result = insertCampaignSchema.safeParse(req.body);
+    if (!result.success) {
+      return res.status(400).json({ message: "Invalid campaign data", errors: result.error.errors });
+    }
+
+    try {
+      const campaign = await storage.createCampaign({
+        ...result.data,
+        userId: req.user!.id
+      });
+      res.status(201).json(campaign);
+    } catch (error) {
+      console.error("Failed to create campaign:", error);
+      res.status(500).json({ message: "Failed to create campaign" });
+    }
+  });
+
+  app.get("/api/campaigns", authenticate, async (req: Request, res: Response) => {
+    const { profileId } = req.query;
+    
+    try {
+      const campaigns = await storage.getCampaigns(
+        req.user!.id,
+        profileId ? String(profileId) : undefined
+      );
+      res.json(campaigns);
+    } catch (error) {
+      console.error("Failed to fetch campaigns:", error);
+      res.status(500).json({ message: "Failed to fetch campaigns" });
+    }
+  });
+
+  app.get("/api/campaigns/:id", authenticate, async (req: Request, res: Response) => {
+    try {
+      const campaign = await storage.getCampaign(parseInt(req.params.id));
+      
+      if (!campaign) {
+        return res.status(404).json({ message: "Campaign not found" });
+      }
+      
+      // Security check: ensure user owns the campaign
+      if (campaign.userId !== req.user!.id) {
+        return res.status(403).json({ message: "Unauthorized access to campaign" });
+      }
+      
+      res.json(campaign);
+    } catch (error) {
+      console.error("Failed to fetch campaign:", error);
+      res.status(500).json({ message: "Failed to fetch campaign" });
+    }
+  });
+
+  app.put("/api/campaigns/:id/state", authenticate, async (req: Request, res: Response) => {
+    const { state } = req.body;
+    
+    if (!state || !['enabled', 'paused', 'archived'].includes(state)) {
+      return res.status(400).json({ message: "Invalid state. Must be one of: enabled, paused, archived" });
+    }
+    
+    try {
+      const campaign = await storage.getCampaign(parseInt(req.params.id));
+      
+      if (!campaign) {
+        return res.status(404).json({ message: "Campaign not found" });
+      }
+      
+      // Security check: ensure user owns the campaign
+      if (campaign.userId !== req.user!.id) {
+        return res.status(403).json({ message: "Unauthorized access to campaign" });
+      }
+      
+      const updatedCampaign = await storage.updateCampaignState(parseInt(req.params.id), state);
+      res.json(updatedCampaign);
+    } catch (error) {
+      console.error("Failed to update campaign state:", error);
+      res.status(500).json({ message: "Failed to update campaign state" });
+    }
+  });
+
+  // Ad group endpoints
+  app.post("/api/campaigns/:campaignId/adgroups", authenticate, async (req: Request, res: Response) => {
+    const result = insertAdGroupSchema.safeParse(req.body);
+    if (!result.success) {
+      return res.status(400).json({ message: "Invalid ad group data", errors: result.error.errors });
+    }
+
+    try {
+      const campaign = await storage.getCampaign(parseInt(req.params.campaignId));
+      
+      if (!campaign) {
+        return res.status(404).json({ message: "Campaign not found" });
+      }
+      
+      // Security check: ensure user owns the campaign
+      if (campaign.userId !== req.user!.id) {
+        return res.status(403).json({ message: "Unauthorized access to campaign" });
+      }
+      
+      const adGroup = await storage.createAdGroup({
+        ...result.data,
+        campaignId: parseInt(req.params.campaignId),
+        userId: req.user!.id,
+        profileId: campaign.profileId // Use the same profile ID as the campaign
+      });
+      res.status(201).json(adGroup);
+    } catch (error) {
+      console.error("Failed to create ad group:", error);
+      res.status(500).json({ message: "Failed to create ad group" });
+    }
+  });
+
+  app.get("/api/campaigns/:campaignId/adgroups", authenticate, async (req: Request, res: Response) => {
+    try {
+      const campaign = await storage.getCampaign(parseInt(req.params.campaignId));
+      
+      if (!campaign) {
+        return res.status(404).json({ message: "Campaign not found" });
+      }
+      
+      // Security check: ensure user owns the campaign
+      if (campaign.userId !== req.user!.id) {
+        return res.status(403).json({ message: "Unauthorized access to campaign" });
+      }
+      
+      const adGroups = await storage.getAdGroups(parseInt(req.params.campaignId));
+      res.json(adGroups);
+    } catch (error) {
+      console.error("Failed to fetch ad groups:", error);
+      res.status(500).json({ message: "Failed to fetch ad groups" });
+    }
+  });
+
+  app.put("/api/adgroups/:id/state", authenticate, async (req: Request, res: Response) => {
+    const { state } = req.body;
+    
+    if (!state || !['enabled', 'paused', 'archived'].includes(state)) {
+      return res.status(400).json({ message: "Invalid state. Must be one of: enabled, paused, archived" });
+    }
+    
+    try {
+      const adGroup = await storage.getAdGroup(parseInt(req.params.id));
+      
+      if (!adGroup) {
+        return res.status(404).json({ message: "Ad group not found" });
+      }
+      
+      // Security check: ensure user owns the ad group
+      if (adGroup.userId !== req.user!.id) {
+        return res.status(403).json({ message: "Unauthorized access to ad group" });
+      }
+      
+      const updatedAdGroup = await storage.updateAdGroupState(parseInt(req.params.id), state);
+      res.json(updatedAdGroup);
+    } catch (error) {
+      console.error("Failed to update ad group state:", error);
+      res.status(500).json({ message: "Failed to update ad group state" });
+    }
+  });
+
+  // Product ad endpoints
+  app.post("/api/adgroups/:adGroupId/products", authenticate, async (req: Request, res: Response) => {
+    const result = insertProductAdSchema.safeParse(req.body);
+    if (!result.success) {
+      return res.status(400).json({ message: "Invalid product ad data", errors: result.error.errors });
+    }
+
+    try {
+      const adGroup = await storage.getAdGroup(parseInt(req.params.adGroupId));
+      
+      if (!adGroup) {
+        return res.status(404).json({ message: "Ad group not found" });
+      }
+      
+      // Security check: ensure user owns the ad group
+      if (adGroup.userId !== req.user!.id) {
+        return res.status(403).json({ message: "Unauthorized access to ad group" });
+      }
+      
+      const productAd = await storage.createProductAd({
+        ...result.data,
+        adGroupId: parseInt(req.params.adGroupId),
+        userId: req.user!.id
+      });
+      res.status(201).json(productAd);
+    } catch (error) {
+      console.error("Failed to create product ad:", error);
+      res.status(500).json({ message: "Failed to create product ad" });
+    }
+  });
+
+  app.get("/api/adgroups/:adGroupId/products", authenticate, async (req: Request, res: Response) => {
+    try {
+      const adGroup = await storage.getAdGroup(parseInt(req.params.adGroupId));
+      
+      if (!adGroup) {
+        return res.status(404).json({ message: "Ad group not found" });
+      }
+      
+      // Security check: ensure user owns the ad group
+      if (adGroup.userId !== req.user!.id) {
+        return res.status(403).json({ message: "Unauthorized access to ad group" });
+      }
+      
+      const products = await storage.getProductAds(parseInt(req.params.adGroupId));
+      res.json(products);
+    } catch (error) {
+      console.error("Failed to fetch product ads:", error);
+      res.status(500).json({ message: "Failed to fetch product ads" });
+    }
+  });
+
+  // Keyword endpoints
+  app.post("/api/adgroups/:adGroupId/keywords", authenticate, async (req: Request, res: Response) => {
+    const result = insertKeywordSchema.safeParse(req.body);
+    if (!result.success) {
+      return res.status(400).json({ message: "Invalid keyword data", errors: result.error.errors });
+    }
+
+    try {
+      const adGroup = await storage.getAdGroup(parseInt(req.params.adGroupId));
+      
+      if (!adGroup) {
+        return res.status(404).json({ message: "Ad group not found" });
+      }
+      
+      // Security check: ensure user owns the ad group
+      if (adGroup.userId !== req.user!.id) {
+        return res.status(403).json({ message: "Unauthorized access to ad group" });
+      }
+      
+      const keyword = await storage.createKeyword({
+        ...result.data,
+        adGroupId: parseInt(req.params.adGroupId),
+        userId: req.user!.id
+      });
+      res.status(201).json(keyword);
+    } catch (error) {
+      console.error("Failed to create keyword:", error);
+      res.status(500).json({ message: "Failed to create keyword" });
+    }
+  });
+
+  app.get("/api/adgroups/:adGroupId/keywords", authenticate, async (req: Request, res: Response) => {
+    try {
+      const adGroup = await storage.getAdGroup(parseInt(req.params.adGroupId));
+      
+      if (!adGroup) {
+        return res.status(404).json({ message: "Ad group not found" });
+      }
+      
+      // Security check: ensure user owns the ad group
+      if (adGroup.userId !== req.user!.id) {
+        return res.status(403).json({ message: "Unauthorized access to ad group" });
+      }
+      
+      const keywords = await storage.getKeywords(parseInt(req.params.adGroupId));
+      res.json(keywords);
+    } catch (error) {
+      console.error("Failed to fetch keywords:", error);
+      res.status(500).json({ message: "Failed to fetch keywords" });
+    }
+  });
+
+  // Negative keyword endpoints
+  app.post("/api/adgroups/:adGroupId/negativekeywords", authenticate, async (req: Request, res: Response) => {
+    const result = insertNegativeKeywordSchema.safeParse(req.body);
+    if (!result.success) {
+      return res.status(400).json({ message: "Invalid negative keyword data", errors: result.error.errors });
+    }
+
+    try {
+      const adGroup = await storage.getAdGroup(parseInt(req.params.adGroupId));
+      
+      if (!adGroup) {
+        return res.status(404).json({ message: "Ad group not found" });
+      }
+      
+      // Security check: ensure user owns the ad group
+      if (adGroup.userId !== req.user!.id) {
+        return res.status(403).json({ message: "Unauthorized access to ad group" });
+      }
+      
+      const negativeKeyword = await storage.createNegativeKeyword({
+        ...result.data,
+        adGroupId: parseInt(req.params.adGroupId),
+        userId: req.user!.id
+      });
+      res.status(201).json(negativeKeyword);
+    } catch (error) {
+      console.error("Failed to create negative keyword:", error);
+      res.status(500).json({ message: "Failed to create negative keyword" });
+    }
+  });
+
+  app.get("/api/adgroups/:adGroupId/negativekeywords", authenticate, async (req: Request, res: Response) => {
+    try {
+      const adGroup = await storage.getAdGroup(parseInt(req.params.adGroupId));
+      
+      if (!adGroup) {
+        return res.status(404).json({ message: "Ad group not found" });
+      }
+      
+      // Security check: ensure user owns the ad group
+      if (adGroup.userId !== req.user!.id) {
+        return res.status(403).json({ message: "Unauthorized access to ad group" });
+      }
+      
+      const negativeKeywords = await storage.getNegativeKeywords(parseInt(req.params.adGroupId));
+      res.json(negativeKeywords);
+    } catch (error) {
+      console.error("Failed to fetch negative keywords:", error);
+      res.status(500).json({ message: "Failed to fetch negative keywords" });
+    }
+  });
+
   app.post("/api/demo-request", async (req: Request, res: Response) => {
     const result = insertDemoRequestSchema.safeParse(req.body);
     if (!result.success) {
@@ -752,10 +1074,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       // Create new conversation
       const conversation = await storage.createChatConversation(req.user!.id, title);
+      console.log(`Created new conversation ${conversation.id} for user ${req.user!.id}`);
       
       // Optionally generate a welcome message
       if (generateWelcome) {
         try {
+          console.log(`Generating welcome message for conversation ${conversation.id}...`);
           // Import the service to avoid circular dependencies
           const { generateWelcomeMessage } = await import('./services/openai');
           
@@ -763,13 +1087,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
           // We'll use await here to make sure welcome message is ready before the client loads the conversation
           await generateWelcomeMessage(conversation.id, req.user!.id)
             .then(() => {
-              console.log(`Welcome message generated for conversation ${conversation.id}`);
+              console.log(`Welcome message generated successfully for conversation ${conversation.id}`);
             })
             .catch(err => {
               console.error(`Failed to generate welcome message for conversation ${conversation.id}:`, err);
+              // We still continue as this is not critical, but log the detailed error
+              console.error('Welcome message error details:', err.stack || err.message || err);
             });
+            
+          // Double-check that the welcome message was created
+          const messages = await storage.getChatMessages(conversation.id);
+          if (messages.length === 0) {
+            console.warn(`Warning: No welcome message found after generation for conversation ${conversation.id}`);
+          } else {
+            console.log(`Verified welcome message exists for conversation ${conversation.id}`);
+          }
         } catch (welcomeError) {
-          console.error('Error importing OpenAI service for welcome message:', welcomeError);
+          console.error('Error importing or using OpenAI service for welcome message:', welcomeError);
+          console.error('Welcome error stack:', welcomeError.stack || welcomeError);
           // We still continue as this is not critical
         }
       }
@@ -888,66 +1223,36 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Chat completion endpoint with streaming
   app.post("/api/chat/completions", authenticate, async (req: Request, res: Response) => {
     
-    console.log('User authenticated:', req.user.id);
-
+    console.log('User authenticated:', req.user!.id);
+    
     const { conversationId, message } = req.body;
     
-    // Require both conversation ID and message
-    if (!conversationId || !message) {
-      return res.status(400).json({ message: "Conversation ID and message are required" });
+    if (!conversationId) {
+      return res.status(400).json({ message: "Conversation ID is required" });
     }
-
+    
     try {
-      console.log('Generating chat completion for conversation:', conversationId);
+      // Log the request for debugging
+      console.log(`Completions request for conversation ${conversationId}. Message: "${message?.substring(0, 50)}${message?.length > 50 ? '...' : ''}"`);
       
-      // Check if the conversation exists and belongs to the user
-      const conversation = await storage.getChatConversation(conversationId);
-      if (!conversation) {
-        return res.status(404).json({ message: "Conversation not found" });
+      // Get conversation messages
+      const messages = await storage.getChatMessages(conversationId);
+      
+      // Store the current user message in the database
+      if (message) {
+        await storage.createChatMessage({
+          conversationId,
+          role: "user",
+          content: message,
+        });
       }
       
-      if (conversation.userId !== req.user!.id) {
-        return res.status(403).json({ message: "Unauthorized access to conversation" });
-      }
-
-      try {
-        // Import OpenAI service dynamically to avoid circular dependencies
-        const { getConversationHistory, streamChatCompletion } = await import('./services/openai');
-        
-        // Get conversation history from the database
-        // This already includes the user message we just saved
-        const messages = await getConversationHistory(conversationId);
-        console.log(`Retrieved ${messages.length} messages for chat completion context`);
-        
-        // Stream the chat completion using our dedicated service
-        await streamChatCompletion(conversationId, req.user.id, res, messages);
-        
-        // No need to end the response here - the service handles that
-      } catch (openaiError) {
-        console.error('Error in OpenAI service:', openaiError instanceof Error ? openaiError.message : 'Unknown OpenAI setup error');
-        
-        // If we haven't sent any response yet, send error
-        if (!res.headersSent) {
-          return res.status(500).json({ 
-            message: "Failed to generate chat completion", 
-            error: openaiError instanceof Error ? openaiError.message : 'Unknown OpenAI error' 
-          });
-        }
-        
-        // Otherwise ensure the stream is properly ended
-        try {
-          res.write('data: [ERROR]\n\n');
-          res.end();
-        } catch (streamError) {
-          console.error('Error ending stream after OpenAI error:', streamError);
-        }
-      }
+      // Let the LLM handle all responses through the standard streamChatCompletion function
+      const { streamChatCompletion } = await import('./services/openai');
+      await streamChatCompletion(conversationId, req.user!.id, res, messages as any);
     } catch (error) {
-      console.error('Error generating chat completion:', error instanceof Error ? error.message : 'Unknown error');
-      return res.status(500).json({ 
-        message: "Failed to generate chat completion", 
-        error: error instanceof Error ? error.message : 'Unknown error' 
-      });
+      console.error("Error in chat completion:", error);
+      res.status(500).json({ message: "Failed to generate completion" });
     }
   });
 

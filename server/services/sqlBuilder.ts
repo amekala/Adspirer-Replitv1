@@ -24,8 +24,11 @@ function getOpenAIClient(): OpenAI {
     throw new Error("OpenAI API key not found");
   }
   
+  // The API key appears to be split across multiple lines - clean it up
+  const cleanedApiKey = apiKey.replace(/\s+/g, '');
+  
   return new OpenAI({
-    apiKey
+    apiKey: cleanedApiKey
   });
 }
 
@@ -912,9 +915,9 @@ async function generateSQL(
   
   // Use the Responses API instead of the Chat Completions API
   const response = await openai.responses.create({
-    model: "o3-mini", // Using o3-mini as requested
+    model: "gpt-4o", // Using o3-mini as requested
     input: input, // Use the original properly formatted input array
-    max_output_tokens: 500, // Using the new parameter name for max tokens
+    max_output_tokens: 2500, // Using the new parameter name for max tokens
     text: {
       format: {
         type: "text"

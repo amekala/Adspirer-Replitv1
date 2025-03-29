@@ -12,19 +12,113 @@ import { CardData, Metric, Campaign, MetricType } from './DataDisplaySystem';
  * It then returns the appropriate cards for the DataDisplaySystem.
  */
 
-interface MessageParserProps {
-  messageContent: string;
-  children: (data: CardData[]) => React.ReactNode;
+// Allow both direct content prop and children render prop
+export interface MessageParserProps {
+  messageContent?: string;
+  content?: string;
+  children?: (data: any[]) => React.ReactNode;
 }
 
-export function MessageParser({ messageContent, children }: MessageParserProps) {
-  // Parse the message content to extract structured data
-  const parsedData = React.useMemo(() => {
-    return parseMessageContent(messageContent);
-  }, [messageContent]);
+export function MessageParser({ messageContent, content, children }: MessageParserProps) {
+  // Use messageContent as primary, but fall back to content prop
+  const contentToRender = messageContent || content || '';
+  
+  // Simple regex-based parsing without using s flag
+  const hasJsonBlock = /```(?:json)?\s*\n[\s\S]*?\n```/.test(contentToRender);
+  const hasSqlBlock = /```sql\s*\n[\s\S]*?\n```/.test(contentToRender);
+  const hasCsvBlock = /```csv\s*\n[\s\S]*?\n```/.test(contentToRender);
+  const hasStructuredData = hasJsonBlock || hasSqlBlock || hasCsvBlock;
+  
+  if (hasStructuredData && typeof children === 'function') {
+    // If the content has structured data and we have a children function,
+    // parse the data and call the render function
+    try {
+      const extractedData = extractDataBlocks(contentToRender);
+      return <>{children(extractedData)}</>;
+    } catch (error) {
+      console.error("Error parsing structured content:", error);
+      return <div className="whitespace-pre-wrap">{contentToRender}</div>;
+    }
+  }
+  
+  // Otherwise, just render the content directly
+  return <div className="whitespace-pre-wrap">{contentToRender}</div>;
+}
 
-  // Render children with the parsed data
-  return <>{children(parsedData)}</>;
+// Function to extract data blocks from message content
+function extractDataBlocks(content: string): any[] {
+  const data = [];
+  
+  // Look for JSON code blocks
+  const jsonRegex = /```(?:json)?\s*\n([\s\S]*?)\n```/g;
+  let match;
+  
+  while ((match = jsonRegex.exec(content)) !== null) {
+    try {
+      const jsonString = match[1].trim();
+      const jsonData = JSON.parse(jsonString);
+      data.push({
+        type: 'json',
+        data: jsonData,
+        raw: jsonString
+      });
+    } catch (e) {
+      console.error("Error parsing JSON block:", e);
+    }
+  }
+  
+  // Look for SQL blocks
+  const sqlRegex = /```sql\s*\n([\s\S]*?)\n```/g;
+  while ((match = sqlRegex.exec(content)) !== null) {
+    data.push({
+      type: 'sql',
+      data: match[1].trim(),
+      raw: match[1].trim()
+    });
+  }
+  
+  // Look for CSV data
+  const csvRegex = /```csv\s*\n([\s\S]*?)\n```/g;
+  while ((match = csvRegex.exec(content)) !== null) {
+    try {
+      const csvData = parseCSV(match[1].trim());
+      data.push({
+        type: 'csv',
+        data: csvData,
+        raw: match[1].trim()
+      });
+    } catch (e) {
+      console.error("Error parsing CSV block:", e);
+    }
+  }
+  
+  return data;
+}
+
+// Simple CSV parser
+function parseCSV(csvText: string): any[] {
+  const lines = csvText.split('\n');
+  if (lines.length === 0) return [];
+  
+  const headers = lines[0].split(',').map(h => h.trim());
+  const result = [];
+  
+  for (let i = 1; i < lines.length; i++) {
+    if (!lines[i].trim()) continue;
+    
+    const values = lines[i].split(',').map(v => v.trim());
+    const obj: any = {};
+    
+    headers.forEach((header, index) => {
+      if (index < values.length) {
+        obj[header] = values[index];
+      }
+    });
+    
+    result.push(obj);
+  }
+  
+  return result;
 }
 
 // Main parsing function

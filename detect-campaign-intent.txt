@@ -1,0 +1,25 @@
+/**
+ * Detect if the user message is asking to create a campaign
+ */
+function detectCampaignCreationIntent(message) {
+  // Improved regex patterns for campaign creation detection
+  const campaignCreationPatterns = [
+    // Direct patterns
+    /I want to create a new Amazon campaign/i,
+    /I need to set up a new campaign/i,
+    
+    // More general patterns with flexible spacing
+    /create\s+(?:a|an|new|)\s*(?:amazon|advertising|ad|)*\s*campaign/i,
+    /set\s+up\s+(?:a|an|new|)\s*(?:amazon|advertising|ad|)*\s*campaign/i,
+    /start\s+(?:a|an|new|)\s*(?:amazon|advertising|ad|)*\s*campaign/i,
+    /launch\s+(?:a|an|new|)\s*(?:amazon|advertising|ad|)*\s*campaign/i,
+    /build\s+(?:a|an|new|)\s*(?:amazon|advertising|ad|)*\s*campaign/i,
+    /make\s+(?:a|an|new|)\s*(?:amazon|advertising|ad|)*\s*campaign/i,
+    /begin\s+(?:a|an|new|)\s*(?:amazon|advertising|ad|)*\s*campaign/i,
+    /I want to create/i,
+    /help me create/i,
+    /how (?:do|can|would) I create/i
+  ];
+
+  return campaignCreationPatterns.some(pattern => pattern.test(message));
+} 
