@@ -7,7 +7,7 @@ import {
   CampaignMetricsSummary, GoogleCampaignMetricsSummary, QueryCacheEntry,
   Campaign, AdGroup, ProductAd, Keyword, NegativeKeyword,
   InsertCampaign, InsertAdGroup, InsertProductAd, InsertKeyword, InsertNegativeKeyword
-} from "@shared/schema";
+} from "@shared/types";
 
 import {
   users, amazonTokens, apiKeys, advertiserAccounts, tokenRefreshLog, 

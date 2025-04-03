@@ -385,7 +385,7 @@ export const insertNegativeKeywordSchema = createInsertSchema(negativeKeywords, 
   state: z.enum(["enabled", "paused", "archived"]),
 }).omit({ id: true, createdAt: true });
 
-// Import types from shared/schema.ts for convenience
+// Import types from shared/types.ts for convenience
 import type {
   User,
   AmazonToken,
@@ -417,4 +417,4 @@ import type {
   InsertProductAd,
   InsertKeyword,
   InsertNegativeKeyword
-} from '@shared/schema'; 
+} from '@shared/types'; 

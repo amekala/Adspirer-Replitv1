@@ -1,5 +1,5 @@
 // Type declaration file for Express
-import { User as UserType } from '@shared/schema';
+import { User as UserType } from '@shared/types';
 
 declare global {
   namespace Express {

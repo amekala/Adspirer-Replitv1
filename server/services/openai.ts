@@ -11,7 +11,7 @@ import OpenAI from "openai";
 import { Response } from "express";
 import { storage } from "../storage";
 import * as SQLBuilder from "./sqlBuilder";
-import { ChatConversation, ChatMessage as DbChatMessage } from "@shared/schema";
+import { ChatConversation, ChatMessage as DbChatMessage } from "@shared/types";
 import { amazonCampaignTools } from "../functions/amazon-campaign";
 import { googleCampaignTools } from "../functions/google-campaign";
 import { handleFunctionCall } from "../functions/handler";
