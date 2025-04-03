@@ -6,12 +6,27 @@ import { fileURLToPath } from "url";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
+// Support both local dev and Vercel environments
+function resolveContentPaths() {
+  const basePaths = [
+    // Standard paths relative to this file
+    ["client/index.html", "client/src/**/*.{js,jsx,ts,tsx}"],
+    // Absolute paths for local development
+    [
+      path.resolve(__dirname, "client/index.html"),
+      path.resolve(__dirname, "client/src/**/*.{js,jsx,ts,tsx}")
+    ],
+    // For Vercel environment
+    ["./client/index.html", "./client/src/**/*.{js,jsx,ts,tsx}"]
+  ];
+
+  // Return all possible paths to ensure compatibility
+  return basePaths.flat();
+}
+
 export default {
   darkMode: ["class"],
-  content: [
-    path.resolve(__dirname, "client/index.html"),
-    path.resolve(__dirname, "client/src/**/*.{js,jsx,ts,tsx}")
-  ],
+  content: resolveContentPaths(),
   theme: {
     extend: {
       borderRadius: {

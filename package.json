@@ -5,7 +5,9 @@
   "license": "MIT",
   "scripts": {
     "dev": "tsx server/index.ts",
-    "build": "cd client && npm run build && cd .. && esbuild server/index.ts --platform=node --packages=external --bundle --format=esm --outdir=dist",
+    "prebuild": "rm -rf dist",
+    "build": "cd client && npm install && npm run build && cd .. && esbuild server/index.ts server/db.ts server/routes.ts server/auth.ts server/vite.ts server/storage.ts --platform=node --packages=external --bundle --format=esm --outdir=dist",
+    "postbuild": "cp -r client/public dist/public/static 2>/dev/null || :",
     "start": "NODE_ENV=production node dist/index.js",
     "check": "tsc",
     "db:push": "drizzle-kit push"

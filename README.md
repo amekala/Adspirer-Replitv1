@@ -1,3 +1,101 @@
+# Adspirer - Full Stack Application
+
+A full-stack application with React frontend and Express backend that works consistently in both local development and Vercel production environments.
+
+## Project Structure
+
+```
+├── client/               # React frontend
+│   ├── src/              # Source code
+│   ├── public/           # Static assets
+│   ├── index.html        # Entry HTML
+│   └── package.json      # Client dependencies
+├── server/               # Express backend
+│   ├── index.ts          # Server entry point
+│   ├── routes.ts         # API routes
+│   ├── db.ts             # Database connection
+│   ├── auth.ts           # Authentication
+│   └── vite.ts           # Vite integration
+├── shared/               # Shared code between client and server
+├── migrations/           # Database migrations
+├── dist/                 # Build output (generated)
+├── vite.config.ts        # Vite configuration
+├── tailwind.config.ts    # Tailwind configuration
+├── vercel.json           # Vercel deployment configuration
+└── package.json          # Root dependencies and scripts
+```
+
+## Development
+
+### Local Development
+
+1. Clone the repository
+2. Install dependencies:
+   ```bash
+   npm install
+   cd client && npm install && cd ..
+   ```
+3. Create a `.env` file in the root with necessary environment variables
+4. Start the development server:
+   ```bash
+   npm run dev
+   ```
+5. Open http://localhost:5000 in your browser
+
+### Building for Production
+
+```bash
+npm run build
+```
+
+This will:
+1. Clean the dist directory
+2. Build the client with Vite
+3. Bundle the server with esbuild
+4. Copy static assets
+
+### Running in Production Mode Locally
+
+```bash
+npm start
+```
+
+## Deployment to Vercel
+
+### Setup
+
+1. Connect your GitHub repository to Vercel
+2. Configure the following build settings:
+   - Framework Preset: Other
+   - Build Command: `npm run build`
+   - Output Directory: `dist`
+   - Install Command: `npm install`
+
+3. Set all necessary environment variables in the Vercel dashboard:
+   - DATABASE_URL
+   - SESSION_SECRET
+   - Other API keys and credentials
+
+### Troubleshooting
+
+If you encounter issues with Vercel deployment:
+
+1. **API Routes Not Working**: Ensure your Vercel configuration correctly routes API paths to the server
+2. **CSS Problems**: Check that Tailwind is properly configured with all possible content paths
+3. **Environment Variables**: Make sure all required environment variables are set in Vercel's dashboard
+4. **Caching Issues**: Clear Vercel's build cache if you're seeing old content
+
+## File Organization Best Practices
+
+1. All React components should go in `client/src/components/`
+2. API routes should be organized in `server/routes.ts`
+3. Share types and utilities between client and server in the `shared/` folder
+4. Keep database schema and migrations in the `migrations/` folder
+
+## License
+
+MIT
+
 # Adspirer - Local Development Setup
 
 ## Prerequisites

@@ -26,7 +26,7 @@ export async function setupVite(app: Express, server: Server) {
   const serverOptions = {
     middlewareMode: true,
     hmr: { server },
-    allowedHosts: true,
+    allowedHosts: true as const,
   };
 
   const vite = await createViteServer({
@@ -78,29 +78,59 @@ export async function setupVite(app: Express, server: Server) {
 }
 
 export function serveStatic(app: Express) {
-  // For local development, we need to check multiple possible locations
-  let distPath = path.resolve(__dirname, "public");
+  // For production builds, we need to check multiple possible locations
+  const possiblePaths = [
+    path.resolve(__dirname, "public"),               // Default build output
+    path.resolve(__dirname, "..", "dist", "public"), // Local build output
+    path.resolve(__dirname, "..", "public"),         // Root public folder
+    path.resolve(process.cwd(), "dist", "public"),   // Vercel build output
+    path.resolve(process.cwd(), "public")            // Vercel root public
+  ];
   
-  // Check if directory exists at the primary location
-  if (!fs.existsSync(distPath)) {
-    // Try an alternative location (common in local development)
-    const altDistPath = path.resolve(__dirname, "..", "dist");
-    if (fs.existsSync(altDistPath)) {
-      log(`Using alternative build directory: ${altDistPath}`);
-      distPath = altDistPath;
-    } else {
-      throw new Error(
-        `Could not find the build directory at ${distPath} or ${altDistPath}. Make sure to build the client first with 'npm run build'`,
-      );
+  let distPath = null;
+  
+  // Find the first path that exists
+  for (const pathToCheck of possiblePaths) {
+    if (fs.existsSync(pathToCheck)) {
+      distPath = pathToCheck;
+      log(`Using build directory: ${distPath}`);
+      break;
     }
+  }
+  
+  if (!distPath) {
+    log(`WARNING: Could not find build directory. Serving from current directory.`);
+    distPath = path.resolve(process.cwd());
   }
 
   log(`Serving static files from: ${distPath}`);
   app.use(express.static(distPath));
+  
+  // Also serve static assets from /static path for non-root assets
+  if (fs.existsSync(path.join(distPath, "static"))) {
+    app.use("/static", express.static(path.join(distPath, "static")));
+  }
 
   // fall through to index.html if the file doesn't exist
   app.use("*", (_req, res) => {
-    const indexPath = path.resolve(distPath, "index.html");
+    let indexPath = path.resolve(distPath, "index.html");
+    
+    // Try alternatives if not found
+    if (!fs.existsSync(indexPath)) {
+      const alternatives = [
+        path.resolve(__dirname, "..", "dist", "public", "index.html"),
+        path.resolve(process.cwd(), "dist", "public", "index.html"),
+        path.resolve(process.cwd(), "client", "dist", "index.html")
+      ];
+      
+      for (const altPath of alternatives) {
+        if (fs.existsSync(altPath)) {
+          indexPath = altPath;
+          log(`Using alternative index.html: ${indexPath}`);
+          break;
+        }
+      }
+    }
     
     if (!fs.existsSync(indexPath)) {
       log(`ERROR: index.html not found at ${indexPath}`);
