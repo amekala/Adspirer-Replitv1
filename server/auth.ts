@@ -6,7 +6,8 @@ import jwt from "jsonwebtoken";
 import { scrypt, randomBytes, timingSafeEqual } from "crypto";
 import { promisify } from "util";
 import { storage } from "./storage";
-import { insertUserSchema, User as SelectUser } from "@shared/schema";
+import { User } from "@shared/types";
+import { insertUserSchema } from "./db/schema";
 
 // JWT auth middleware
 export const authenticate = (req: Request, res: Response, next: NextFunction) => {
@@ -153,7 +154,10 @@ export function setupAuth(app: Express) {
 
   // Get current user endpoint (requires valid JWT)
   app.get("/api/user", authenticate, (req, res) => {
-    const { password, ...userWithoutPassword } = req.user as SelectUser;
+    // The user from the DB includes password, but our shared type doesn't
+    // Using a type assertion to handle this
+    const userWithPassword = req.user as (User & { password: string });
+    const { password, ...userWithoutPassword } = userWithPassword;
     res.json(userWithoutPassword);
   });
 }

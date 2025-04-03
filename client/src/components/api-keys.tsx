@@ -11,7 +11,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
-import { insertApiKeySchema, type ApiKey } from "@shared/schema";
+import { type ApiKey } from "@shared/types";
 import { Loader2, Copy, Key, AlertCircle } from "lucide-react";
 import {
   Table,
@@ -44,11 +44,10 @@ export function ApiKeys() {
 
   const createMutation = useMutation({
     mutationFn: async (name: string) => {
-      const result = insertApiKeySchema.safeParse({ name });
-      if (!result.success) {
+      if (!name.trim()) {
         throw new Error("Please provide a name for your API key");
       }
-      const res = await apiRequest("POST", "/api/keys", result.data);
+      const res = await apiRequest("POST", "/api/keys", { name });
       return res.json();
     },
     onSuccess: (key: ApiKey) => {

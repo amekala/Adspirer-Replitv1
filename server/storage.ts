@@ -1,19 +1,23 @@
 import { 
   User, InsertUser, AmazonToken, ApiKey, AdvertiserAccount, 
-  CampaignMetrics, amazonAdReports, type AmazonAdReport,
-  DemoRequest, InsertDemoRequest, demoRequests,
+  CampaignMetrics, type AmazonAdReport,
+  DemoRequest, InsertDemoRequest,
   GoogleToken, GoogleAdvertiserAccount, GoogleCampaignMetrics,
   ChatConversation, ChatMessage, InsertChatConversation, InsertChatMessage,
   CampaignMetricsSummary, GoogleCampaignMetricsSummary, QueryCacheEntry,
-  InsertCampaignMetricsSummary, InsertGoogleCampaignMetricsSummary, InsertQueryCache,
+  Campaign, AdGroup, ProductAd, Keyword, NegativeKeyword,
+  InsertCampaign, InsertAdGroup, InsertProductAd, InsertKeyword, InsertNegativeKeyword
+} from "@shared/types";
+
+import {
   users, amazonTokens, apiKeys, advertiserAccounts, tokenRefreshLog, 
   campaignMetrics, googleTokens, googleAdvertiserAccounts, googleCampaignMetrics, 
   chatConversations, chatMessages, campaignMetricsSummary, googleCampaignMetricsSummary,
-  queryCacheEntries,
-  Campaign, AdGroup, ProductAd, Keyword, NegativeKeyword,
-  InsertCampaign, InsertAdGroup, InsertProductAd, InsertKeyword, InsertNegativeKeyword,
-  campaigns, adGroups, productAds, keywords, negativeKeywords
-} from "@shared/schema";
+  queryCacheEntries, amazonAdReports, demoRequests,
+  campaigns, adGroups, productAds, keywords, negativeKeywords,
+  insertCampaignMetricsSummarySchema, insertGoogleCampaignMetricsSummarySchema, insertQueryCacheSchema
+} from "./db/schema";
+
 import session from "express-session";
 import { and, eq, gte, lte, desc, or, sql } from "drizzle-orm";
 import connectPg from "connect-pg-simple";
