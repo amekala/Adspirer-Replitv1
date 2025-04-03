@@ -26,6 +26,7 @@ export default defineConfig({
     alias: {
       "@": path.resolve(__dirname, "client", "src"),
       "@shared": path.resolve(__dirname, "shared"),
+      "zod": path.resolve(__dirname, "node_modules/zod")
     },
   },
   root: path.resolve(__dirname, "client"),
@@ -43,7 +44,8 @@ export default defineConfig({
             'framer-motion',
             'tailwind-merge',
             'clsx',
-            'openai'
+            'openai',
+            'zod'
           ],
           ui: [
             '@radix-ui/react-accordion',
