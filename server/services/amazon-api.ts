@@ -15,63 +15,92 @@ export class AmazonAdsService {
    * Gets or refreshes a valid access token for the user
    */
   async getValidToken(userId: string): Promise<string> {
-    let token = await storage.getAmazonToken(userId);
-    
-    // Check if token is expired or will expire soon (within 5 minutes)
-    const isExpired = !token || new Date(token.expiresAt) < new Date(Date.now() + 5 * 60 * 1000);
-    
-    if (isExpired && token?.refreshToken) {
-      // Refresh the token
-      const clientId = process.env.VITE_AMAZON_CLIENT_ID || process.env.AMAZON_CLIENT_ID;
-      const clientSecret = process.env.VITE_AMAZON_CLIENT_SECRET || process.env.AMAZON_CLIENT_SECRET;
+    try {
+      console.log(`Getting Amazon token for user: ${userId}`);
+      let token = await storage.getAmazonToken(userId);
       
-      const response = await fetch("https://api.amazon.com/auth/o2/token", {
-        method: "POST",
-        headers: { "Content-Type": "application/x-www-form-urlencoded" },
-        body: new URLSearchParams({
-          grant_type: "refresh_token",
-          refresh_token: token.refreshToken,
-          client_id: clientId!,
-          client_secret: clientSecret!,
-        }),
-      });
-      
-      if (!response.ok) {
-        throw new Error(`Failed to refresh token: ${await response.text()}`);
+      if (!token) {
+        console.log(`No token found for user ${userId}`);
+        throw new Error("You need to connect your Amazon Advertising account first. Please set up your API credentials in the settings.");
       }
       
-      const { access_token, refresh_token, expires_in } = await response.json();
+      // Check if token is expired or will expire soon (within 5 minutes)
+      const isExpired = new Date(token.expiresAt) < new Date(Date.now() + 5 * 60 * 1000);
       
-      // Save the new token
-      token = await storage.saveAmazonToken({
-        userId,
-        accessToken: access_token,
-        refreshToken: refresh_token || token.refreshToken,
-        tokenScope: "advertising::campaign_management",
-        expiresAt: new Date(Date.now() + expires_in * 1000),
-        lastRefreshed: new Date(),
-        isActive: true,
-      });
+      if (isExpired && token?.refreshToken) {
+        console.log(`Token expired for user ${userId}, attempting to refresh`);
+        // Refresh the token
+        const clientId = process.env.VITE_AMAZON_CLIENT_ID || process.env.AMAZON_CLIENT_ID;
+        const clientSecret = process.env.VITE_AMAZON_CLIENT_SECRET || process.env.AMAZON_CLIENT_SECRET;
+        
+        if (!clientId || !clientSecret) {
+          console.error("Missing Amazon API client credentials in environment");
+          throw new Error("Application is missing Amazon API credentials. Please contact support.");
+        }
+        
+        const response = await fetch("https://api.amazon.com/auth/o2/token", {
+          method: "POST",
+          headers: { "Content-Type": "application/x-www-form-urlencoded" },
+          body: new URLSearchParams({
+            grant_type: "refresh_token",
+            refresh_token: token.refreshToken,
+            client_id: clientId,
+            client_secret: clientSecret,
+          }),
+        });
+        
+        if (!response.ok) {
+          const errorText = await response.text();
+          console.error(`Failed to refresh token: ${errorText}`);
+          throw new Error(`Failed to refresh your Amazon token. Please reconnect your account in settings.`);
+        }
+        
+        const { access_token, refresh_token, expires_in } = await response.json();
+        
+        // Save the new token
+        token = await storage.saveAmazonToken({
+          userId,
+          accessToken: access_token,
+          refreshToken: refresh_token || token.refreshToken,
+          tokenScope: "advertising::campaign_management",
+          expiresAt: new Date(Date.now() + expires_in * 1000),
+          lastRefreshed: new Date(),
+          isActive: true,
+        });
+        console.log(`Token refreshed successfully for user ${userId}`);
+      }
+      
+      if (!token || !token.accessToken) {
+        console.error(`No valid token available for user ${userId}`);
+        throw new Error("You need to connect your Amazon Advertising account. Please check your API credentials in settings.");
+      }
+      
+      return token.accessToken;
+    } catch (error) {
+      console.error(`Error in getValidToken: ${error instanceof Error ? error.message : String(error)}`);
+      throw error;
     }
-    
-    if (!token || !token.accessToken) {
-      throw new Error("No valid token available for this user");
-    }
-    
-    return token.accessToken;
   }
   
   /**
    * Get the first advertiser account for a user (helper method)
    */
   private async getFirstAdvertiserAccount(userId: string): Promise<any> {
-    const accounts = await storage.getAdvertiserAccounts(userId);
-    
-    if (!accounts || accounts.length === 0) {
-      throw new Error("No advertiser accounts found for this user");
+    try {
+      console.log(`Getting advertiser accounts for user: ${userId}`);
+      const accounts = await storage.getAdvertiserAccounts(userId);
+      
+      if (!accounts || accounts.length === 0) {
+        console.error(`No advertiser accounts found for user ${userId}`);
+        throw new Error("No Amazon Advertising accounts found. Please make sure your account is properly connected in settings.");
+      }
+      
+      console.log(`Found ${accounts.length} advertiser accounts for user ${userId}`);
+      return accounts[0];
+    } catch (error) {
+      console.error(`Error in getFirstAdvertiserAccount: ${error instanceof Error ? error.message : String(error)}`);
+      throw error;
     }
-    
-    return accounts[0];
   }
   
   /**
@@ -542,6 +571,266 @@ export class AmazonAdsService {
         success: false,
         error: error instanceof Error ? error.message : String(error),
         message: `Error creating negative keywords: ${error instanceof Error ? error.message : String(error)}`
+      };
+    }
+  }
+  
+  /**
+   * Creates a Sponsored Video campaign
+   */
+  async createSvCampaign(userId: string, params: any): Promise<any> {
+    try {
+      // Get required credentials and identifiers
+      const accessToken = await this.getValidToken(userId);
+      const advertiserAccount = await this.getFirstAdvertiserAccount(userId);
+      const clientId = process.env.VITE_AMAZON_CLIENT_ID || process.env.AMAZON_CLIENT_ID;
+      
+      // Prepare dates in the correct format
+      const startDate = params.startDate ? params.startDate.toString() : new Date().toISOString().split('T')[0];
+      let endDate = params.endDate ? params.endDate.toString() : null;
+      
+      // Format campaign payload for API
+      const campaignPayload = {
+        campaigns: [
+          {
+            name: params.name,
+            campaignType: "sponsoredBrands", // This is for Sponsored Video
+            targetingType: params.targetingType || "MANUAL",
+            state: params.state || "PAUSED",
+            budget: {
+              budgetType: "DAILY",
+              budget: Number(params.dailyBudget)
+            },
+            startDate,
+            ...(endDate && { endDate })
+          }
+        ]
+      };
+      
+      // Make API call to create campaign
+      const response = await fetch("https://advertising-api.amazon.com/sb/campaigns", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Accept": "application/json",
+          "Amazon-Advertising-API-ClientId": clientId!,
+          "Amazon-Advertising-API-Scope": advertiserAccount.profileId,
+          "Authorization": `Bearer ${accessToken}`
+        },
+        body: JSON.stringify(campaignPayload)
+      });
+      
+      // Parse response
+      const responseData = await response.json();
+      
+      // Handle successful response
+      if (responseData.campaigns?.success?.length > 0) {
+        const campaignId = responseData.campaigns.success[0].campaignId;
+        
+        // Store campaign in database
+        await storage.createCampaign({
+          userId,
+          profileId: advertiserAccount.profileId,
+          campaignId,
+          name: params.name,
+          campaignType: "sponsoredBrands",
+          targetingType: params.targetingType?.toUpperCase() || "MANUAL",
+          dailyBudget: Number(params.dailyBudget),
+          startDate: startDate,
+          endDate: endDate,
+          state: params.state?.toUpperCase() || "PAUSED"
+        });
+        
+        // Return success response
+        return {
+          success: true,
+          campaignId,
+          name: params.name,
+          message: `Sponsored Video campaign "${params.name}" created successfully with ID ${campaignId}`
+        };
+      } else {
+        // Handle error response
+        const errorDetails = responseData.campaigns?.error?.[0]?.errors || 
+                            responseData.message || 
+                            "Unknown error";
+        
+        return {
+          success: false,
+          error: errorDetails,
+          message: `Failed to create Sponsored Video campaign: ${JSON.stringify(errorDetails)}`
+        };
+      }
+    } catch (error) {
+      // Handle unexpected errors
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : String(error),
+        message: `Error creating Sponsored Video campaign: ${error instanceof Error ? error.message : String(error)}`
+      };
+    }
+  }
+  
+  /**
+   * Creates a Sponsored Display campaign
+   */
+  async createSdCampaign(userId: string, params: any): Promise<any> {
+    try {
+      // Get required credentials and identifiers
+      const accessToken = await this.getValidToken(userId);
+      const advertiserAccount = await this.getFirstAdvertiserAccount(userId);
+      const clientId = process.env.VITE_AMAZON_CLIENT_ID || process.env.AMAZON_CLIENT_ID;
+      
+      // Prepare dates in the correct format
+      const startDate = params.startDate ? params.startDate.toString() : new Date().toISOString().split('T')[0];
+      let endDate = params.endDate ? params.endDate.toString() : null;
+      
+      // Format campaign payload for API
+      const campaignPayload = {
+        campaigns: [
+          {
+            name: params.name,
+            campaignType: "sponsoredDisplay",
+            targetingType: params.targetingType || "MANUAL",
+            state: params.state || "PAUSED",
+            budget: {
+              budgetType: "DAILY",
+              budget: Number(params.dailyBudget)
+            },
+            startDate,
+            ...(endDate && { endDate })
+          }
+        ]
+      };
+      
+      // Make API call to create campaign
+      const response = await fetch("https://advertising-api.amazon.com/sd/campaigns", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Accept": "application/json",
+          "Amazon-Advertising-API-ClientId": clientId!,
+          "Amazon-Advertising-API-Scope": advertiserAccount.profileId,
+          "Authorization": `Bearer ${accessToken}`
+        },
+        body: JSON.stringify(campaignPayload)
+      });
+      
+      // Parse response
+      const responseData = await response.json();
+      
+      // Handle successful response
+      if (responseData.campaigns?.success?.length > 0) {
+        const campaignId = responseData.campaigns.success[0].campaignId;
+        
+        // Store campaign in database
+        await storage.createCampaign({
+          userId,
+          profileId: advertiserAccount.profileId,
+          campaignId,
+          name: params.name,
+          campaignType: "sponsoredDisplay",
+          targetingType: params.targetingType?.toUpperCase() || "MANUAL",
+          dailyBudget: Number(params.dailyBudget),
+          startDate: startDate,
+          endDate: endDate,
+          state: params.state?.toUpperCase() || "PAUSED"
+        });
+        
+        // Return success response
+        return {
+          success: true,
+          campaignId,
+          name: params.name,
+          message: `Sponsored Display campaign "${params.name}" created successfully with ID ${campaignId}`
+        };
+      } else {
+        // Handle error response
+        const errorDetails = responseData.campaigns?.error?.[0]?.errors || 
+                            responseData.message || 
+                            "Unknown error";
+        
+        return {
+          success: false,
+          error: errorDetails,
+          message: `Failed to create Sponsored Display campaign: ${JSON.stringify(errorDetails)}`
+        };
+      }
+    } catch (error) {
+      // Handle unexpected errors
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : String(error),
+        message: `Error creating Sponsored Display campaign: ${error instanceof Error ? error.message : String(error)}`
+      };
+    }
+  }
+  
+  /**
+   * Deletes an Amazon campaign
+   */
+  async deleteAmazonCampaign(userId: string, params: { campaignId: string }): Promise<any> {
+    try {
+      // Get required credentials and identifiers
+      const accessToken = await this.getValidToken(userId);
+      const advertiserAccount = await this.getFirstAdvertiserAccount(userId);
+      const clientId = process.env.VITE_AMAZON_CLIENT_ID || process.env.AMAZON_CLIENT_ID;
+      
+      // Get campaign type from database to determine API endpoint
+      // Since there's no direct lookup by campaignId, we need to get from campaigns by campaignId
+      const campaigns = await storage.getCampaigns(userId);
+      const campaign = campaigns.find(c => c.campaignId === params.campaignId);
+      
+      if (!campaign) {
+        return {
+          success: false,
+          error: "Campaign not found",
+          message: `Campaign with ID ${params.campaignId} not found`
+        };
+      }
+      
+      // Determine API endpoint based on campaign type
+      let endpoint = "https://advertising-api.amazon.com/sp/campaigns";
+      if (campaign.campaignType === "sponsoredBrands") {
+        endpoint = "https://advertising-api.amazon.com/sb/campaigns";
+      } else if (campaign.campaignType === "sponsoredDisplay") {
+        endpoint = "https://advertising-api.amazon.com/sd/campaigns";
+      }
+      
+      // Make API call to delete campaign
+      const response = await fetch(`${endpoint}/${params.campaignId}`, {
+        method: "DELETE",
+        headers: {
+          "Content-Type": "application/json",
+          "Accept": "application/json",
+          "Amazon-Advertising-API-ClientId": clientId!,
+          "Amazon-Advertising-API-Scope": advertiserAccount.profileId,
+          "Authorization": `Bearer ${accessToken}`
+        }
+      });
+      
+      // Handle response
+      if (response.ok) {
+        // Since there's no deleteCampaign in storage, update the state to ARCHIVED instead
+        await storage.updateCampaignState(campaign.id, "ARCHIVED");
+        
+        return {
+          success: true,
+          campaignId: params.campaignId,
+          message: `Campaign ${params.campaignId} deleted successfully`
+        };
+      } else {
+        const errorData = await response.json();
+        return {
+          success: false,
+          error: errorData,
+          message: `Failed to delete campaign: ${JSON.stringify(errorData)}`
+        };
+      }
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : String(error),
+        message: `Error deleting campaign: ${error instanceof Error ? error.message : String(error)}`
       };
     }
   }

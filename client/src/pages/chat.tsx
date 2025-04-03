@@ -281,10 +281,11 @@ export default function ChatPage() {
       
       // First, add the user message to the conversation
       const userMessage = {
-        id: 'temp-user-' + Date.now(),
+        id: 'temp-optimistic-user-' + Date.now(), // Add a special ID prefix we can detect later
         role: 'user' as const,
         content: messageContent,
-        createdAt: new Date().toISOString()
+        createdAt: new Date().toISOString(),
+        isOptimistic: true // Add a flag to identify this as an optimistic update
       };
       
       // Add temporary typing indicator

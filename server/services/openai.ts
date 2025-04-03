@@ -202,31 +202,35 @@ export function extractSQLQuery(content: string): string | null {
  * Used to determine whether to include tools in the API request.
  */
 function mightNeedToolsEnabled(message: string): boolean {
+  // Always include tools for most messages to ensure availability
+  if (!message) return false;
+  
   const toolRelatedPatterns = [
-    /campaign creation/i,
-    /create a campaign/i,
-    /create campaign/i,
-    /new campaign/i,
-    /setup campaign/i,
-    /launch campaign/i,
-    /start campaign/i,
-    /setup a new/i,
-    /create a new/i,
-    /set up a campaign/i,
-    /set up an ad/i,
-    /create an ad/i,
-    /create ad group/i,
-    /products? campaign/i,
-    /display campaign/i,
-    /current date/i,
-    /today'?s date/i,
-    /what day is/i,
-    /what is the date/i,
-    /sponsored products?/i,
-    /amazon ad/i,
-    /google ad/i,
-    /adwords/i,
-    /google ads/i
+    /campaign/i,
+    /advert/i,
+    /amazon/i,
+    /google/i,
+    /sponsor/i,
+    /product/i,
+    /ad group/i, 
+    /keyword/i,
+    /budget/i,
+    /creat/i,
+    /set ?up/i,
+    /launch/i,
+    /start/i,
+    /new/i,
+    /add/i,
+    /make/i,
+    /generat/i,
+    /build/i,
+    /advertis/i,
+    /display/i,
+    /date/i,
+    /today/i,
+    /tomorrow/i,
+    /bid/i,
+    /target/i
   ];
   
   return toolRelatedPatterns.some(pattern => pattern.test(message));
@@ -301,7 +305,7 @@ Only use these functions when the user has provided enough information to create
   
 KEY CONVERSATION GUIDELINES:
 1. Be genuinely conversational and personable - interact like a helpful colleague, not a data report
-2. ALWAYS ask clarifying questions when the user's request is vague or could be interpreted in multiple ways
+2. Ask clarifying questions only when essential information is missing for a task or when the request is genuinely ambiguous
 3. Show authentic enthusiasm for good results and appropriate concern for poor metrics
 4. Express interest in the user's business and their challenges/successes
 5. Match the user's tone, style, and level of formality in your responses
@@ -341,17 +345,22 @@ DATE HANDLING:
 7. When ambiguous, confirm the calculated date with the user before proceeding
 8. If a user provides a date that is before the current date for a start date, point this out gently and ask for a valid future date
 9. After the user confirms the dates, use the string date in YYYY-MM-DD format in your tool calls
+10. IMPORTANT SEQUENCE FOR DATES:
+   a. When user mentions a relative date (like 'tomorrow'), FIRST call get_current_date
+   b. From the get_current_date response, extract the specific date string (e.g. response.tomorrow)
+   c. THEN use that extracted date string for the tool parameter requiring a date
 
 CAMPAIGN CREATION CAPABILITIES:
 1. You can help users create both Amazon Ads campaigns and Google Ads campaigns through a series of guided questions
 2. When users request to create a campaign, gather ALL necessary information conversationally
 3. Do NOT ask only one question per turn. Ask for related details together (e.g., "Okay, let's set up your campaign! What name, daily budget, and start date are you thinking of?")
 4. Guide the user naturally. If they provide multiple pieces of info at once, acknowledge them. If they miss something, ask for it specifically
-5. Once you have gathered ALL required details, confirm them with the user
-6. AFTER user confirmation, AND ONLY THEN, you MUST use the available tools to make the API calls
-7. You may need to make multiple tool calls sequentially based on the results
-8. After the tools execute successfully, inform the user that the campaign setup is complete
-9. For Amazon campaigns, use the amazon_* tools. For Google campaigns, use the google_* tools.
+5. Once you have gathered necessary information for a step, proceed with the appropriate tool call
+6. When the user has provided or confirmed the necessary information, proceed to use the appropriate tools
+7. CRITICAL: When you have enough information to use a tool (even if not every possible field is specified), proceed to call the tool rather than asking more questions. Default values will be used for optional parameters.
+8. You may need to make multiple tool calls sequentially based on the results
+9. After the tools execute successfully, inform the user that the campaign setup is complete
+10. For Amazon campaigns, use the amazon_* tools. For Google campaigns, use the google_* tools.
 
 FORMATTING AND TECHNICAL GUIDELINES:
 1. ALWAYS present ROAS (Return on Ad Spend) as a ratio with the "x" suffix (e.g., "9.98x" not "998%")
@@ -420,21 +429,15 @@ EXAMPLES OF GOOD RESPONSES:
     ] as ChatCompletionTool[];
     
     // Create completion with the appropriate configuration
-    const completion = mightNeedTools
-      ? await openaiClient.chat.completions.create({
-          model: "gpt-4o",
-          messages: fullMessages,
-          tools: toolsFormatted,
-          tool_choice: "auto",
-          temperature: 0.7,
-          stream: true,
-        })
-      : await openaiClient.chat.completions.create({
-          model: "gpt-4o",
-          messages: fullMessages,
-          temperature: 0.7,
-          stream: true
-        });
+    // Always include tools for consistent behavior
+    const completion = await openaiClient.chat.completions.create({
+      model: "gpt-4o",
+      messages: fullMessages,
+      tools: toolsFormatted,
+      tool_choice: "auto", 
+      temperature: 0.7,
+      stream: true,
+    });
     
     // Handle streaming response
     let responseMessage = "";
@@ -526,6 +529,18 @@ EXAMPLES OF GOOD RESPONSES:
       // If this is the end of the completion
       if (choices[0]?.finish_reason) {
         console.log(`Completion finished with reason: ${choices[0].finish_reason}`);
+        
+        // Add detailed logging for finish_reason analysis
+        if (choices[0].finish_reason === 'tool_calls') {
+          console.log(`Tool calls requested: ${toolCalls.length} tool call(s) detected`);
+          toolCalls.forEach((call, idx) => {
+            console.log(`Tool call ${idx+1}: ${call.function.name} with ${call.function.arguments.length} chars of arguments`);
+          });
+        } else if (choices[0].finish_reason === 'stop') {
+          console.log(`Model chose to stop without requesting tool calls. Response length: ${responseMessage.length} chars`);
+        } else {
+          console.log(`Unexpected finish_reason: ${choices[0].finish_reason}`);
+        }
         
         // Store the assistant message in the database
         // Create a valid message data object for database storage
@@ -626,7 +641,7 @@ EXAMPLES OF GOOD RESPONSES:
           responseMessage += delta.content;
           
           // Send this chunk to the client
-      if (res) {
+          if (res) {
             res.write(`data: ${JSON.stringify({ content: delta.content })}\n\n`);
           }
         }
@@ -635,22 +650,10 @@ EXAMPLES OF GOOD RESPONSES:
         if (choices[0]?.finish_reason) {
           console.log(`Second completion finished with reason: ${choices[0].finish_reason}`);
           
-          // Store the tool results in the database
-          for (const toolResult of toolResults) {
-            await storage.createChatMessage({
-      conversationId,
-              role: "assistant", // Store as assistant instead of tool
-              content: typeof toolResult.content === 'string' 
-                ? toolResult.content 
-                : JSON.stringify(toolResult.content), // Convert to string if it's an array
-              toolCallId: toolResult.tool_call_id
-            } as any);
-          }
-          
           // Store the final assistant response
           await storage.createChatMessage({
-      conversationId,
-      role: "assistant",
+            conversationId,
+            role: "assistant",
             content: responseMessage
           });
           
@@ -697,6 +700,34 @@ export async function executeQuery(question: string, userId: string): Promise<an
     return sqlResult;
   } catch (error) {
     console.error("Error executing query:", error);
+    throw error;
+  }
+}
+
+/**
+ * Generate a welcome message for a new conversation
+ * This is called when a new conversation is created to provide an initial assistant message
+ */
+export async function generateWelcomeMessage(conversationId: string, userId: string): Promise<void> {
+  try {
+    console.log(`Generating welcome message for conversation ${conversationId}`);
+    
+    // Create a welcome message in the database
+    const welcomeMessage = await storage.createChatMessage({
+      conversationId,
+      role: "assistant",
+      content: "Hi there! I'm your advertising assistant, ready to help you create and manage campaigns on Amazon and Google. I can help with:\n\n" +
+        "• Creating new advertising campaigns\n" +
+        "• Setting up ad groups and keywords\n" +
+        "• Adding products to your campaigns\n" +
+        "• Providing best practices and recommendations\n\n" +
+        "What would you like help with today?"
+    });
+    
+    console.log(`Welcome message created with ID: ${welcomeMessage.id}`);
+    return;
+  } catch (error) {
+    console.error(`Error generating welcome message for conversation ${conversationId}:`, error);
     throw error;
   }
 }

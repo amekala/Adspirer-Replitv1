@@ -78,34 +78,57 @@ export function Chat({ conversation, isLoading, useRichVisualizations = true }: 
         // Add debugging
         console.log("Conversation messages before sorting:", formatted.messages);
         
+        // Remove duplicate user messages (handle optimistic updates)
+        // If we find a message with id starting with 'temp-optimistic-user-' and there's a server
+        // message with the same content, remove the optimistic one
+        const messagesWithoutDuplicates = formatted.messages.filter((msg, index, array) => {
+          // If this is an optimistic message
+          if (typeof msg.id === 'string' && msg.id.startsWith('temp-optimistic-user-') && msg.role === 'user') {
+            // Check if there's a non-optimistic server message with the same content
+            const duplicateIndex = array.findIndex((serverMsg, i) => 
+              i !== index && // Not the same message
+              serverMsg.role === 'user' && // Same role
+              serverMsg.content === msg.content && // Same content
+              (typeof serverMsg.id !== 'string' || !serverMsg.id.startsWith('temp-optimistic-user-')) // Not optimistic
+            );
+            // If a duplicate is found, filter out this optimistic message
+            return duplicateIndex === -1;
+          }
+          return true;
+        });
+        
         // Sort messages by createdAt to maintain proper flow
-        if (formatted.messages && formatted.messages.length > 0) {
-          formatted.messages.sort((a, b) => {
+        if (messagesWithoutDuplicates && messagesWithoutDuplicates.length > 0) {
+          messagesWithoutDuplicates.sort((a, b) => {
             // Ensure we have valid dates (defensive coding)
             const dateA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
             const dateB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
             return dateA - dateB;
           });
-          console.log(`Found ${formatted.messages.length} messages for conversation ${formatted.conversation.id}`);
-          console.log("Conversation messages after sorting:", formatted.messages);
+          console.log(`Found ${messagesWithoutDuplicates.length} messages for conversation ${formatted.conversation.id}`);
+          console.log("Conversation messages after sorting:", messagesWithoutDuplicates);
         }
         
         // Check if there's a typing indicator or streaming message
-        const hasTypingMessage = formatted.messages.some(
+        const hasTypingMessage = messagesWithoutDuplicates.some(
           msg => (msg.id === 'typing-indicator') || 
                 (typeof msg.id === 'string' && msg.id.startsWith('streaming-'))
         );
         
         // Check that we have both user and assistant messages
-        const hasUserMessages = formatted.messages.some(msg => msg.role === 'user');
-        const hasAssistantMessages = formatted.messages.some(msg => msg.role === 'assistant');
+        const hasUserMessages = messagesWithoutDuplicates.some(msg => msg.role === 'user');
+        const hasAssistantMessages = messagesWithoutDuplicates.some(msg => msg.role === 'assistant');
         
-        console.log(`Message types - User: ${hasUserMessages}, Assistant: ${hasAssistantMessages}, Typing: ${hasTypingMessage}`);
-        
-        setProcessed(formatted);
+        // Set isTyping if there's a typing indicator
         setIsTyping(hasTypingMessage);
+        
+        // Set the processed messages and conversation
+        setProcessed({
+          conversation: formatted.conversation,
+          messages: messagesWithoutDuplicates
+        });
       } catch (error) {
-        console.error("Error formatting conversation:", error);
+        console.error("Error processing conversation data:", error);
       }
     }
   }, [conversation]);
