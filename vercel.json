@@ -1,5 +1,5 @@
 {
-  "buildCommand": false,
+  "buildCommand": null,
   "outputDirectory": "public",
   "routes": [
     { "src": "/api/(.*)", "dest": "server/index.ts" },
