@@ -1,0 +1,73 @@
+Note: You need to run a database migration with "npm run db:push" to create the necessary tables
+Database maintenance completed successfully
+9:59:44 PM [express] GET /api/user 304 in 70ms :: {"id":"903243fa-a65e-4d38-8236-798559b81941","emai…
+9:59:44 PM [express] GET /api/chat/conversations 200 in 153ms :: [{"id":"feceb937-4d58-4df4-ac5d-52d…
+Generating welcome message for conversation 27f2f90c-b47b-4e69-9a1c-21a6becfd766
+Welcome message created with ID: 7c3a57ad-3f79-41d9-aeba-7107ea8ff52b
+9:59:49 PM [express] POST /api/chat/conversations 201 in 297ms :: {"id":"27f2f90c-b47b-4e69-9a1c-21a…
+9:59:49 PM [express] GET /api/chat/conversations 200 in 142ms :: [{"id":"27f2f90c-b47b-4e69-9a1c-21a…
+9:59:49 PM [express] GET /api/chat/conversations/27f2f90c-b47b-4e69-9a1c-21a6becfd766 200 in 168ms :…
+9:59:50 PM [express] GET /api/chat/conversations/27f2f90c-b47b-4e69-9a1c-21a6becfd766 304 in 174ms :…
+9:59:50 PM [express] GET /api/chat/conversations/27f2f90c-b47b-4e69-9a1c-21a6becfd766 304 in 170ms :…
+9:59:51 PM [express] GET /api/chat/conversations/27f2f90c-b47b-4e69-9a1c-21a6becfd766 304 in 183ms :…
+9:59:54 PM [express] GET /api/chat/conversations/feceb937-4d58-4df4-ac5d-52ddca24c835 304 in 171ms :…
+Sending message to OpenAI with tools: [
+  'get_current_date',
+  'create_amazon_sp_campaign',
+  'create_amazon_ad_group',
+  'create_amazon_product_ads',
+  'create_amazon_keywords',
+  'create_amazon_negative_keywords',
+  'create_google_campaign_budget',
+  'create_google_campaign',
+  'create_google_ad_group',
+  'create_google_keywords',
+  'create_google_negative_keywords',
+  'delete_google_campaign',
+  'create_google_responsive_search_ad',
+  'add_google_campaign_targeting'
+]
+Error generating AI response: BadRequestError: 400 Missing required parameter: 'tools[0].function'.
+    at Function.generate (/home/runner/workspace/node_modules/openai/src/error.ts:72:14)
+    at OpenAI.makeStatusError (/home/runner/workspace/node_modules/openai/src/core.ts:443:21)
+    at OpenAI.makeRequest (/home/runner/workspace/node_modules/openai/src/core.ts:507:24)
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+    at async handleAIResponse (/home/runner/workspace/server/routes.ts:833:24)
+    at async <anonymous> (/home/runner/workspace/server/routes.ts:764:29) {
+  status: 400,
+  headers: {
+    'access-control-expose-headers': 'X-Request-ID',
+    'alt-svc': 'h3=":443"; ma=86400',
+    'cf-cache-status': 'DYNAMIC',
+    'cf-ray': '92abd6216b4161ab-ORD',
+    connection: 'keep-alive',
+    'content-length': '199',
+    'content-type': 'application/json',
+    date: 'Thu, 03 Apr 2025 22:00:02 GMT',
+    'openai-organization': 'mockeryai',
+    'openai-processing-ms': '295',
+    'openai-version': '2020-10-01',
+    server: 'cloudflare',
+    'set-cookie': '__cf_bm=Dpwzcphlkl7lCCfFD9CO3Gl7UZn3QKRFfTfPZZ19QJo-1743717602-1.0.1.1-k7y9N5NLLxikfurAKiFykEtsoJkEt2a_6W7Vi5xaJyoiZBf4zaFqXXM63Vb8PPf6CnR12iCWiZLIDCoEiRDbzVFjROJE0m3ED86h3v9S6yM; path=/; expires=Thu, 03-Apr-25 22:30:02 GMT; domain=.api.openai.com; HttpOnly; Secure; SameSite=None, _cfuvid=7o423myznxMxJ4hhyrOSOPTeI1KbUJykn87s6J6C3C0-1743717602088-0.0.1.1-604800000; path=/; domain=.api.openai.com; HttpOnly; Secure; SameSite=None',
+    'strict-transport-security': 'max-age=31536000; includeSubDomains; preload',
+    'x-content-type-options': 'nosniff',
+    'x-ratelimit-limit-requests': '5000',
+    'x-ratelimit-limit-tokens': '4000000',
+    'x-ratelimit-remaining-requests': '4999',
+    'x-ratelimit-remaining-tokens': '3999770',
+    'x-ratelimit-reset-requests': '12ms',
+    'x-ratelimit-reset-tokens': '3ms',
+    'x-request-id': 'req_2cf84aee4e75fef51a7f18729c0fe333'
+  },
+  request_id: 'req_2cf84aee4e75fef51a7f18729c0fe333',
+  error: {
+    message: "Missing required parameter: 'tools[0].function'.",
+    type: 'invalid_request_error',
+    param: 'tools[0].function',
+    code: 'missing_required_parameter'
+  },
+  code: 'missing_required_parameter',
+  param: 'tools[0].function',
+  type: 'invalid_request_error'
+}
+10:00:02 PM [express] POST /api/chat/conversations/27f2f90c-b47b-4e69-9a1c-21a6becfd766/messages 201 …

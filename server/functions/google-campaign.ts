@@ -10,7 +10,6 @@
  */
 export const googleCampaignTools = [
   {
-    type: "function",
     name: "create_google_campaign_budget",
     description: "Creates a campaign budget for Google Ads campaigns",
     parameters: {
@@ -40,7 +39,7 @@ export const googleCampaignTools = [
     }
   },
   {
-    type: "function",
+    
     name: "create_google_campaign",
     description: "Creates a campaign on Google Ads",
     parameters: {
@@ -113,7 +112,7 @@ export const googleCampaignTools = [
     }
   },
   {
-    type: "function",
+    
     name: "create_google_ad_group",
     description: "Creates an ad group within a Google Ads campaign",
     parameters: {
@@ -152,7 +151,7 @@ export const googleCampaignTools = [
     }
   },
   {
-    type: "function",
+    
     name: "create_google_keywords",
     description: "Creates keywords within a Google Ads ad group",
     parameters: {
@@ -215,7 +214,7 @@ export const googleCampaignTools = [
     }
   },
   {
-    type: "function",
+    
     name: "create_google_negative_keywords",
     description: "Creates negative keywords within a Google Ads ad group",
     parameters: {
@@ -263,7 +262,7 @@ export const googleCampaignTools = [
     }
   },
   {
-    type: "function",
+    
     name: "delete_google_campaign",
     description: "Deletes a Google Ads campaign",
     parameters: {
@@ -282,7 +281,7 @@ export const googleCampaignTools = [
     }
   },
   {
-    type: "function",
+    
     name: "create_google_responsive_search_ad",
     description: "Creates a responsive search ad within a Google Ads ad group",
     parameters: {
@@ -350,7 +349,7 @@ export const googleCampaignTools = [
     }
   },
   {
-    type: "function",
+    
     name: "add_google_campaign_targeting",
     description: "Adds location and language targeting to a Google Ads campaign",
     parameters: {

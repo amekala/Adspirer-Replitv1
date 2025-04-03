@@ -800,10 +800,24 @@ export async function registerRoutes(app: Express): Promise<void> {
       const { googleCampaignTools } = await import("./functions/google-campaign");
       const { handleFunctionCall } = await import("./functions/handler");
       
-      // Combine all available tools
+      // Combine all available tools - need to format them correctly for the API 
       const tools = [
-        ...amazonCampaignTools,
-        ...googleCampaignTools
+        ...amazonCampaignTools.map(tool => ({
+          type: "function" as const, // Type assertion to ensure it's strictly "function"
+          function: {
+            name: tool.name,
+            description: tool.description,
+            parameters: tool.parameters
+          }
+        })),
+        ...googleCampaignTools.map(tool => ({
+          type: "function" as const, // Type assertion to ensure it's strictly "function"
+          function: {
+            name: tool.name,
+            description: tool.description,
+            parameters: tool.parameters
+          }
+        }))
       ];
       
       // Create a system message that describes the AI's role
@@ -827,7 +841,7 @@ export async function registerRoutes(app: Express): Promise<void> {
         content: userMessage
       });
       
-      console.log("Sending message to OpenAI with tools:", tools.map(t => t.name));
+      console.log("Sending message to OpenAI with tools:", tools.map(t => t.function.name));
       
       // Use OpenAI to generate a response with function calling enabled
       const response = await openai.chat.completions.create({

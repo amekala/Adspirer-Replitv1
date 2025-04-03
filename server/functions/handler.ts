@@ -12,8 +12,8 @@ import { googleAdsService } from "../services/google-api";
  * Interface for function call objects from the LLM
  */
 interface FunctionCall {
-  name: string;
-  arguments: string | Record<string, any>; // Can be string or object depending on API
+  name?: string;
+  arguments?: string | Record<string, any>; // Can be string or object depending on API
   function?: {
     name: string;
     arguments: string;

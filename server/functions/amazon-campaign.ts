@@ -10,7 +10,6 @@
  */
 export const amazonCampaignTools = [
   {
-    type: "function",
     name: "get_current_date",
     description: "Returns the current date and time information",
     parameters: {
@@ -27,7 +26,6 @@ export const amazonCampaignTools = [
     }
   },
   {
-    type: "function",
     name: "create_amazon_sp_campaign",
     description: "Creates a Sponsored Products campaign on Amazon Ads",
     parameters: {
@@ -70,7 +68,6 @@ export const amazonCampaignTools = [
     }
   },
   {
-    type: "function",
     name: "create_amazon_ad_group",
     description: "Creates an ad group within an Amazon Sponsored Products campaign",
     parameters: {
@@ -98,7 +95,6 @@ export const amazonCampaignTools = [
     }
   },
   {
-    type: "function",
     name: "create_amazon_product_ads",
     description: "Creates product ads within an ad group",
     parameters: {
@@ -132,7 +128,6 @@ export const amazonCampaignTools = [
     }
   },
   {
-    type: "function",
     name: "create_amazon_keywords",
     description: "Creates keywords for an ad group",
     parameters: {
@@ -170,7 +165,6 @@ export const amazonCampaignTools = [
     }
   },
   {
-    type: "function",
     name: "create_amazon_negative_keywords",
     description: "Creates negative keywords for an ad group",
     parameters: {
