@@ -712,4 +712,12 @@ export async function registerRoutes(app: Express): Promise<void> {
         Object.entries(profileStats.byMarketplace).forEach(([marketplace, stats]) => {
           const total = stats.success + stats.failed;
           const successRate = (stats.success/total*100).toFixed(1);
-          console.log(`${marketplace}: ${stats.success}/${total} (${successRate}%)`
+          console.log(`${marketplace}: ${stats.success}/${total} (${successRate}%)`)
+        });
+      } catch (error) {
+        console.error("Error processing campaign sync:", error);
+        res.status(500).json({ message: "Failed to process campaign sync" });
+      }
+    })();
+  });
+}

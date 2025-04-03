@@ -1,0 +1,10 @@
+node_modules
+.git
+.env
+tests/
+*.test.*
+*.spec.*
+jest.config.js
+jest-puppeteer.config.js
+run-tests.sh
+attached_assets/ 
