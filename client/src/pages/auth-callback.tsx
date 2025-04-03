@@ -35,6 +35,7 @@ export default function AuthCallback() {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ code }),
+            credentials: "include", // Include cookies for authentication
           })
             .then((response) => {
               if (!response.ok) throw new Error("Failed to connect account");
