@@ -1,6 +1,6 @@
 import { createContext, useContext, useEffect, useState } from "react";
 
-type Theme = "dark";
+type Theme = "dark" | "light";
 
 interface ThemeProviderProps {
   children: React.ReactNode;
@@ -26,34 +26,38 @@ export function ThemeProvider({
   storageKey = "adspirer-ui-theme",
   ...props
 }: ThemeProviderProps) {
-  // Always use dark theme
-  const [theme] = useState<Theme>("dark");
+  const [theme, setTheme] = useState<Theme>(
+    () => (localStorage.getItem(storageKey) as Theme) || defaultTheme
+  );
 
   useEffect(() => {
     const root = window.document.documentElement;
-
-    root.classList.remove("light");
-    root.classList.add("dark");
+    
+    // Remove both classes and add the current theme
+    root.classList.remove("light", "dark");
+    root.classList.add(theme);
     
     // Custom CSS variables for vibrant startup look
-    root.style.setProperty("--gradient-primary", "linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)");
-    root.style.setProperty("--gradient-secondary", "linear-gradient(135deg, #4f46e5 0%, #4338ca 100%)");
-    root.style.setProperty("--gradient-accent", "linear-gradient(135deg, #ec4899 0%, #8b5cf6 100%)");
-    root.style.setProperty("--bg-primary", "#0f172a");
-    root.style.setProperty("--bg-secondary", "#1e293b");
-    root.style.setProperty("--text-primary", "#f8fafc");
-    root.style.setProperty("--text-secondary", "#cbd5e1");
-    root.style.setProperty("--accent-color", "#8b5cf6");
-    root.style.setProperty("--accent-color-hover", "#a78bfa");
-    root.style.setProperty("--border-color", "rgba(148, 163, 184, 0.2)");
+    if (theme === "dark") {
+      root.style.setProperty("--gradient-primary", "linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)");
+      root.style.setProperty("--gradient-secondary", "linear-gradient(135deg, #4f46e5 0%, #4338ca 100%)");
+      root.style.setProperty("--gradient-accent", "linear-gradient(135deg, #ec4899 0%, #8b5cf6 100%)");
+      root.style.setProperty("--bg-primary", "#0f172a");
+      root.style.setProperty("--bg-secondary", "#1e293b");
+      root.style.setProperty("--text-primary", "#f8fafc");
+      root.style.setProperty("--text-secondary", "#cbd5e1");
+      root.style.setProperty("--accent-color", "#8b5cf6");
+      root.style.setProperty("--accent-color-hover", "#a78bfa");
+      root.style.setProperty("--border-color", "rgba(148, 163, 184, 0.2)");
+    }
     
     localStorage.setItem(storageKey, theme);
-  }, [storageKey]);
+  }, [theme, storageKey]);
 
   const value = {
     theme,
-    setTheme: (theme: Theme) => {
-      // No-op since we're always using dark mode
+    setTheme: (t: Theme) => {
+      setTheme(t);
     },
   };
 

@@ -548,12 +548,14 @@ export class DatabaseStorage implements IStorage {
   async createCampaignMetricsSummary(summary: Omit<CampaignMetricsSummary, "id" | "createdAt" | "updatedAt">): Promise<CampaignMetricsSummary> {
     try {
       const now = new Date();
+      const summaryData = {
+        ...summary,
+        createdAt: now,
+        updatedAt: now
+      };
+      
       const [result] = await db.insert(campaignMetricsSummary)
-        .values({
-          ...summary,
-          createdAt: now,
-          updatedAt: now
-        })
+        .values(summaryData)
         .returning();
       return result;
     } catch (error) {
@@ -699,7 +701,7 @@ export class DatabaseStorage implements IStorage {
                 });
               } else {
                 // Create new summary
-                await this.createCampaignMetricsSummary({
+                const summaryData = {
                   userId,
                   timeFrame: timeFrame.name,
                   startDate: startDateStr,
@@ -711,7 +713,8 @@ export class DatabaseStorage implements IStorage {
                   totalCost: Number(totalCost),
                   ctr,
                   conversions: 0 // Default value
-                });
+                };
+                await this.createCampaignMetricsSummary(summaryData);
               }
             }
           }
@@ -978,11 +981,17 @@ export class DatabaseStorage implements IStorage {
 
   // Campaign management methods
   async createCampaign(campaign: Omit<InsertCampaign, "userId"> & { userId: string }): Promise<Campaign> {
-    const [result] = await db.insert(campaigns).values({
+    const campaignValues = {
       ...campaign,
+      dailyBudget: typeof campaign.dailyBudget === 'string' ? 
+        parseFloat(campaign.dailyBudget) : campaign.dailyBudget,
       createdAt: new Date(),
       updatedAt: new Date()
-    }).returning();
+    };
+    
+    const [result] = await db.insert(campaigns)
+      .values(campaignValues)
+      .returning();
     return result;
   }
   
@@ -1016,11 +1025,17 @@ export class DatabaseStorage implements IStorage {
   
   // Ad group management methods
   async createAdGroup(adGroup: Omit<InsertAdGroup, "userId"> & { userId: string }): Promise<AdGroup> {
-    const [result] = await db.insert(adGroups).values({
+    const adGroupValues = {
       ...adGroup,
+      defaultBid: typeof adGroup.defaultBid === 'string' ? 
+        parseFloat(adGroup.defaultBid) : adGroup.defaultBid,
       createdAt: new Date(),
       updatedAt: new Date()
-    }).returning();
+    };
+    
+    const [result] = await db.insert(adGroups)
+      .values(adGroupValues)
+      .returning();
     return result;
   }
   

@@ -1,5 +1,5 @@
 import { Express, Request, Response, NextFunction } from "express";
-import { Strategy as LocalStrategy } from "passport-local";
+import { Strategy as LocalStrategy, IStrategyOptionsWithRequest, VerifyFunctionWithRequest } from "passport-local";
 import { Strategy as JwtStrategy, ExtractJwt } from "passport-jwt";
 import passport from "passport";
 import jwt from "jsonwebtoken";
@@ -42,20 +42,24 @@ export function setupAuth(app: Express) {
 
   // Local strategy for username/password authentication
   passport.use(
-    new LocalStrategy({
-      usernameField: 'email',
-      passwordField: 'password'
-    }, async (email: string, password: string, done: (error: Error | null, user?: Express.User | false | null) => void) => {
-      try {
-        const user = await storage.getUserByEmail(email);
-        if (!user || !(await comparePasswords(password, user.password))) {
-          return done(null, false);
+    new LocalStrategy(
+      {
+        usernameField: 'email',
+        passwordField: 'password',
+        passReqToCallback: true
+      } as IStrategyOptionsWithRequest,
+      (async (req: Request, email: string, password: string, done) => {
+        try {
+          const user = await storage.getUserByEmail(email);
+          if (!user || !(await comparePasswords(password, user.password))) {
+            return done(null, false);
+          }
+          return done(null, user);
+        } catch (error) {
+          return done(error as Error);
         }
-        return done(null, user);
-      } catch (error) {
-        return done(error as Error);
-      }
-    }),
+      }) as VerifyFunctionWithRequest
+    )
   );
 
   // JWT strategy for token authentication
