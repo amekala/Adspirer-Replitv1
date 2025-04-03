@@ -275,7 +275,7 @@ export class DatabaseStorage implements IStorage {
 
   async getCampaignMetrics(userId: string, startDate: Date, endDate: Date): Promise<CampaignMetrics[]> {
     try {
-      // Convert Date objects to YYYY-MM-DD strings for the database
+      // Convert Date objects to date objects for the database
       const startDateStr = startDate.toISOString().split('T')[0];
       const endDateStr = endDate.toISOString().split('T')[0];
       
@@ -442,7 +442,7 @@ export class DatabaseStorage implements IStorage {
 
   async getGoogleCampaignMetrics(userId: string, startDate: Date, endDate: Date): Promise<GoogleCampaignMetrics[]> {
     try {
-      // Convert Date objects to YYYY-MM-DD strings for the database
+      // Convert Date objects to date strings for the database
       const startDateStr = startDate.toISOString().split('T')[0];
       const endDateStr = endDate.toISOString().split('T')[0];
       

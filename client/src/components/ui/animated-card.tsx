@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, ReactNode } from "react";
 import { motion, HTMLMotionProps, Variants } from "framer-motion";
 import { cn } from "@/lib/utils";
 
@@ -7,6 +7,7 @@ interface AnimatedCardProps extends Omit<HTMLMotionProps<"div">, "variants"> {
   hoverEffect?: "lift" | "glow" | "border" | "none";
   isInteractive?: boolean;
   gradientBorder?: boolean;
+  children?: ReactNode;
 }
 
 const AnimatedCard = React.forwardRef<HTMLDivElement, AnimatedCardProps>(

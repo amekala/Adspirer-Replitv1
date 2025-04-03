@@ -660,6 +660,11 @@ export async function processSQLQuery(
     return result;
   } catch (err: any) {
     console.error("Error in SQL builder service:", err);
+    // These variables need to be initialized in this scope too
+    const startTime = Date.now();
+    let generationTime = 0;
+    let executionTime = 0;
+    
     const totalTime = Date.now() - startTime;
     return {
       data: [],
@@ -914,23 +919,26 @@ async function generateSQL(
   });
   
   // Use the Responses API instead of the Chat Completions API
-  const response = await openai.responses.create({
-    model: "gpt-4o", // Using o3-mini as requested
-    input: input, // Use the original properly formatted input array
-    max_output_tokens: 2500, // Using the new parameter name for max tokens
-    text: {
-      format: {
-        type: "text"
+  const response = await openai.chat.completions.create({
+    model: "gpt-4o",
+    messages: [
+      { 
+        role: "system", 
+        content: systemPrompt
+      },
+      { 
+        role: "user", 
+        content: query
       }
-    },
-    store: true
+    ],
+    temperature: 0.1
   });
   
   // Log the raw response for debugging
-  console.log(`Raw model response: "${response.output_text || 'EMPTY RESPONSE'}"`);
+  console.log(`Raw model response: "${response.choices[0].message.content || 'EMPTY RESPONSE'}"`);
   
   // Extract SQL from the Responses API response
-  let generatedSql = response.output_text?.trim() || '';
+  let generatedSql = response.choices[0].message.content || '';
   
   // Add a safety check for empty responses
   if (!generatedSql) {

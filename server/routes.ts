@@ -19,6 +19,7 @@ import {
 } from "@shared/schema";
 
 interface AmazonToken {
+  id: number;
   userId: string;
   accessToken: string;
   refreshToken: string;
@@ -228,7 +229,6 @@ async function processSingleProfile(profile: AdvertiserAccount, token: AmazonTok
         downloadUrl: null,
         urlExpiry: null,
         localFilePath: null,
-        lastCheckedAt: new Date(),
         completedAt: null,
         retryCount: 0,
         errorMessage: null
@@ -336,6 +336,7 @@ async function processSingleProfile(profile: AdvertiserAccount, token: AmazonTok
 }
 
 interface GoogleToken {
+  id: number;
   userId: string;
   accessToken: string;
   refreshToken: string;
@@ -729,11 +730,11 @@ export async function registerRoutes(app: Express): Promise<void> {
     }
 
     try {
-      // Convert numeric values to strings for Drizzle if needed
+      // Convert numeric values to numbers for Drizzle if needed
       const campaignData = {
         ...result.data,
         userId: req.user!.id,
-        dailyBudget: String(result.data.dailyBudget)
+        dailyBudget: Number(result.data.dailyBudget)
       };
       
       const campaign = await storage.createCampaign(campaignData);
@@ -1093,10 +1094,12 @@ export async function registerRoutes(app: Express): Promise<void> {
             .then(() => {
               console.log(`Welcome message generated successfully for conversation ${conversation.id}`);
             })
-            .catch(err => {
-              console.error(`Failed to generate welcome message for conversation ${conversation.id}:`, err);
-              // We still continue as this is not critical, but log the detailed error
-              console.error('Welcome message error details:', err.stack || err.message || err);
+            .catch((welcomeError: unknown) => {
+              if (welcomeError instanceof Error) {
+                console.error("Welcome error:", welcomeError.message);
+              } else {
+                console.error("Unknown welcome error occurred");
+              }
             });
             
           // Double-check that the welcome message was created
@@ -1106,10 +1109,12 @@ export async function registerRoutes(app: Express): Promise<void> {
           } else {
             console.log(`Verified welcome message exists for conversation ${conversation.id}`);
           }
-        } catch (welcomeError) {
-          console.error('Error importing or using OpenAI service for welcome message:', welcomeError);
-          console.error('Welcome error stack:', welcomeError.stack || welcomeError);
-          // We still continue as this is not critical
+        } catch (welcomeError: unknown) {
+          if (welcomeError instanceof Error) {
+            console.error("Welcome error:", welcomeError.message);
+          } else {
+            console.error("Unknown welcome error occurred");
+          }
         }
       }
       

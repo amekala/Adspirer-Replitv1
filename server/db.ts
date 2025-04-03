@@ -26,7 +26,7 @@ const client = postgres(databaseUrl);
 const verifyDbConnection = async () => {
   try {
     // Execute a simple query to check if essential tables exist
-    const result = await client.query(`
+    const result = await client`
       SELECT EXISTS (
         SELECT FROM information_schema.tables 
         WHERE table_schema = 'public' 
@@ -37,15 +37,19 @@ const verifyDbConnection = async () => {
         WHERE table_schema = 'public' 
         AND table_name = 'campaign_metrics'
       ) as amazon_table_exists
-    `);
+    `;
     
     if (result && result[0]) {
       console.log('Database connection verified. Tables existence check:', result[0]);
     } else {
       console.warn('Database connection warning: Could not verify tables existence.');
     }
-  } catch (error) {
-    console.error('Database connection error during verification:', error.message);
+  } catch (error: unknown) {
+    if (error instanceof Error) {
+      console.error('Database connection error during verification:', error.message);
+    } else {
+      console.error('Database connection error during verification:', error);
+    }
   }
 };
 

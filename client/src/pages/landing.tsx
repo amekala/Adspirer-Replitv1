@@ -13,7 +13,6 @@ import { AnimatedFeatures } from "@/components/animated-features";
 import { DemoRequestForm } from "@/components/demo-request-form";
 import { motion } from "framer-motion";
 import { AnimatedCard, AnimatedCardContent } from "@/components/ui/animated-card";
-import { ThemeToggle } from "@/components/ui/theme-toggle";
 
 export default function LandingPage() {
   const { user, isLoading } = useAuth();
@@ -52,7 +51,6 @@ export default function LandingPage() {
                 >
                   Contact Us
                 </button>
-                <ThemeToggle />
                 {isLoading ? (
                   <div className="h-9 w-9 rounded-md bg-slate-800/50 animate-pulse"></div>
                 ) : user ? (
@@ -96,10 +94,6 @@ export default function LandingPage() {
                     >
                       Contact Us
                     </button>
-                    <div className="flex items-center space-x-2 py-2">
-                      <span className="text-slate-700 dark:text-slate-300">Theme:</span>
-                      <ThemeToggle size="default" />
-                    </div>
                     {user ? (
                       <Link href="/chat" onClick={closeSheet} className="text-slate-700 hover:text-slate-900 dark:text-slate-300 dark:hover:text-white transition-colors">
                         Go to Chat

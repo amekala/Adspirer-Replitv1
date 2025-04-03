@@ -13,7 +13,6 @@ import { useToast } from "@/hooks/use-toast";
 import { AnimatePresence, motion } from "framer-motion";
 import { Toggle } from "@/components/ui/toggle";
 import { BarChart3 } from "lucide-react";
-import { ThemeToggle } from "@/components/ui/theme-toggle";
 
 export default function ChatPage() {
   const { user } = useAuth() || {};
@@ -589,7 +588,6 @@ export default function ChatPage() {
         <div className="p-4 flex justify-between items-center border-b border-slate-200 dark:border-slate-800">
           <h2 className="text-lg font-semibold">Chats</h2>
           <div className="flex items-center gap-2">
-            <ThemeToggle size="icon" variant="outline" />
             <Button
               size="sm"
               variant="outline"
@@ -640,7 +638,6 @@ export default function ChatPage() {
                 {currentConversation?.title || "New Chat"}
               </h1>
               <div className="flex items-center gap-2">
-                <ThemeToggle size="icon" variant="outline" />
                 <Button
                   variant="outline"
                   size="icon"

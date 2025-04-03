@@ -14,14 +14,23 @@ import { useToast } from "@/hooks/use-toast";
 import { Loader2, Upload, Save, Shield, Bell } from "lucide-react";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 
+interface User {
+  id: string;
+  email: string;
+  role: string;
+  name?: string;
+  phone?: string;
+  profileImage?: string;
+}
+
 export function ProfileSettings() {
   const { user } = useAuth();
   const { toast } = useToast();
   const [activeTab, setActiveTab] = useState("general");
   const [formState, setFormState] = useState({
-    name: user?.name || "",
-    email: user?.email || "",
-    phone: user?.phone || "",
+    name: (user as User)?.name || "",
+    email: (user as User)?.email || "",
+    phone: (user as User)?.phone || "",
     currentPassword: "",
     newPassword: "",
     confirmPassword: "",
@@ -195,9 +204,9 @@ export function ProfileSettings() {
                 <div className="flex flex-col sm:flex-row gap-6 items-start">
                   <div className="flex flex-col items-center space-y-2">
                     <Avatar className="h-24 w-24">
-                      <AvatarImage src={user?.profileImage} />
+                      <AvatarImage src={(user as User)?.profileImage} />
                       <AvatarFallback className="text-xl">
-                        {getInitials(formState.name || user?.email || "")}
+                        {getInitials(formState.name || (user as User)?.email || "")}
                       </AvatarFallback>
                     </Avatar>
                     <Button variant="outline" size="sm" className="mt-2">
