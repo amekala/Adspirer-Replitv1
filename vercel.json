@@ -1,8 +1,9 @@
 {
-  "buildCommand": null,
-  "outputDirectory": "public",
-  "routes": [
-    { "src": "/api/(.*)", "dest": "server/index.ts" },
-    { "handle": "filesystem" }
-  ]
-}
+  "version": 2,
+  "cleanUrls": true,
+  "trailingSlash": false,
+  "public": true,
+  "github": {
+    "silent": true
+  }
+} 
