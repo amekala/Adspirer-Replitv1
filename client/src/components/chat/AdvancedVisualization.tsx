@@ -337,6 +337,7 @@ export const MultiViewVisualization: React.FC<MultiViewProps> = ({
 }) => {
   // Use the first view's ID as the default value
   const defaultTab = views[0]?.id || "";
+  const [activeTab, setActiveTab] = React.useState(defaultTab);
   
   return (
     <motion.div
@@ -352,7 +353,7 @@ export const MultiViewVisualization: React.FC<MultiViewProps> = ({
         </CardHeader>
         <CardContent className="p-4">
           {views.length > 0 ? (
-            <Tabs defaultValue={defaultTab} className="w-full">
+            <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
               <TabsList className="w-full justify-start mb-4 overflow-x-auto flex-wrap">
                 {views.map((view) => (
                   <TabsTrigger 
@@ -364,7 +365,7 @@ export const MultiViewVisualization: React.FC<MultiViewProps> = ({
                   </TabsTrigger>
                 ))}
               </TabsList>
-              <AnimatePresence mode="wait">
+              <div className="mt-2">
                 {views.map((view) => (
                   <TabsContent 
                     key={`content-${view.id}`} 
@@ -381,7 +382,7 @@ export const MultiViewVisualization: React.FC<MultiViewProps> = ({
                     </motion.div>
                   </TabsContent>
                 ))}
-              </AnimatePresence>
+              </div>
             </Tabs>
           ) : (
             <div className="text-center py-4 text-slate-500">No visualization views available</div>

@@ -15,7 +15,7 @@ import { AnimatedBackground } from "./animated-background";
 
 export function Layout({ children }: { children: React.ReactNode }) {
   const { user, logoutMutation, isLoading } = useAuth();
-  const [, setLocation] = useLocation();
+  const [location, setLocation] = useLocation();
   const [isOpen, setIsOpen] = useState(false);
 
   const handleLogout = async () => {
@@ -41,12 +41,24 @@ export function Layout({ children }: { children: React.ReactNode }) {
           <div className="flex items-center gap-4">
             {/* Desktop Navigation */}
             <div className="hidden md:flex items-center gap-6">
-              <Link href="/about" className="text-muted-foreground hover:text-foreground transition-colors">
-                About Us
-              </Link>
-              <Link href="/privacy" className="text-muted-foreground hover:text-foreground transition-colors">
-                Privacy
-              </Link>
+              {/* Only show About Us and Privacy links when not on the chat page */}
+              {!location.startsWith('/chat') && (
+                <>
+                  <Link href="/about" className="text-muted-foreground hover:text-foreground transition-colors">
+                    About Us
+                  </Link>
+                  <Link href="/privacy" className="text-muted-foreground hover:text-foreground transition-colors">
+                    Privacy
+                  </Link>
+                </>
+              )}
+              
+              {/* Show Dashboard link when on chat page */}
+              {location.startsWith('/chat') && user && (
+                <Link href="/dashboard" className="text-muted-foreground hover:text-foreground transition-colors">
+                  Dashboard
+                </Link>
+              )}
 
               {/* User Menu for Desktop */}
               {user && (
@@ -118,12 +130,19 @@ export function Layout({ children }: { children: React.ReactNode }) {
                   <Link href="/" onClick={closeSheet} className="text-muted-foreground hover:text-foreground transition-colors">
                     Home
                   </Link>
-                  <Link href="/about" onClick={closeSheet} className="text-muted-foreground hover:text-foreground transition-colors">
-                    About Us
-                  </Link>
-                  <Link href="/privacy" onClick={closeSheet} className="text-muted-foreground hover:text-foreground transition-colors">
-                    Privacy
-                  </Link>
+                  
+                  {/* Only show About Us and Privacy when not on chat page */}
+                  {!location.startsWith('/chat') && (
+                    <>
+                      <Link href="/about" onClick={closeSheet} className="text-muted-foreground hover:text-foreground transition-colors">
+                        About Us
+                      </Link>
+                      <Link href="/privacy" onClick={closeSheet} className="text-muted-foreground hover:text-foreground transition-colors">
+                        Privacy
+                      </Link>
+                    </>
+                  )}
+                  
                   {user ? (
                     <>
                       <Link href="/dashboard" onClick={closeSheet} className="text-muted-foreground hover:text-foreground transition-colors">
