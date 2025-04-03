@@ -384,6 +384,212 @@ async function refreshGoogleToken(userId: string, refreshToken: string): Promise
 export async function registerRoutes(app: Express): Promise<void> {
   setupAuth(app);
 
+  // Chat endpoints
+  // Get all conversations
+  app.get("/api/chat/conversations", authenticate, async (req: Request, res: Response) => {
+    try {
+      const conversations = await storage.getChatConversations(req.user!.id);
+      res.json(conversations);
+    } catch (error) {
+      console.error("Error getting conversations:", error);
+      res.status(500).json({ message: "Failed to get conversations" });
+    }
+  });
+
+  // Create a new conversation
+  app.post("/api/chat/conversations", authenticate, async (req: Request, res: Response) => {
+    try {
+      const { title = "New conversation" } = req.body;
+      const conversation = await storage.createChatConversation(req.user!.id, title);
+      res.json(conversation);
+    } catch (error) {
+      console.error("Error creating conversation:", error);
+      res.status(500).json({ message: "Failed to create conversation" });
+    }
+  });
+
+  // Get a specific conversation with messages
+  app.get("/api/chat/conversations/:id", authenticate, async (req: Request, res: Response) => {
+    try {
+      const { id } = req.params;
+      const conversation = await storage.getChatConversation(id);
+      
+      if (!conversation) {
+        return res.status(404).json({ message: "Conversation not found" });
+      }
+      
+      if (conversation.userId !== req.user!.id) {
+        return res.status(403).json({ message: "Unauthorized access to conversation" });
+      }
+      
+      const messages = await storage.getChatMessages(id);
+      
+      res.json({ conversation, messages });
+    } catch (error) {
+      console.error("Error getting conversation:", error);
+      res.status(500).json({ message: "Failed to get conversation" });
+    }
+  });
+
+  // Update a conversation
+  app.put("/api/chat/conversations/:id", authenticate, async (req: Request, res: Response) => {
+    try {
+      const { id } = req.params;
+      const { title } = req.body;
+      
+      const conversation = await storage.getChatConversation(id);
+      
+      if (!conversation) {
+        return res.status(404).json({ message: "Conversation not found" });
+      }
+      
+      if (conversation.userId !== req.user!.id) {
+        return res.status(403).json({ message: "Unauthorized access to conversation" });
+      }
+      
+      const updatedConversation = await storage.updateChatConversationTitle(id, title);
+      res.json(updatedConversation);
+    } catch (error) {
+      console.error("Error updating conversation:", error);
+      res.status(500).json({ message: "Failed to update conversation" });
+    }
+  });
+
+  // Delete a conversation
+  app.delete("/api/chat/conversations/:id", authenticate, async (req: Request, res: Response) => {
+    try {
+      const { id } = req.params;
+      
+      const conversation = await storage.getChatConversation(id);
+      
+      if (!conversation) {
+        return res.status(404).json({ message: "Conversation not found" });
+      }
+      
+      if (conversation.userId !== req.user!.id) {
+        return res.status(403).json({ message: "Unauthorized access to conversation" });
+      }
+      
+      await storage.deleteChatConversation(id);
+      res.json({ message: "Conversation deleted" });
+    } catch (error) {
+      console.error("Error deleting conversation:", error);
+      res.status(500).json({ message: "Failed to delete conversation" });
+    }
+  });
+
+  // Add a message to a conversation
+  app.post("/api/chat/conversations/:id/messages", authenticate, async (req: Request, res: Response) => {
+    try {
+      const { id } = req.params;
+      const { role, content } = req.body;
+      
+      const conversation = await storage.getChatConversation(id);
+      
+      if (!conversation) {
+        return res.status(404).json({ message: "Conversation not found" });
+      }
+      
+      if (conversation.userId !== req.user!.id) {
+        return res.status(403).json({ message: "Unauthorized access to conversation" });
+      }
+      
+      const message = await storage.createChatMessage({
+        conversationId: id,
+        role,
+        content,
+        metadata: {}
+      });
+      
+      res.json(message);
+    } catch (error) {
+      console.error("Error adding message:", error);
+      res.status(500).json({ message: "Failed to add message" });
+    }
+  });
+
+  // Generate AI completions
+  app.post("/api/chat/completions", authenticate, async (req: Request, res: Response) => {
+    const { conversationId, message } = req.body;
+    
+    if (!conversationId) {
+      return res.status(400).json({ message: "Conversation ID is required" });
+    }
+    
+    try {
+      const conversation = await storage.getChatConversation(conversationId);
+      
+      if (!conversation) {
+        return res.status(404).json({ message: "Conversation not found" });
+      }
+      
+      if (conversation.userId !== req.user!.id) {
+        return res.status(403).json({ message: "Unauthorized access to conversation" });
+      }
+      
+      // Get the message history for context
+      const messages = await storage.getChatMessages(conversationId);
+      
+      // Prepare headers for SSE
+      res.setHeader('Content-Type', 'text/event-stream');
+      res.setHeader('Cache-Control', 'no-cache');
+      res.setHeader('Connection', 'keep-alive');
+      
+      // Create a stream for the completion
+      try {
+        const completion = await streamText({
+          model: openai("gpt-4o"),
+          messages: messages.map(msg => ({
+            role: msg.role as any,
+            content: msg.content
+          })),
+          temperature: 0.7,
+          maxTokens: 2048,
+        });
+        
+        // Stream the response to the client
+        completion.onTextContent((content: string, isFinal: boolean) => {
+          const data = JSON.stringify({ content });
+          res.write(`data: ${data}\n\n`);
+          
+          // If this is the final chunk, also store the message in the database
+          if (isFinal) {
+            // Save the assistant message to the database
+            storage.createChatMessage({
+              conversationId,
+              role: "assistant",
+              content,
+              metadata: {}
+            }).catch(err => console.error("Error saving assistant message:", err));
+            
+            // End the stream
+            res.write('data: [DONE]\n\n');
+            res.end();
+          }
+        });
+        
+        // Handle errors
+        completion.onError((error: Error) => {
+          console.error("Error in OpenAI stream:", error);
+          res.write(`data: [ERROR]\n\n`);
+          res.end();
+        });
+      } catch (error) {
+        console.error("Error generating OpenAI completion:", error);
+        res.write(`data: [ERROR]\n\n`);
+        res.end();
+      }
+    } catch (error) {
+      console.error("Error in chat completion endpoint:", error);
+      if (!res.headersSent) {
+        res.status(500).json({ message: "Error generating completion" });
+      } else {
+        res.write(`data: [ERROR]\n\n`);
+        res.end();
+      }
+    }
+  });
+
   // Amazon OAuth endpoints
   app.post("/api/amazon/connect", authenticate, async (req: Request, res: Response) => {
     const { code } = req.body;
