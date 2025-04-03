@@ -2,7 +2,7 @@ import { Express, Request, Response } from "express";
 import { createServer, type Server } from "http";
 import { setupAuth, authenticate } from "./auth";
 import { storage } from "./storage";
-import { openai } from "@ai-sdk/openai";
+import { openai } from "./services/openai-client";
 import { streamText } from "ai";
 import { 
   insertApiKeySchema, 
@@ -649,6 +649,13 @@ export async function registerRoutes(app: Express): Promise<void> {
     try {
       const { title } = req.body;
       const conversation = await storage.createChatConversation(req.user!.id, title || "New conversation");
+      
+      // Import the OpenAI service to generate the welcome message
+      const { generateWelcomeMessage } = await import("./services/openai");
+      
+      // Generate a welcome message for the new conversation
+      await generateWelcomeMessage(conversation.id, req.user!.id);
+      
       res.status(201).json(conversation);
     } catch (error) {
       console.error("Error creating chat conversation:", error);
@@ -802,7 +809,8 @@ export async function registerRoutes(app: Express): Promise<void> {
       });
       
       // Use OpenAI to generate a response
-      const response = await openai("gpt-3.5-turbo").chat({
+      const response = await openai.chat.completions.create({
+        model: "gpt-3.5-turbo",
         messages: formattedMessages,
         temperature: 0.7,
         max_tokens: 1000
