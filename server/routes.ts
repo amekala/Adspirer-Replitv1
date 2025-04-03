@@ -634,6 +634,187 @@ export async function registerRoutes(app: Express): Promise<void> {
     res.sendStatus(200);
   });
 
+  // Chat API endpoints
+  app.get("/api/chat/conversations", authenticate, async (req: Request, res: Response) => {
+    try {
+      const conversations = await storage.getChatConversations(req.user!.id);
+      res.json(conversations);
+    } catch (error) {
+      console.error("Error fetching chat conversations:", error);
+      res.status(500).json({ message: "Failed to fetch conversations" });
+    }
+  });
+
+  app.post("/api/chat/conversations", authenticate, async (req: Request, res: Response) => {
+    try {
+      const { title } = req.body;
+      const conversation = await storage.createChatConversation(req.user!.id, title || "New conversation");
+      res.status(201).json(conversation);
+    } catch (error) {
+      console.error("Error creating chat conversation:", error);
+      res.status(500).json({ message: "Failed to create conversation" });
+    }
+  });
+
+  app.get("/api/chat/conversations/:id", authenticate, async (req: Request, res: Response) => {
+    try {
+      const conversationId = req.params.id;
+      const conversation = await storage.getChatConversation(conversationId);
+      
+      if (!conversation) {
+        return res.status(404).json({ message: "Conversation not found" });
+      }
+      
+      // Check if user owns this conversation
+      if (conversation.userId !== req.user!.id) {
+        return res.status(403).json({ message: "Unauthorized access to conversation" });
+      }
+      
+      const messages = await storage.getChatMessages(conversationId);
+      
+      res.json({ 
+        conversation, 
+        messages 
+      });
+    } catch (error) {
+      console.error("Error fetching chat conversation:", error);
+      res.status(500).json({ message: "Failed to fetch conversation" });
+    }
+  });
+
+  app.put("/api/chat/conversations/:id", authenticate, async (req: Request, res: Response) => {
+    try {
+      const conversationId = req.params.id;
+      const { title } = req.body;
+      
+      const conversation = await storage.getChatConversation(conversationId);
+      
+      if (!conversation) {
+        return res.status(404).json({ message: "Conversation not found" });
+      }
+      
+      // Check if user owns this conversation
+      if (conversation.userId !== req.user!.id) {
+        return res.status(403).json({ message: "Unauthorized access to conversation" });
+      }
+      
+      const updatedConversation = await storage.updateChatConversationTitle(conversationId, title);
+      res.json(updatedConversation);
+    } catch (error) {
+      console.error("Error updating chat conversation:", error);
+      res.status(500).json({ message: "Failed to update conversation" });
+    }
+  });
+
+  app.delete("/api/chat/conversations/:id", authenticate, async (req: Request, res: Response) => {
+    try {
+      const conversationId = req.params.id;
+      
+      const conversation = await storage.getChatConversation(conversationId);
+      
+      if (!conversation) {
+        return res.status(404).json({ message: "Conversation not found" });
+      }
+      
+      // Check if user owns this conversation
+      if (conversation.userId !== req.user!.id) {
+        return res.status(403).json({ message: "Unauthorized access to conversation" });
+      }
+      
+      await storage.deleteChatConversation(conversationId);
+      res.sendStatus(200);
+    } catch (error) {
+      console.error("Error deleting chat conversation:", error);
+      res.status(500).json({ message: "Failed to delete conversation" });
+    }
+  });
+
+  app.post("/api/chat/conversations/:id/messages", authenticate, async (req: Request, res: Response) => {
+    try {
+      const conversationId = req.params.id;
+      const { role, content, metadata } = req.body;
+      
+      const conversation = await storage.getChatConversation(conversationId);
+      
+      if (!conversation) {
+        return res.status(404).json({ message: "Conversation not found" });
+      }
+      
+      // Check if user owns this conversation
+      if (conversation.userId !== req.user!.id) {
+        return res.status(403).json({ message: "Unauthorized access to conversation" });
+      }
+      
+      // Create the user's message
+      const message = await storage.createChatMessage({
+        conversationId,
+        role,
+        content,
+        metadata: metadata || {}
+      });
+      
+      // Now generate an AI response
+      const aiMessageText = await handleAIResponse(content, conversationId);
+      
+      // Create the AI's response message
+      const aiMessage = await storage.createChatMessage({
+        conversationId,
+        role: "assistant",
+        content: aiMessageText,
+        metadata: {}
+      });
+      
+      res.status(201).json({
+        userMessage: message,
+        aiMessage
+      });
+    } catch (error) {
+      console.error("Error creating chat message:", error);
+      res.status(500).json({ message: "Failed to create message" });
+    }
+  });
+
+  // Helper function to generate AI responses
+  async function handleAIResponse(userMessage: string, conversationId: string): Promise<string> {
+    try {
+      // Get the conversation history for context
+      const messages = await storage.getChatMessages(conversationId);
+      
+      // Create a system message that describes the AI's role
+      const systemMessage = {
+        role: "system",
+        content: "You are a helpful AI assistant for Adspirer, a marketing platform specializing in retail media optimization. You can provide information about Amazon and Google ad campaigns, suggest optimization strategies, and answer questions about the platform's features. If asked about specific campaign data, suggest using the dashboard for the most up-to-date information."
+      };
+      
+      // Format the messages for the OpenAI API
+      const formattedMessages = [
+        systemMessage,
+        ...messages.map(msg => ({
+          role: msg.role,
+          content: msg.content
+        }))
+      ];
+      
+      // Add the current user message
+      formattedMessages.push({
+        role: "user",
+        content: userMessage
+      });
+      
+      // Use OpenAI to generate a response
+      const response = await openai("gpt-3.5-turbo").chat({
+        messages: formattedMessages,
+        temperature: 0.7,
+        max_tokens: 1000
+      });
+      
+      return response.choices[0].message.content || "I'm sorry, I couldn't generate a response.";
+    } catch (error) {
+      console.error("Error generating AI response:", error);
+      return "I apologize, but I encountered an error while processing your request. Please try again later.";
+    }
+  }
+
   app.post("/api/amazon/campaigns/sync", authenticate, async (req: Request, res: Response) => {
 
     let token = await storage.getAmazonToken(req.user!.id);
