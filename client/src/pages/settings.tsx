@@ -31,63 +31,63 @@ export default function SettingsPage() {
   return (
     <Layout>
       <div className="container mx-auto p-4 sm:p-8">
-        <h1 className="text-2xl sm:text-3xl font-bold mb-6 sm:mb-8">Settings</h1>
+        <h1 className="text-2xl sm:text-3xl font-bold mb-6 sm:mb-8 bg-clip-text text-transparent bg-gradient-to-r from-indigo-400 via-purple-400 to-pink-400">Settings</h1>
         
         <div className="grid grid-cols-1 lg:grid-cols-[250px_1fr] gap-6">
           {/* Sidebar Navigation */}
           <div className="space-y-6">
-            <Card className="p-2">
+            <div className="bg-white/10 backdrop-blur-xl border border-white/20 rounded-xl p-2 shadow-lg">
               <div className="flex flex-col h-auto w-full bg-transparent space-y-1">
                 <Button 
-                  variant={activeTab === "profile" ? "default" : "ghost"} 
+                  variant="ghost"
                   onClick={() => setActiveTab("profile")}
-                  className="justify-start w-full"
+                  className={`justify-start w-full hover:bg-white/10 ${activeTab === "profile" ? "bg-gradient-to-r from-indigo-500/20 to-purple-500/20 text-white" : ""}`}
                 >
                   <User className="h-4 w-4 mr-2" />
                   Profile
                 </Button>
                 <Button 
-                  variant={activeTab === "brand" ? "default" : "ghost"} 
+                  variant="ghost"
                   onClick={() => setActiveTab("brand")}
-                  className="justify-start w-full"
+                  className={`justify-start w-full hover:bg-white/10 ${activeTab === "brand" ? "bg-gradient-to-r from-indigo-500/20 to-purple-500/20 text-white" : ""}`}
                 >
                   <Building className="h-4 w-4 mr-2" />
                   Brand
                 </Button>
                 <Button 
-                  variant={activeTab === "subscription" ? "default" : "ghost"} 
+                  variant="ghost"
                   onClick={() => setActiveTab("subscription")}
-                  className="justify-start w-full"
+                  className={`justify-start w-full hover:bg-white/10 ${activeTab === "subscription" ? "bg-gradient-to-r from-indigo-500/20 to-purple-500/20 text-white" : ""}`}
                 >
                   <CreditCard className="h-4 w-4 mr-2" />
                   Subscription
                 </Button>
                 <Button 
-                  variant={activeTab === "connections" ? "default" : "ghost"} 
+                  variant="ghost"
                   onClick={() => setActiveTab("connections")}
-                  className="justify-start w-full"
+                  className={`justify-start w-full hover:bg-white/10 ${activeTab === "connections" ? "bg-gradient-to-r from-indigo-500/20 to-purple-500/20 text-white" : ""}`}
                 >
                   <Globe className="h-4 w-4 mr-2" />
                   Connections
                 </Button>
                 <Button 
-                  variant={activeTab === "api-keys" ? "default" : "ghost"} 
+                  variant="ghost"
                   onClick={() => setActiveTab("api-keys")}
-                  className="justify-start w-full"
+                  className={`justify-start w-full hover:bg-white/10 ${activeTab === "api-keys" ? "bg-gradient-to-r from-indigo-500/20 to-purple-500/20 text-white" : ""}`}
                 >
                   <KeyRound className="h-4 w-4 mr-2" />
                   API Keys
                 </Button>
                 <Button 
-                  variant={activeTab === "compliance" ? "default" : "ghost"} 
+                  variant="ghost"
                   onClick={() => setActiveTab("compliance")}
-                  className="justify-start w-full"
+                  className={`justify-start w-full hover:bg-white/10 ${activeTab === "compliance" ? "bg-gradient-to-r from-indigo-500/20 to-purple-500/20 text-white" : ""}`}
                 >
                   <Shield className="h-4 w-4 mr-2" />
                   Compliance
                 </Button>
               </div>
-            </Card>
+            </div>
           </div>
           
           {/* Main Content */}
@@ -103,31 +103,31 @@ export default function SettingsPage() {
               </TabsList>
               
               <TabsContent value="profile" className="m-0 space-y-6">
-                <Card className="p-6">
+                <div className="bg-white/10 backdrop-blur-xl border border-white/20 rounded-xl p-6 shadow-lg">
                   <ProfileSettings />
-                </Card>
+                </div>
               </TabsContent>
               
               <TabsContent value="brand" className="m-0 space-y-6">
-                <Card className="p-6">
+                <div className="bg-white/10 backdrop-blur-xl border border-white/20 rounded-xl p-6 shadow-lg">
                   <BrandSettings />
-                </Card>
+                </div>
               </TabsContent>
               
               <TabsContent value="subscription" className="m-0 space-y-6">
-                <Card className="p-6">
+                <div className="bg-white/10 backdrop-blur-xl border border-white/20 rounded-xl p-6 shadow-lg">
                   <SubscriptionSettings />
-                </Card>
+                </div>
               </TabsContent>
               
               <TabsContent value="connections" className="m-0 space-y-6">
-                <h2 className="text-2xl font-semibold tracking-tight mb-6">Platform Connections</h2>
+                <h2 className="text-2xl font-semibold tracking-tight mb-6 bg-clip-text text-transparent bg-gradient-to-r from-indigo-400 via-purple-400 to-pink-400">Platform Connections</h2>
                 
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                   {/* Amazon */}
-                  <Card className="overflow-hidden">
-                    <div className="flex items-center gap-3 p-4 border-b">
-                      <div className="h-10 w-10 sm:h-12 sm:w-12 flex-shrink-0 rounded-lg bg-[#FF9900]/10 flex items-center justify-center">
+                  <div className="bg-white/10 backdrop-blur-xl border border-white/20 rounded-xl overflow-hidden shadow-lg">
+                    <div className="flex items-center gap-3 p-4 border-b border-white/10">
+                      <div className="h-10 w-10 sm:h-12 sm:w-12 flex-shrink-0 rounded-lg bg-gradient-to-r from-[#FF9900]/20 to-[#FF9900]/10 flex items-center justify-center">
                         <SiAmazon className="h-5 w-5 sm:h-6 sm:w-6 text-[#FF9900]" />
                       </div>
                       <div className="min-w-0 flex-1">
@@ -137,12 +137,12 @@ export default function SettingsPage() {
                     <div className="p-6">
                       <AmazonConnect />
                     </div>
-                  </Card>
+                  </div>
                   
                   {/* Google */}
-                  <Card className="overflow-hidden">
-                    <div className="flex items-center gap-3 p-4 border-b">
-                      <div className="h-10 w-10 sm:h-12 sm:w-12 flex-shrink-0 rounded-lg bg-[#4285F4]/10 flex items-center justify-center">
+                  <div className="bg-white/10 backdrop-blur-xl border border-white/20 rounded-xl overflow-hidden shadow-lg">
+                    <div className="flex items-center gap-3 p-4 border-b border-white/10">
+                      <div className="h-10 w-10 sm:h-12 sm:w-12 flex-shrink-0 rounded-lg bg-gradient-to-r from-[#4285F4]/20 to-[#4285F4]/10 flex items-center justify-center">
                         <SiGoogleads className="h-5 w-5 sm:h-6 sm:w-6 text-[#4285F4]" />
                       </div>
                       <div className="min-w-0 flex-1">
@@ -152,21 +152,21 @@ export default function SettingsPage() {
                     <div className="p-6">
                       <GoogleConnect />
                     </div>
-                  </Card>
+                  </div>
                 </div>
               </TabsContent>
               
               <TabsContent value="api-keys" className="m-0 space-y-6">
-                <Card className="p-6">
-                  <h2 className="text-2xl font-semibold tracking-tight mb-6">API Keys</h2>
+                <div className="bg-white/10 backdrop-blur-xl border border-white/20 rounded-xl p-6 shadow-lg">
+                  <h2 className="text-2xl font-semibold tracking-tight mb-6 bg-clip-text text-transparent bg-gradient-to-r from-indigo-400 via-purple-400 to-pink-400">API Keys</h2>
                   <ApiKeys />
-                </Card>
+                </div>
               </TabsContent>
               
               <TabsContent value="compliance" className="m-0 space-y-6">
-                <Card className="p-6">
+                <div className="bg-white/10 backdrop-blur-xl border border-white/20 rounded-xl p-6 shadow-lg">
                   <ComplianceSettings />
-                </Card>
+                </div>
               </TabsContent>
             </Tabs>
           </div>

@@ -243,11 +243,11 @@ export default function AuthPage() {
             </div>
           </div>
 
-          <Card className="p-8">
+          <div className="bg-white/10 backdrop-blur-xl border border-white/20 rounded-xl p-8 shadow-xl">
             <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as "login" | "register")}>
-              <TabsList className="grid w-full grid-cols-2 mb-8">
-                <TabsTrigger value="login">Login</TabsTrigger>
-                <TabsTrigger value="register">Register</TabsTrigger>
+              <TabsList className="grid w-full grid-cols-2 mb-8 bg-background/40 backdrop-blur-sm">
+                <TabsTrigger value="login" className="data-[state=active]:bg-gradient-to-r data-[state=active]:from-indigo-500/20 data-[state=active]:to-purple-500/20 data-[state=active]:text-white">Login</TabsTrigger>
+                <TabsTrigger value="register" className="data-[state=active]:bg-gradient-to-r data-[state=active]:from-indigo-500/20 data-[state=active]:to-purple-500/20 data-[state=active]:text-white">Register</TabsTrigger>
               </TabsList>
 
               <Form {...form}>
@@ -257,9 +257,13 @@ export default function AuthPage() {
                     name="email"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Email</FormLabel>
+                        <FormLabel className="text-foreground">Email</FormLabel>
                         <FormControl>
-                          <Input type="email" {...field} />
+                          <Input 
+                            type="email" 
+                            {...field} 
+                            className="bg-background/40 backdrop-blur-sm border-white/20 focus:border-white/40 focus:ring-2 focus:ring-indigo-500/40"
+                          />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -270,9 +274,13 @@ export default function AuthPage() {
                     name="password"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Password</FormLabel>
+                        <FormLabel className="text-foreground">Password</FormLabel>
                         <FormControl>
-                          <Input type="password" {...field} />
+                          <Input 
+                            type="password" 
+                            {...field} 
+                            className="bg-background/40 backdrop-blur-sm border-white/20 focus:border-white/40 focus:ring-2 focus:ring-indigo-500/40"
+                          />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -284,9 +292,13 @@ export default function AuthPage() {
                       name="confirmPassword"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel>Confirm Password</FormLabel>
+                          <FormLabel className="text-foreground">Confirm Password</FormLabel>
                           <FormControl>
-                            <Input type="password" {...field} />
+                            <Input 
+                              type="password" 
+                              {...field} 
+                              className="bg-background/40 backdrop-blur-sm border-white/20 focus:border-white/40 focus:ring-2 focus:ring-indigo-500/40"
+                            />
                           </FormControl>
                           <FormMessage />
                         </FormItem>
@@ -295,7 +307,7 @@ export default function AuthPage() {
                   )}
                   <Button
                     type="submit"
-                    className="w-full"
+                    className="w-full bg-gradient-to-r from-indigo-500 to-purple-500 hover:from-indigo-600 hover:to-purple-600 text-white border-0"
                     disabled={loginMutation.isPending || registerMutation.isPending}
                   >
                     {(loginMutation.isPending || registerMutation.isPending) && (
@@ -306,13 +318,13 @@ export default function AuthPage() {
                 </form>
               </Form>
             </Tabs>
-          </Card>
+          </div>
         </div>
       </div>
 
-      <div className="hidden md:flex flex-col justify-center p-8 bg-gradient-to-b from-muted/80 to-muted">
-        <div className="max-w-md mx-auto">
-          <h2 className="text-3xl font-bold mb-4">
+      <div className="hidden md:flex flex-col justify-center p-8 overflow-hidden relative">
+        <div className="max-w-md mx-auto relative z-10">
+          <h2 className="text-3xl font-bold mb-4 bg-clip-text text-transparent bg-gradient-to-r from-indigo-400 via-purple-400 to-pink-400">
             Transform Your Retail Media Strategy
           </h2>
           <p className="text-lg text-muted-foreground mb-8">
@@ -344,17 +356,17 @@ export default function AuthPage() {
                     className="inline-block w-full whitespace-normal px-4"
                     style={{ scrollSnapAlign: 'start' }}
                   >
-                    <div className="bg-background/90 backdrop-blur-sm shadow-lg rounded-xl p-6 h-64 flex flex-col">
-                      <div className="bg-primary/10 rounded-lg p-3 w-fit mb-4">
-                        <IconComponent className="h-6 w-6 text-primary" />
+                    <div className="bg-white/10 backdrop-blur-xl border border-white/20 rounded-xl p-6 h-64 flex flex-col shadow-lg">
+                      <div className="bg-gradient-to-r from-indigo-500/20 to-purple-500/20 rounded-lg p-3 w-fit mb-4">
+                        <IconComponent className="h-6 w-6 text-white" />
                       </div>
-                      <h3 className="text-xl font-bold mb-3">{prop.title}</h3>
-                      <p className="text-muted-foreground">{prop.description}</p>
+                      <h3 className="text-xl font-bold mb-3 text-white">{prop.title}</h3>
+                      <p className="text-gray-200">{prop.description}</p>
                       
                       <div className="mt-auto text-center">
                         <Button 
-                          variant="link" 
-                          className="text-primary"
+                          variant="outline" 
+                          className="bg-white/10 text-white border-white/20 hover:bg-white/20"
                           onClick={() => {
                             if (!user) {
                               form.setValue("email", "demo@adspirer.com");
@@ -379,7 +391,7 @@ export default function AuthPage() {
                   key={index}
                   onClick={() => handleDotClick(index)}
                   className={`w-2.5 h-2.5 rounded-full transition-colors ${
-                    currentSlide === index ? 'bg-primary' : 'bg-muted-foreground/30'
+                    currentSlide === index ? 'bg-white' : 'bg-white/30'
                   }`}
                   aria-label={`Go to slide ${index + 1}`}
                 />

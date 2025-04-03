@@ -11,6 +11,7 @@ import {
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { Loader2, Menu, UserCircle } from "lucide-react";
 import { useState } from "react";
+import { AnimatedBackground } from "./animated-background";
 
 export function Layout({ children }: { children: React.ReactNode }) {
   const { user, logoutMutation, isLoading } = useAuth();
@@ -25,12 +26,15 @@ export function Layout({ children }: { children: React.ReactNode }) {
   const closeSheet = () => setIsOpen(false);
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-background relative overflow-hidden">
+      {/* Animated Background */}
+      <AnimatedBackground />
+      
       {/* Navigation Bar */}
-      <nav className="sticky top-0 z-50 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 border-b">
+      <nav className="sticky top-0 z-50 bg-background/80 backdrop-blur-md supports-[backdrop-filter]:bg-background/60 border-b border-white/10">
         <div className="container mx-auto px-4 h-16 flex items-center justify-between">
           {/* Logo */}
-          <Link href="/" className="text-2xl font-bold bg-gradient-to-r from-primary to-blue-600 bg-clip-text text-transparent">
+          <Link href="/" className="text-2xl font-bold bg-gradient-to-r from-indigo-400 via-purple-400 to-pink-400 bg-clip-text text-transparent">
             Adspirer
           </Link>
 
@@ -48,12 +52,12 @@ export function Layout({ children }: { children: React.ReactNode }) {
               {user && (
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
-                    <Button variant="outline" className="gap-2">
+                    <Button variant="outline" className="gap-2 border-white/20 bg-white/10 backdrop-blur-md hover:bg-white/20">
                       <UserCircle className="h-5 w-5" />
                       {user.email}
                     </Button>
                   </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end" className="w-48">
+                  <DropdownMenuContent align="end" className="w-48 bg-background/95 backdrop-blur-md border-white/20">
                     <DropdownMenuItem asChild>
                       <Link href="/dashboard">Dashboard</Link>
                     </DropdownMenuItem>
@@ -81,7 +85,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
 
               {/* Auth Button for Desktop */}
               {!user && !isLoading && (
-                <Button asChild>
+                <Button asChild className="bg-gradient-to-r from-indigo-500 to-purple-500 hover:from-indigo-600 hover:to-purple-600 text-white border-0">
                   <Link href="/auth">Get Started</Link>
                 </Button>
               )}
@@ -93,7 +97,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
             {/* Mobile Navigation Links */}
             <div className="flex items-center md:hidden">
               {user && (
-                <Link href="/chat" className="flex items-center gap-1 mr-3 text-sm font-medium bg-primary/10 text-primary rounded-full px-3 py-1">
+                <Link href="/chat" className="flex items-center gap-1 mr-3 text-sm font-medium bg-gradient-to-r from-indigo-500/20 to-purple-500/20 text-white rounded-full px-3 py-1">
                   AI Chat
                 </Link>
               )}
@@ -102,13 +106,13 @@ export function Layout({ children }: { children: React.ReactNode }) {
             {/* Mobile Menu Trigger */}
             <Sheet open={isOpen} onOpenChange={setIsOpen}>
               <SheetTrigger asChild className="md:hidden">
-                <Button variant="ghost" size="icon">
+                <Button variant="ghost" size="icon" className="text-foreground hover:bg-white/10">
                   <Menu className="h-5 w-5" />
                 </Button>
               </SheetTrigger>
-              <SheetContent side="right">
+              <SheetContent side="right" className="bg-background/95 backdrop-blur-md border-white/20">
                 <SheetHeader>
-                  <SheetTitle className="text-left">Menu</SheetTitle>
+                  <SheetTitle className="text-left bg-gradient-to-r from-indigo-400 via-purple-400 to-pink-400 bg-clip-text text-transparent">Menu</SheetTitle>
                 </SheetHeader>
                 <div className="flex flex-col gap-4 mt-8">
                   <Link href="/" onClick={closeSheet} className="text-muted-foreground hover:text-foreground transition-colors">
@@ -125,8 +129,8 @@ export function Layout({ children }: { children: React.ReactNode }) {
                       <Link href="/dashboard" onClick={closeSheet} className="text-muted-foreground hover:text-foreground transition-colors">
                         Dashboard
                       </Link>
-                      <Link href="/chat" onClick={closeSheet} className="flex items-center gap-2 text-primary font-medium">
-                        <span className="bg-primary/10 p-1 rounded-full">AI Chat</span>
+                      <Link href="/chat" onClick={closeSheet} className="flex items-center gap-2 text-white font-medium">
+                        <span className="bg-gradient-to-r from-indigo-500/20 to-purple-500/20 p-1 rounded-full">AI Chat</span>
                       </Link>
                       <Link href="/settings" onClick={closeSheet} className="text-muted-foreground hover:text-foreground transition-colors">
                         Settings
@@ -151,7 +155,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
                       </button>
                     </>
                   ) : (
-                    <Link href="/auth" onClick={closeSheet} className="text-muted-foreground hover:text-foreground transition-colors">
+                    <Link href="/auth" onClick={closeSheet} className="text-gradient bg-gradient-to-r from-indigo-400 via-purple-400 to-pink-400 bg-clip-text text-transparent font-medium">
                       Get Started
                     </Link>
                   )}
@@ -163,7 +167,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
       </nav>
 
       {/* Main Content */}
-      <main className="min-h-[calc(100vh-4rem)]">{children}</main>
+      <main className="min-h-[calc(100vh-4rem)] relative z-10">{children}</main>
     </div>
   );
 }

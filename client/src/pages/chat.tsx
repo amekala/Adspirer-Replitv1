@@ -6,6 +6,7 @@ import { Separator } from "@/components/ui/separator";
 import { Chat } from "../components/chat";
 import { ChatSidebar } from "../components/chat-sidebar";
 import { ChatSettings } from "../components/chat-settings";
+import { Layout } from "@/components/layout";
 import { useAuth } from "@/hooks/use-auth";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { Send, PlusCircle, MenuIcon } from "lucide-react";
@@ -582,93 +583,99 @@ export default function ChatPage() {
   });
 
   return (
-    <div className="flex flex-row h-screen">
-      {/* Sidebar */}
-      <div className="w-64 flex-shrink-0 border-r border-slate-200 dark:border-slate-800 hidden md:flex flex-col">
-        <div className="p-4 flex justify-between items-center border-b border-slate-200 dark:border-slate-800">
-          <h2 className="text-lg font-semibold">Chats</h2>
-          <div className="flex items-center gap-2">
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={handleNewConversation}
-              title="New Chat"
-              className="px-2"
-            >
-              <PlusCircle className="h-4 w-4" />
-            </Button>
-          </div>
-        </div>
-        <ChatSidebar
-          conversations={conversations}
-          currentConversationId={currentConversationId}
-          onConversationSelect={handleConversationSelect}
-          onNewConversation={handleNewConversation}
-          onRenameConversation={(id, title) => 
-            updateConversationMutation.mutate({ id, title })
-          }
-          onDeleteConversation={(id) => 
-            deleteConversationMutation.mutate(id)
-          }
-          onOpenSettings={handleToggleSettings}
-          isLoading={isLoadingConversations}
-        />
-      </div>
-
-      {/* Main content area - conditionally show either chat or settings */}
-      <div className="flex-1 flex flex-col overflow-hidden">
-        {showSettings ? (
-          <div className="h-full">
-            <ChatSettings onBack={() => setShowSettings(false)} />
-          </div>
-        ) : (
-          <>
-            {/* Mobile header */}
-            <div className="md:hidden border-b border-slate-200 dark:border-slate-800 p-2 flex items-center justify-between gap-2">
-              <Button
-                variant="outline"
-                size="icon"
-                onClick={() => {
-                  // Open sidebar for mobile
-                }}
-              >
-                <MenuIcon className="h-4 w-4" />
-              </Button>
-              <h1 className="text-lg font-semibold truncate flex-1 text-center">
-                {currentConversation?.title || "New Chat"}
-              </h1>
+    <Layout>
+      <div className="flex flex-row min-h-[calc(100vh-4rem)] mx-auto container p-4 sm:p-6 relative z-10">
+        {/* Sidebar */}
+        <div className="w-64 flex-shrink-0 hidden md:flex flex-col mr-6">
+          <div className="bg-white/10 backdrop-blur-xl border border-white/20 rounded-xl overflow-hidden shadow-lg flex flex-col h-full">
+            <div className="p-4 flex justify-between items-center border-b border-white/10">
+              <h2 className="text-lg font-semibold bg-clip-text text-transparent bg-gradient-to-r from-indigo-400 via-purple-400 to-pink-400">Chats</h2>
               <div className="flex items-center gap-2">
                 <Button
+                  size="sm"
                   variant="outline"
-                  size="icon"
                   onClick={handleNewConversation}
                   title="New Chat"
+                  className="px-2 bg-white/10 border-white/20 hover:bg-white/20"
                 >
                   <PlusCircle className="h-4 w-4" />
                 </Button>
               </div>
             </div>
-
-            {/* Chat interaction area */}
-            <div className="flex-1 overflow-y-auto bg-white dark:bg-slate-950" ref={chatContainerRef}>
-              <div className="max-w-4xl mx-auto p-4 md:p-6 space-y-6">
-                <Chat 
-                  conversation={conversationMessages} 
-                  isLoading={isLoadingMessages || messageSending} 
-                  useRichVisualizations={useRichVisualizations}
-                />
-              </div>
+            <div className="flex-1 overflow-y-auto">
+              <ChatSidebar
+                conversations={conversations}
+                currentConversationId={currentConversationId}
+                onConversationSelect={handleConversationSelect}
+                onNewConversation={handleNewConversation}
+                onRenameConversation={(id, title) => 
+                  updateConversationMutation.mutate({ id, title })
+                }
+                onDeleteConversation={(id) => 
+                  deleteConversationMutation.mutate(id)
+                }
+                onOpenSettings={handleToggleSettings}
+                isLoading={isLoadingConversations}
+              />
             </div>
+          </div>
+        </div>
 
-            {/* Input area */}
-            <div className="border-t border-slate-200 dark:border-slate-800 p-4 bg-white dark:bg-slate-950">
-              <div className="max-w-4xl mx-auto">
+        {/* Main content area - conditionally show either chat or settings */}
+        <div className="flex-1 flex flex-col bg-white/10 backdrop-blur-xl border border-white/20 rounded-xl overflow-hidden shadow-lg">
+          {showSettings ? (
+            <div className="h-full p-6">
+              <ChatSettings onBack={() => setShowSettings(false)} />
+            </div>
+          ) : (
+            <>
+              {/* Mobile header */}
+              <div className="md:hidden border-b border-white/10 p-3 flex items-center justify-between gap-2">
+                <Button
+                  variant="outline"
+                  size="icon"
+                  onClick={() => {
+                    // Open sidebar for mobile
+                  }}
+                  className="bg-white/10 border-white/20 hover:bg-white/20"
+                >
+                  <MenuIcon className="h-4 w-4" />
+                </Button>
+                <h1 className="text-lg font-semibold truncate flex-1 text-center bg-clip-text text-transparent bg-gradient-to-r from-indigo-400 via-purple-400 to-pink-400">
+                  {currentConversation?.title || "New Chat"}
+                </h1>
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    onClick={handleNewConversation}
+                    title="New Chat"
+                    className="bg-white/10 border-white/20 hover:bg-white/20"
+                  >
+                    <PlusCircle className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+
+              {/* Chat interaction area */}
+              <div className="flex-1 overflow-y-auto" ref={chatContainerRef}>
+                <div className="p-4 md:p-6 space-y-6">
+                  <Chat 
+                    conversation={conversationMessages} 
+                    isLoading={isLoadingMessages || messageSending} 
+                    useRichVisualizations={useRichVisualizations}
+                  />
+                </div>
+              </div>
+
+              {/* Input area */}
+              <div className="border-t border-white/10 p-4">
                 <form onSubmit={handleSubmitMessage} className="space-y-2">
                   <div className="relative">
                     <Textarea
                       ref={textareaRef}
                       placeholder="Ask me anything..."
-                      className="min-h-24 pr-20 resize-none overflow-hidden border-slate-300 dark:border-slate-700 focus-visible:ring-slate-400"
+                      className="min-h-24 pr-20 resize-none overflow-hidden bg-background/40 backdrop-blur-sm border-white/20 focus:border-white/40 focus:ring-2 focus:ring-indigo-500/40"
                       value={message}
                       onChange={handleMessageChange}
                       onKeyDown={handleKeyDown}
@@ -682,6 +689,7 @@ export default function ChatPage() {
                         onPressedChange={setUseRichVisualizations}
                         title="Toggle rich visualizations"
                         aria-label="Toggle rich visualizations"
+                        className="bg-white/10 border-white/20 data-[state=on]:bg-gradient-to-r data-[state=on]:from-indigo-500/20 data-[state=on]:to-purple-500/20 data-[state=on]:text-white"
                       >
                         <BarChart3 className="h-4 w-4" />
                       </Toggle>
@@ -689,7 +697,7 @@ export default function ChatPage() {
                         type="submit"
                         size="sm"
                         disabled={!message.trim() || messageSending || !currentConversationId}
-                        className="h-8 w-8 p-0"
+                        className="h-8 w-8 p-0 bg-gradient-to-r from-indigo-500 to-purple-500 hover:from-indigo-600 hover:to-purple-600 text-white border-0"
                       >
                         <Send className="h-4 w-4" />
                       </Button>
@@ -697,10 +705,10 @@ export default function ChatPage() {
                   </div>
                 </form>
               </div>
-            </div>
-          </>
-        )}
+            </>
+          )}
+        </div>
       </div>
-    </div>
+    </Layout>
   );
 }
