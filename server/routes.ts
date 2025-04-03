@@ -787,10 +787,29 @@ export async function registerRoutes(app: Express): Promise<void> {
       // Get the conversation history for context
       const messages = await storage.getChatMessages(conversationId);
       
+      // Get the user information from the most recent message
+      const userInfo = await storage.getChatConversation(conversationId);
+      const userId = userInfo?.userId;
+      
+      if (!userId) {
+        throw new Error("Unable to determine user ID for this conversation");
+      }
+      
+      // Import function tools and handler
+      const { amazonCampaignTools } = await import("./functions/amazon-campaign");
+      const { googleCampaignTools } = await import("./functions/google-campaign");
+      const { handleFunctionCall } = await import("./functions/handler");
+      
+      // Combine all available tools
+      const tools = [
+        ...amazonCampaignTools,
+        ...googleCampaignTools
+      ];
+      
       // Create a system message that describes the AI's role
       const systemMessage = {
         role: "system",
-        content: "You are a helpful AI assistant for Adspirer, a marketing platform specializing in retail media optimization. You can provide information about Amazon and Google ad campaigns, suggest optimization strategies, and answer questions about the platform's features. If asked about specific campaign data, suggest using the dashboard for the most up-to-date information."
+        content: "You are a helpful AI assistant for Adspirer, a marketing platform specializing in retail media optimization. You can provide information about Amazon and Google ad campaigns, suggest optimization strategies, and answer questions about the platform's features. If asked about specific campaign data, suggest using the dashboard for the most up-to-date information. When the user asks to create a campaign or perform other advertising actions, use the available function calls to help them."
       };
       
       // Format the messages for the OpenAI API
@@ -808,15 +827,77 @@ export async function registerRoutes(app: Express): Promise<void> {
         content: userMessage
       });
       
-      // Use OpenAI to generate a response
+      console.log("Sending message to OpenAI with tools:", tools.map(t => t.name));
+      
+      // Use OpenAI to generate a response with function calling enabled
       const response = await openai.chat.completions.create({
         model: "gpt-3.5-turbo",
         messages: formattedMessages,
         temperature: 0.7,
-        max_tokens: 1000
+        max_tokens: 1000,
+        tools: tools,
+        tool_choice: "auto"
       });
       
-      return response.choices[0].message.content || "I'm sorry, I couldn't generate a response.";
+      const responseMessage = response.choices[0].message;
+      
+      // Check if the AI wants to call a function
+      if (responseMessage.tool_calls && responseMessage.tool_calls.length > 0) {
+        console.log("AI is calling functions:", responseMessage.tool_calls);
+        
+        // Process each function call
+        const toolResults = [];
+        
+        for (const toolCall of responseMessage.tool_calls) {
+          try {
+            // Call the function with the provided arguments
+            const functionResult = await handleFunctionCall({
+              function: {
+                name: toolCall.function.name,
+                arguments: toolCall.function.arguments
+              }
+            }, userId);
+            
+            // Store the result
+            toolResults.push({
+              tool_call_id: toolCall.id,
+              role: "tool",
+              name: toolCall.function.name,
+              content: JSON.stringify(functionResult)
+            });
+            
+            console.log(`Function ${toolCall.function.name} result:`, functionResult);
+          } catch (error) {
+            console.error(`Error calling function ${toolCall.function.name}:`, error);
+            toolResults.push({
+              tool_call_id: toolCall.id,
+              role: "tool",
+              name: toolCall.function.name,
+              content: JSON.stringify({ 
+                error: error instanceof Error ? error.message : String(error),
+                success: false
+              })
+            });
+          }
+        }
+        
+        // Get a followup response that takes into account the function results
+        const followupResponse = await openai.chat.completions.create({
+          model: "gpt-3.5-turbo",
+          messages: [
+            ...formattedMessages,
+            responseMessage,
+            ...toolResults
+          ],
+          temperature: 0.7,
+          max_tokens: 1000
+        });
+        
+        return followupResponse.choices[0].message.content || "I'm sorry, I couldn't generate a response.";
+      }
+      
+      // If no function call, return the regular response
+      return responseMessage.content || "I'm sorry, I couldn't generate a response.";
     } catch (error) {
       console.error("Error generating AI response:", error);
       return "I apologize, but I encountered an error while processing your request. Please try again later.";
