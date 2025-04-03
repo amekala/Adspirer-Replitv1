@@ -1,13 +1,15 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
-import { Button } from "@/components/ui/button";
+import { AnimatedButton } from "@/components/ui/animated-button";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
+import { ArrowRight } from "lucide-react";
+import { motion } from "framer-motion";
 
 const formSchema = z.object({
   firstName: z.string().min(1, "First name is required"),
@@ -54,6 +56,11 @@ const adSpendRanges = [
   "More than $500,000"
 ];
 
+const inputStyles = "bg-slate-900/50 border-slate-700/50 focus:border-indigo-500/50 text-white placeholder:text-slate-500";
+const selectTriggerStyles = "bg-slate-900/50 border-slate-700/50 text-white";
+const selectContentStyles = "bg-slate-900 border border-slate-700/50 text-white";
+const checkboxStyles = "border-slate-700 data-[state=checked]:bg-indigo-600 data-[state=checked]:border-indigo-600";
+
 export function DemoRequestForm() {
   const { toast } = useToast();
   const form = useForm<z.infer<typeof formSchema>>({
@@ -82,12 +89,27 @@ export function DemoRequestForm() {
   }
 
   return (
-    <div className="bg-card border rounded-lg p-8">
+    <div className="p-8">
       <div className="max-w-3xl mx-auto">
-        <h2 className="text-3xl font-bold mb-6">Request a Demo</h2>
-        <p className="text-muted-foreground mb-8">
+        <motion.h2 
+          className="text-3xl font-bold mb-6 bg-clip-text text-transparent bg-gradient-to-r from-indigo-400 to-purple-400"
+          initial={{ opacity: 0, y: 10 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true }}
+          transition={{ duration: 0.4 }}
+        >
+          Request a Demo
+        </motion.h2>
+        
+        <motion.p 
+          className="text-slate-300 mb-8"
+          initial={{ opacity: 0, y: 10 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true }}
+          transition={{ duration: 0.4, delay: 0.1 }}
+        >
           Fill out the form below and we'll be in touch soon to schedule your personalized demo.
-        </p>
+        </motion.p>
 
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
@@ -97,11 +119,11 @@ export function DemoRequestForm() {
                 name="firstName"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>First Name*</FormLabel>
+                    <FormLabel className="text-slate-300">First Name*</FormLabel>
                     <FormControl>
-                      <Input {...field} />
+                      <Input {...field} className={inputStyles} />
                     </FormControl>
-                    <FormMessage />
+                    <FormMessage className="text-red-400" />
                   </FormItem>
                 )}
               />
@@ -110,11 +132,11 @@ export function DemoRequestForm() {
                 name="lastName"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Last Name*</FormLabel>
+                    <FormLabel className="text-slate-300">Last Name*</FormLabel>
                     <FormControl>
-                      <Input {...field} />
+                      <Input {...field} className={inputStyles} />
                     </FormControl>
-                    <FormMessage />
+                    <FormMessage className="text-red-400" />
                   </FormItem>
                 )}
               />
@@ -126,11 +148,11 @@ export function DemoRequestForm() {
                 name="email"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Work Email*</FormLabel>
+                    <FormLabel className="text-slate-300">Work Email*</FormLabel>
                     <FormControl>
-                      <Input {...field} type="email" />
+                      <Input {...field} type="email" className={inputStyles} />
                     </FormControl>
-                    <FormMessage />
+                    <FormMessage className="text-red-400" />
                   </FormItem>
                 )}
               />
@@ -139,11 +161,11 @@ export function DemoRequestForm() {
                 name="phone"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Phone Number</FormLabel>
+                    <FormLabel className="text-slate-300">Phone Number</FormLabel>
                     <FormControl>
-                      <Input {...field} type="tel" />
+                      <Input {...field} type="tel" className={inputStyles} />
                     </FormControl>
-                    <FormMessage />
+                    <FormMessage className="text-red-400" />
                   </FormItem>
                 )}
               />
@@ -155,11 +177,11 @@ export function DemoRequestForm() {
                 name="companyName"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Company Name*</FormLabel>
+                    <FormLabel className="text-slate-300">Company Name*</FormLabel>
                     <FormControl>
-                      <Input {...field} />
+                      <Input {...field} className={inputStyles} />
                     </FormControl>
-                    <FormMessage />
+                    <FormMessage className="text-red-400" />
                   </FormItem>
                 )}
               />
@@ -168,22 +190,22 @@ export function DemoRequestForm() {
                 name="jobRole"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Job Role*</FormLabel>
+                    <FormLabel className="text-slate-300">Job Role*</FormLabel>
                     <Select onValueChange={field.onChange} defaultValue={field.value}>
                       <FormControl>
-                        <SelectTrigger>
+                        <SelectTrigger className={selectTriggerStyles}>
                           <SelectValue placeholder="Select a role" />
                         </SelectTrigger>
                       </FormControl>
-                      <SelectContent>
+                      <SelectContent className={selectContentStyles}>
                         {jobRoles.map((role) => (
-                          <SelectItem key={role} value={role}>
+                          <SelectItem key={role} value={role} className="text-slate-200 focus:bg-indigo-500/20 focus:text-white">
                             {role}
                           </SelectItem>
                         ))}
                       </SelectContent>
                     </Select>
-                    <FormMessage />
+                    <FormMessage className="text-red-400" />
                   </FormItem>
                 )}
               />
@@ -195,11 +217,11 @@ export function DemoRequestForm() {
                 name="country"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Country*</FormLabel>
+                    <FormLabel className="text-slate-300">Country*</FormLabel>
                     <FormControl>
-                      <Input {...field} />
+                      <Input {...field} className={inputStyles} />
                     </FormControl>
-                    <FormMessage />
+                    <FormMessage className="text-red-400" />
                   </FormItem>
                 )}
               />
@@ -208,22 +230,22 @@ export function DemoRequestForm() {
                 name="monthlyAdSpend"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Monthly Ad Spend*</FormLabel>
+                    <FormLabel className="text-slate-300">Monthly Ad Spend*</FormLabel>
                     <Select onValueChange={field.onChange} defaultValue={field.value}>
                       <FormControl>
-                        <SelectTrigger>
+                        <SelectTrigger className={selectTriggerStyles}>
                           <SelectValue placeholder="Select range" />
                         </SelectTrigger>
                       </FormControl>
-                      <SelectContent>
+                      <SelectContent className={selectContentStyles}>
                         {adSpendRanges.map((range) => (
-                          <SelectItem key={range} value={range}>
+                          <SelectItem key={range} value={range} className="text-slate-200 focus:bg-indigo-500/20 focus:text-white">
                             {range}
                           </SelectItem>
                         ))}
                       </SelectContent>
                     </Select>
-                    <FormMessage />
+                    <FormMessage className="text-red-400" />
                   </FormItem>
                 )}
               />
@@ -234,8 +256,8 @@ export function DemoRequestForm() {
               name="retailers"
               render={() => (
                 <FormItem>
-                  <FormLabel>Which retailers do you sell on?*</FormLabel>
-                  <div className="grid sm:grid-cols-2 md:grid-cols-3 gap-4">
+                  <FormLabel className="text-slate-300">Which retailers do you sell on?*</FormLabel>
+                  <div className="grid sm:grid-cols-2 md:grid-cols-3 gap-4 mt-2">
                     {retailerOptions.map((retailer) => (
                       <FormField
                         key={retailer}
@@ -257,16 +279,17 @@ export function DemoRequestForm() {
                                           field.value?.filter((value) => value !== retailer)
                                         );
                                   }}
+                                  className={checkboxStyles}
                                 />
                               </FormControl>
-                              <FormLabel className="font-normal">{retailer}</FormLabel>
+                              <FormLabel className="font-normal text-slate-300">{retailer}</FormLabel>
                             </FormItem>
                           );
                         }}
                       />
                     ))}
                   </div>
-                  <FormMessage />
+                  <FormMessage className="text-red-400" />
                 </FormItem>
               )}
             />
@@ -276,8 +299,8 @@ export function DemoRequestForm() {
               name="solutions"
               render={() => (
                 <FormItem>
-                  <FormLabel>Solutions you're interested in*</FormLabel>
-                  <div className="grid sm:grid-cols-2 gap-4">
+                  <FormLabel className="text-slate-300">Solutions you're interested in*</FormLabel>
+                  <div className="grid sm:grid-cols-2 gap-4 mt-2">
                     {solutionOptions.map((solution) => (
                       <FormField
                         key={solution}
@@ -299,25 +322,27 @@ export function DemoRequestForm() {
                                           field.value?.filter((value) => value !== solution)
                                         );
                                   }}
+                                  className={checkboxStyles}
                                 />
                               </FormControl>
-                              <FormLabel className="font-normal">{solution}</FormLabel>
+                              <FormLabel className="font-normal text-slate-300">{solution}</FormLabel>
                             </FormItem>
                           );
                         }}
                       />
                     ))}
                   </div>
-                  <FormMessage />
+                  <FormMessage className="text-red-400" />
                 </FormItem>
               )}
             />
 
-            <Button type="submit" className="w-full">
+            <AnimatedButton type="submit" gradient="primary" className="w-full">
               Request Demo
-            </Button>
+              <ArrowRight className="h-4 w-4 ml-1" />
+            </AnimatedButton>
 
-            <p className="text-sm text-muted-foreground text-center">
+            <p className="text-sm text-slate-400 text-center">
               By submitting this form, you agree to our Privacy Policy and Terms of Service.
             </p>
           </form>

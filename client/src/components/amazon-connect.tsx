@@ -7,16 +7,28 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useIsMobile } from "@/hooks/use-mobile";
 
+interface ConnectionStatus {
+  connected: boolean;
+}
+
+interface AdvertiserProfile {
+  profileId: string;
+  accountName: string;
+  marketplace: string;
+  accountType: string;
+  status: string;
+}
+
 export function AmazonConnect() {
   const { toast } = useToast();
   const isMobile = useIsMobile();
 
-  const { data: status, isLoading: statusLoading } = useQuery({
+  const { data: status, isLoading: statusLoading } = useQuery<ConnectionStatus>({
     queryKey: ["/api/amazon/status"],
     retry: false,
   });
 
-  const { data: profiles, isLoading: profilesLoading, error: profilesError } = useQuery({
+  const { data: profiles, isLoading: profilesLoading, error: profilesError } = useQuery<AdvertiserProfile[]>({
     queryKey: ["/api/amazon/profiles"],
     enabled: status?.connected === true,
     retry: 1,
@@ -88,7 +100,7 @@ export function AmazonConnect() {
     const top = window.screenY + (window.outerHeight - height) / 2;
 
     let popup: Window | null = null;
-    let pollTimer: NodeJS.Timeout | null = null;
+    let pollTimer: NodeJS.Timeout | undefined = undefined;
 
     const handleCallback = async (event: MessageEvent) => {
       try {
@@ -220,7 +232,7 @@ export function AmazonConnect() {
                 Failed to load advertising profiles. Please try disconnecting and reconnecting your account.
               </AlertDescription>
             </Alert>
-          ) : profiles?.length > 0 ? (
+          ) : profiles && profiles.length > 0 ? (
             <div className="overflow-auto">
               <div className="text-sm font-medium mb-2">Connected Profiles</div>
               <Table>

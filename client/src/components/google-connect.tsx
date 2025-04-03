@@ -7,16 +7,26 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useIsMobile } from "@/hooks/use-mobile";
 
+interface ConnectionStatus {
+  connected: boolean;
+}
+
+interface GoogleAccount {
+  customerId: string;
+  accountName: string;
+  status: string;
+}
+
 export function GoogleConnect() {
   const { toast } = useToast();
   const isMobile = useIsMobile();
 
-  const { data: status, isLoading: statusLoading } = useQuery({
+  const { data: status, isLoading: statusLoading } = useQuery<ConnectionStatus>({
     queryKey: ["/api/google/status"],
     retry: false,
   });
 
-  const { data: accounts, isLoading: accountsLoading, error: accountsError } = useQuery({
+  const { data: accounts, isLoading: accountsLoading, error: accountsError } = useQuery<GoogleAccount[]>({
     queryKey: ["/api/google/accounts"],
     enabled: status?.connected === true,
     retry: 1,
@@ -116,7 +126,7 @@ export function GoogleConnect() {
 
     window.addEventListener("message", handleCallback);
 
-    let pollTimer: NodeJS.Timer; // Declare pollTimer
+    let pollTimer: NodeJS.Timeout | undefined;
     pollTimer = setInterval(() => {
       if (popup.closed) {
         clearInterval(pollTimer);
@@ -185,7 +195,7 @@ export function GoogleConnect() {
                 Failed to load advertising accounts. Please try disconnecting and reconnecting your account.
               </AlertDescription>
             </Alert>
-          ) : accounts?.length > 0 ? (
+          ) : accounts && accounts.length > 0 ? (
             <div className="overflow-auto">
               <div className="text-sm font-medium mb-2">Connected Accounts</div>
               <Table>
@@ -197,7 +207,7 @@ export function GoogleConnect() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {accounts.map((account: any) => (
+                  {accounts.map((account) => (
                     <TableRow key={account.customerId}>
                       <TableCell className="font-mono text-xs sm:text-sm">
                         <div className="sm:hidden text-xs text-muted-foreground mb-1">Customer ID</div>

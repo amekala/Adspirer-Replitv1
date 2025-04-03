@@ -15,7 +15,7 @@ import { Input } from "@/components/ui/input";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { insertUserSchema, loginSchema } from "@shared/schema";
+import { insertUserSchema, loginSchema } from "@shared/types";
 import { z } from "zod";
 import { 
   Loader2, 
@@ -26,6 +26,9 @@ import {
   LineChart 
 } from 'lucide-react';
 
+// Define types for the form with confirmPassword
+type LoginFormValues = z.infer<typeof loginSchema>;
+type RegisterFormValues = LoginFormValues & { confirmPassword: string };
 
 const registerSchema = insertUserSchema.extend({
   confirmPassword: z.string().min(1, "Confirm password is required"),
@@ -126,30 +129,40 @@ export default function AuthPage() {
     setCurrentSlide(index);
   };
 
-  const form = useForm({
+  const form = useForm<LoginFormValues | RegisterFormValues>({
     resolver: zodResolver(activeTab === "login" ? loginSchema : registerSchema),
     defaultValues: {
       email: "",
       password: "",
-      confirmPassword: "",
+      ...(activeTab === "register" ? { confirmPassword: "" } : {})
     },
   });
 
   useEffect(() => {
+    // Reset the form with appropriate defaults when the tab changes
+    form.reset({
+      email: "",
+      password: "",
+      ...(activeTab === "register" ? { confirmPassword: "" } : {})
+    });
+  }, [activeTab, form]);
+
+  useEffect(() => {
     if (user) {
-      setLocation("/dashboard");
+      setLocation("/chat");
     }
   }, [user, setLocation]);
 
-  const onSubmit = async (data: any) => {
+  const onSubmit = async (data: LoginFormValues | RegisterFormValues) => {
     try {
       const { email, password } = data;
 
       if (activeTab === "login") {
         await loginMutation.mutateAsync({ email, password });
       } else {
-        if (data.password !== data.confirmPassword) {
-          form.setError("confirmPassword", { message: "Passwords do not match" });
+        const registerData = data as RegisterFormValues;
+        if (registerData.password !== registerData.confirmPassword) {
+          form.setError("confirmPassword" as any, { message: "Passwords do not match" });
           return;
         }
         await registerMutation.mutateAsync({ email, password });
@@ -267,7 +280,7 @@ export default function AuthPage() {
                   />
                   {activeTab === "register" && (
                     <FormField
-                      control={form.control}
+                      control={form.control as any}
                       name="confirmPassword"
                       render={({ field }) => (
                         <FormItem>

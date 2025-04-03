@@ -7,16 +7,48 @@ async function throwIfResNotOk(res: Response) {
   }
 }
 
+// Get the base URL depending on the environment
+function getBaseUrl() {
+  // Check if we're in a browser environment
+  if (typeof window !== 'undefined') {
+    // Check if there's an API URL in the environment
+    if (import.meta.env.VITE_API_URL) {
+      return import.meta.env.VITE_API_URL;
+    }
+    // Fall back to current origin
+    return window.location.origin;
+  }
+  // Fallback for non-browser environments
+  return '';
+}
+
 export async function apiRequest(
   method: string,
   url: string,
   data?: unknown | undefined,
 ): Promise<Response> {
-  const res = await fetch(url, {
+  // Get JWT token from localStorage
+  const token = localStorage.getItem('token');
+  
+  const headers: Record<string, string> = {};
+  if (data) {
+    headers["Content-Type"] = "application/json";
+  }
+  
+  // Add Authorization header if token exists
+  if (token) {
+    headers["Authorization"] = `Bearer ${token}`;
+  }
+  
+  // Ensure URL starts with base URL in production
+  const fullUrl = url.startsWith('http') ? url : `${getBaseUrl()}${url}`;
+  
+  console.log(`API Request to: ${fullUrl}`);
+  
+  const res = await fetch(fullUrl, {
     method,
-    headers: data ? { "Content-Type": "application/json" } : {},
+    headers,
     body: data ? JSON.stringify(data) : undefined,
-    credentials: "include",
   });
 
   await throwIfResNotOk(res);
@@ -29,9 +61,20 @@ export const getQueryFn: <T>(options: {
 }) => QueryFunction<T> =
   ({ on401: unauthorizedBehavior }) =>
   async ({ queryKey }) => {
-    const res = await fetch(queryKey[0] as string, {
-      credentials: "include",
-    });
+    // Get JWT token from localStorage
+    const token = localStorage.getItem('token');
+    
+    // Set up headers with Authorization if token exists
+    const headers: Record<string, string> = {};
+    if (token) {
+      headers["Authorization"] = `Bearer ${token}`;
+    }
+    
+    // Get the full URL with base URL if needed
+    const url = queryKey[0] as string;
+    const fullUrl = url.startsWith('http') ? url : `${getBaseUrl()}${url}`;
+    
+    const res = await fetch(fullUrl, { headers });
 
     if (unauthorizedBehavior === "returnNull" && res.status === 401) {
       return null;

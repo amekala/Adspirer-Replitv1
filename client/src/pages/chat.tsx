@@ -5,16 +5,23 @@ import { Textarea } from "@/components/ui/textarea";
 import { Separator } from "@/components/ui/separator";
 import { Chat } from "../components/chat";
 import { ChatSidebar } from "../components/chat-sidebar";
+import { ChatSettings } from "../components/chat-settings";
 import { useAuth } from "@/hooks/use-auth";
 import { apiRequest, queryClient } from "@/lib/queryClient";
-import { Send, PlusCircle } from "lucide-react";
+import { Send, PlusCircle, MenuIcon } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { AnimatePresence, motion } from "framer-motion";
+import { Toggle } from "@/components/ui/toggle";
+import { BarChart3 } from "lucide-react";
 
 export default function ChatPage() {
   const { user } = useAuth() || {};
   const { toast } = useToast();
   const [message, setMessage] = useState("");
   const [currentConversationId, setCurrentConversationId] = useState<string | null>(null);
+  const [showSettings, setShowSettings] = useState(false);
+  const [useRichVisualizations, setUseRichVisualizations] = useState(true);
+  const [messageSending, setMessageSending] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const chatContainerRef = useRef<HTMLDivElement>(null);
 
@@ -140,8 +147,11 @@ export default function ChatPage() {
               
               // Fetch the conversation with messages
               try {
+                const token = localStorage.getItem('token');
                 const response = await fetch(`/api/chat/conversations/${newConversation.id}`, {
-                  credentials: 'include'
+                  headers: {
+                    'Authorization': `Bearer ${token}`
+                  }
                 });
                 
                 if (response.ok) {
@@ -233,11 +243,26 @@ export default function ChatPage() {
   // Handle a new conversation
   const handleNewConversation = () => {
     createConversationMutation.mutate();
+    
+    // If settings are open, close them
+    if (showSettings) {
+      setShowSettings(false);
+    }
   };
 
   // Select a conversation
   const handleConversationSelect = (id: string) => {
     setCurrentConversationId(id);
+    
+    // If settings are open, close them
+    if (showSettings) {
+      setShowSettings(false);
+    }
+  };
+
+  // Toggle settings panel
+  const handleToggleSettings = () => {
+    setShowSettings(!showSettings);
   };
 
   // Handle sending a message
@@ -246,16 +271,20 @@ export default function ChatPage() {
       // Check if there's a message and conversation ID
       if (!message.trim() || !currentConversationId) return;
       
+      // Set message sending state to true
+      setMessageSending(true);
+      
       // Save the message content before clearing input
       const messageContent = message;
       setMessage(""); // Clear input immediately for better UX
       
       // First, add the user message to the conversation
       const userMessage = {
-        id: 'temp-user-' + Date.now(),
+        id: 'temp-optimistic-user-' + Date.now(), // Add a special ID prefix we can detect later
         role: 'user' as const,
         content: messageContent,
-        createdAt: new Date().toISOString()
+        createdAt: new Date().toISOString(),
+        isOptimistic: true // Add a flag to identify this as an optimistic update
       };
       
       // Add temporary typing indicator
@@ -313,16 +342,17 @@ export default function ChatPage() {
         
         // Step 2: Call the AI completions endpoint
         console.log('Calling AI completions endpoint...');
+        const token = localStorage.getItem('token');
         const completionResponse = await fetch('/api/chat/completions', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
           },
           body: JSON.stringify({
             conversationId: currentConversationId,
             message: messageContent
-          }),
-          credentials: 'include' // Include credentials for session authentication
+          })
         });
 
         if (!completionResponse.ok) {
@@ -459,7 +489,21 @@ export default function ChatPage() {
       queryClient.invalidateQueries({ 
         queryKey: ["/api/chat/conversations", currentConversationId] 
       });
+    } finally {
+      // Set message sending state back to false when done
+      setMessageSending(false);
     }
+  };
+
+  // Handle message input change
+  const handleMessageChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    setMessage(e.target.value);
+  };
+
+  // Handle form submission
+  const handleSubmitMessage = (e: React.FormEvent) => {
+    e.preventDefault();
+    handleSendMessage();
   };
 
   // Handle textarea resize and keyboard shortcuts
@@ -538,9 +582,25 @@ export default function ChatPage() {
   });
 
   return (
-    <div className="flex h-screen overflow-hidden">
-        <ChatSidebar 
-          conversations={conversations} 
+    <div className="flex flex-row h-screen">
+      {/* Sidebar */}
+      <div className="w-64 flex-shrink-0 border-r border-slate-200 dark:border-slate-800 hidden md:flex flex-col">
+        <div className="p-4 flex justify-between items-center border-b border-slate-200 dark:border-slate-800">
+          <h2 className="text-lg font-semibold">Chats</h2>
+          <div className="flex items-center gap-2">
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={handleNewConversation}
+              title="New Chat"
+              className="px-2"
+            >
+              <PlusCircle className="h-4 w-4" />
+            </Button>
+          </div>
+        </div>
+        <ChatSidebar
+          conversations={conversations}
           currentConversationId={currentConversationId}
           onConversationSelect={handleConversationSelect}
           onNewConversation={handleNewConversation}
@@ -550,74 +610,97 @@ export default function ChatPage() {
           onDeleteConversation={(id) => 
             deleteConversationMutation.mutate(id)
           }
+          onOpenSettings={handleToggleSettings}
           isLoading={isLoadingConversations}
         />
-        
-        <div className="flex flex-col flex-1 overflow-hidden">
-          <div 
-            ref={chatContainerRef}
-            className="flex-1 overflow-y-auto p-4 space-y-4"
-          >
-            {currentConversationId ? (
-              <>
-                {/* Adding debug info */}
-                <div className="hidden">
-                  <pre>{JSON.stringify(currentConversation, null, 2)}</pre>
-                </div>
-                <Chat
-                  conversation={currentConversation}
-                  isLoading={isLoadingConversation}
-                />
-              </>
-            ) : (
-              <div className="flex items-center justify-center h-full">
-                <div className="text-center space-y-4">
-                  <h2 className="text-2xl font-bold">Welcome to Adspirer AI Chat</h2>
-                  <p className="text-muted-foreground">
-                    Start a new conversation to get insights about your advertising campaigns
-                  </p>
-                  <Button 
-                    onClick={handleNewConversation}
-                    className="mt-4"
-                  >
-                    <PlusCircle className="mr-2 h-4 w-4" />
-                    New Conversation
-                  </Button>
-                </div>
-              </div>
-            )}
+      </div>
+
+      {/* Main content area - conditionally show either chat or settings */}
+      <div className="flex-1 flex flex-col overflow-hidden">
+        {showSettings ? (
+          <div className="h-full">
+            <ChatSettings onBack={() => setShowSettings(false)} />
           </div>
-          
-          {currentConversationId && (
-            <>
-              <Separator />
-              <div className="p-4">
-                <div className="flex items-end space-x-2">
-                  <Textarea
-                    ref={textareaRef}
-                    value={message}
-                    onChange={(e) => setMessage(e.target.value)}
-                    onKeyDown={handleKeyDown}
-                    placeholder="Send a message..."
-                    className="min-h-[60px] resize-none overflow-hidden"
-                    rows={1}
-                  />
-                  <Button
-                    onClick={handleSendMessage}
-                    disabled={!message.trim() || sendMessageMutation.isPending}
-                    size="icon"
-                    aria-label="Send message"
-                  >
-                    <Send className="h-4 w-4" />
-                  </Button>
-                </div>
-                <p className="text-xs text-muted-foreground mt-2">
-                  Press Enter to send, Shift+Enter for a new line
-                </p>
+        ) : (
+          <>
+            {/* Mobile header */}
+            <div className="md:hidden border-b border-slate-200 dark:border-slate-800 p-2 flex items-center justify-between gap-2">
+              <Button
+                variant="outline"
+                size="icon"
+                onClick={() => {
+                  // Open sidebar for mobile
+                }}
+              >
+                <MenuIcon className="h-4 w-4" />
+              </Button>
+              <h1 className="text-lg font-semibold truncate flex-1 text-center">
+                {currentConversation?.title || "New Chat"}
+              </h1>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="icon"
+                  onClick={handleNewConversation}
+                  title="New Chat"
+                >
+                  <PlusCircle className="h-4 w-4" />
+                </Button>
               </div>
-            </>
-          )}
-        </div>
+            </div>
+
+            {/* Chat interaction area */}
+            <div className="flex-1 overflow-y-auto bg-white dark:bg-slate-950" ref={chatContainerRef}>
+              <div className="max-w-4xl mx-auto p-4 md:p-6 space-y-6">
+                <Chat 
+                  conversation={conversationMessages} 
+                  isLoading={isLoadingMessages || messageSending} 
+                  useRichVisualizations={useRichVisualizations}
+                />
+              </div>
+            </div>
+
+            {/* Input area */}
+            <div className="border-t border-slate-200 dark:border-slate-800 p-4 bg-white dark:bg-slate-950">
+              <div className="max-w-4xl mx-auto">
+                <form onSubmit={handleSubmitMessage} className="space-y-2">
+                  <div className="relative">
+                    <Textarea
+                      ref={textareaRef}
+                      placeholder="Ask me anything..."
+                      className="min-h-24 pr-20 resize-none overflow-hidden border-slate-300 dark:border-slate-700 focus-visible:ring-slate-400"
+                      value={message}
+                      onChange={handleMessageChange}
+                      onKeyDown={handleKeyDown}
+                      disabled={messageSending || !currentConversationId}
+                    />
+                    <div className="absolute right-2 bottom-2 flex items-center gap-2">
+                      <Toggle
+                        variant="outline"
+                        size="sm"
+                        pressed={useRichVisualizations}
+                        onPressedChange={setUseRichVisualizations}
+                        title="Toggle rich visualizations"
+                        aria-label="Toggle rich visualizations"
+                      >
+                        <BarChart3 className="h-4 w-4" />
+                      </Toggle>
+                      <Button
+                        type="submit"
+                        size="sm"
+                        disabled={!message.trim() || messageSending || !currentConversationId}
+                        className="h-8 w-8 p-0"
+                      >
+                        <Send className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </div>
+                </form>
+              </div>
+            </div>
+          </>
+        )}
+      </div>
     </div>
   );
 }
