@@ -405,6 +405,10 @@ export async function registerRoutes(app: Express): Promise<void> {
 
     try {
       // Exchange code for tokens with Amazon Ads API
+      // Use hardcoded redirect URI to ensure it matches exactly what's in Amazon dev console
+      const amazonRedirectUri = `https://974fb22c-7bf2-435f-92b8-6b8a9968e57b-00-a2py9mwxuu7p.riker.replit.dev/auth/callback`;
+      console.log("Using Amazon redirect URI:", amazonRedirectUri);
+      
       const tokenResponse = await fetch("https://api.amazon.com/auth/o2/token", {
         method: "POST",
         headers: { "Content-Type": "application/x-www-form-urlencoded" },
@@ -413,7 +417,7 @@ export async function registerRoutes(app: Express): Promise<void> {
           code,
           client_id: clientId,
           client_secret: clientSecret,
-          redirect_uri: `${req.protocol}://${req.get('host')}/auth/callback`,
+          redirect_uri: amazonRedirectUri,
         }),
       });
 
