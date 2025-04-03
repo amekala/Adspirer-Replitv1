@@ -3,6 +3,7 @@ import { useQuery, useMutation } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Separator } from "@/components/ui/separator";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import { Chat } from "../components/chat";
 import { ChatSidebar } from "../components/chat-sidebar";
 import { ChatSettings } from "../components/chat-settings";
@@ -602,8 +603,9 @@ export default function ChatPage() {
                 </Button>
               </div>
             </div>
-            <div className="flex-1 overflow-y-auto">
-              <ChatSidebar
+            {/* Using directly ChatSidebar which already has ScrollArea component inside it */}
+            <div className="flex-1 overflow-hidden h-full">
+                <ChatSidebar
                 conversations={conversations}
                 currentConversationId={currentConversationId}
                 onConversationSelect={handleConversationSelect}
@@ -622,7 +624,7 @@ export default function ChatPage() {
         </div>
 
         {/* Main content area - conditionally show either chat or settings */}
-        <div className="flex-1 flex flex-col bg-white/10 backdrop-blur-xl border border-white/20 rounded-xl overflow-hidden shadow-lg">
+        <div className="flex-1 flex flex-col bg-white/10 backdrop-blur-xl border border-white/20 rounded-xl overflow-hidden shadow-lg relative">
           {showSettings ? (
             <div className="h-full p-6">
               <ChatSettings onBack={() => setShowSettings(false)} />
@@ -657,8 +659,16 @@ export default function ChatPage() {
                 </div>
               </div>
 
-              {/* Chat interaction area */}
-              <div className="flex-1 overflow-y-auto" ref={chatContainerRef}>
+              {/* Chat conversation container with fixed height - scrollable */}
+              <div 
+                className="flex-1 overflow-y-auto" 
+                ref={chatContainerRef}
+                style={{ 
+                  height: "calc(100vh - 16rem)", // Adjust height to leave space for the input
+                  maxHeight: "calc(100vh - 16rem)",
+                  overflowY: "auto"
+                }}
+              >
                 <div className="p-4 md:p-6 space-y-6">
                   <Chat 
                     conversation={conversationMessages} 
@@ -668,8 +678,8 @@ export default function ChatPage() {
                 </div>
               </div>
 
-              {/* Input area */}
-              <div className="border-t border-white/10 p-4">
+              {/* Input area - fixed at bottom */}
+              <div className="border-t border-white/10 p-4 sticky bottom-0 bg-white/5 backdrop-blur-md">
                 <form onSubmit={handleSubmitMessage} className="space-y-2">
                   <div className="relative">
                     <Textarea

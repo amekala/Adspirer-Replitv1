@@ -175,12 +175,15 @@ export default function AuthPage() {
   if (user) return null;
 
   return (
-    <div className="min-h-screen grid md:grid-cols-2">
-      <div className="flex flex-col items-center justify-center p-8">
+    <div className="min-h-screen grid md:grid-cols-2 relative">
+      {/* Visual separator between columns */}
+      <div className="absolute top-0 bottom-0 left-1/2 w-px bg-gradient-to-b from-indigo-500/0 via-indigo-500/20 to-indigo-500/0 hidden md:block transform -translate-x-1/2 z-10"></div>
+      
+      <div className="flex flex-col items-center justify-center p-8 relative">
         <div className="w-full max-w-md space-y-6">
           <div className="text-center mb-8">
             <Link href="/" className="inline-block">
-              <h1 className="text-3xl font-bold bg-gradient-to-r from-primary to-blue-600 bg-clip-text text-transparent">
+              <h1 className="text-3xl font-bold bg-gradient-to-r from-indigo-400 via-purple-400 to-pink-400 bg-clip-text text-transparent">
                 Adspirer
               </h1>
             </Link>
