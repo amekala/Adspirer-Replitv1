@@ -5,6 +5,7 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
@@ -59,6 +60,10 @@ export function Layout({ children }: { children: React.ReactNode }) {
                     <DropdownMenuItem asChild>
                       <Link href="/chat">AI Chat</Link>
                     </DropdownMenuItem>
+                    <DropdownMenuItem asChild>
+                      <Link href="/settings">Settings</Link>
+                    </DropdownMenuItem>
+                    <DropdownMenuSeparator />
                     <DropdownMenuItem
                       onClick={handleLogout}
                       disabled={logoutMutation.isPending}
@@ -122,6 +127,9 @@ export function Layout({ children }: { children: React.ReactNode }) {
                       </Link>
                       <Link href="/chat" onClick={closeSheet} className="flex items-center gap-2 text-primary font-medium">
                         <span className="bg-primary/10 p-1 rounded-full">AI Chat</span>
+                      </Link>
+                      <Link href="/settings" onClick={closeSheet} className="text-muted-foreground hover:text-foreground transition-colors">
+                        Settings
                       </Link>
                       <button
                         onClick={() => {

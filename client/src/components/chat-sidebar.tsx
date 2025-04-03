@@ -289,14 +289,15 @@ export function ChatSidebar({
       {/* Bottom Navigation Buttons */}
       <div className="p-3 border-t border-slate-200 dark:border-slate-800 mt-auto">
         <div className="space-y-2">
-          <Button
-            variant="outline"
-            className="w-full justify-start text-slate-700 dark:text-slate-200"
-            onClick={onOpenSettings}
-          >
-            <Settings className="mr-2 h-4 w-4" />
-            Settings
-          </Button>
+          <Link href="/settings">
+            <Button
+              variant="outline"
+              className="w-full justify-start text-slate-700 dark:text-slate-200"
+            >
+              <Settings className="mr-2 h-4 w-4" />
+              Settings
+            </Button>
+          </Link>
           
           <Separator className="my-2 bg-slate-200 dark:bg-slate-700" />
           

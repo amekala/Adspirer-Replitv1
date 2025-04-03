@@ -1,0 +1,183 @@
+Database maintenance completed successfully
+10:03:39 PM [express] GET /api/user 304 in 68ms :: {"id":"903243fa-a65e-4d38-8236-798559b81941","emai…
+10:03:39 PM [express] GET /api/chat/conversations 200 in 170ms :: [{"id":"27f2f90c-b47b-4e69-9a1c-21a…
+10:03:42 PM [express] GET /api/user 401 in 1ms :: {"message":"Unauthorized"}
+10:03:52 PM [express] GET /api/user 304 in 57ms :: {"id":"903243fa-a65e-4d38-8236-798559b81941","emai…
+10:03:52 PM [express] GET /api/chat/conversations 304 in 142ms :: [{"id":"27f2f90c-b47b-4e69-9a1c-21a…
+10:03:58 PM [express] GET /api/chat/conversations/27f2f90c-b47b-4e69-9a1c-21a6becfd766 304 in 176ms :…
+Sending message to OpenAI with tools: [
+  'get_current_date',
+  'create_amazon_sp_campaign',
+  'create_amazon_ad_group',
+  'create_amazon_product_ads',
+  'create_amazon_keywords',
+  'create_amazon_negative_keywords',
+  'create_google_campaign_budget',
+  'create_google_campaign',
+  'create_google_ad_group',
+  'create_google_keywords',
+  'create_google_negative_keywords',
+  'delete_google_campaign',
+  'create_google_responsive_search_ad',
+  'add_google_campaign_targeting'
+]
+AI is calling functions: [
+  {
+    id: 'call_9Pz5XJ7EmRVZyfhrBVVn4qm4',
+    type: 'function',
+    function: { name: 'get_current_date', arguments: '{"format":"YYYY-MM-DD"}' }
+  }
+]
+Handling function call: get_current_date with args: { format: 'YYYY-MM-DD' }
+Function get_current_date result: {
+  success: true,
+  date: '2025-04-03',
+  tomorrow: '2025-04-04',
+  nextWeek: '2025-04-10',
+  message: 'Today is 2025-04-03, tomorrow is 2025-04-04'
+}
+10:04:11 PM [express] POST /api/chat/conversations/27f2f90c-b47b-4e69-9a1c-21a6becfd766/messages 201 …
+10:04:11 PM [express] GET /api/chat/conversations/27f2f90c-b47b-4e69-9a1c-21a6becfd766 200 in 169ms :…
+10:04:12 PM [express] POST /api/chat/completions 200 in 2ms
+10:04:12 PM [express] GET /api/chat/conversations/27f2f90c-b47b-4e69-9a1c-21a6becfd766 304 in 170ms :…
+Sending message to OpenAI with tools: [
+  'get_current_date',
+  'create_amazon_sp_campaign',
+  'create_amazon_ad_group',
+  'create_amazon_product_ads',
+  'create_amazon_keywords',
+  'create_amazon_negative_keywords',
+  'create_google_campaign_budget',
+  'create_google_campaign',
+  'create_google_ad_group',
+  'create_google_keywords',
+  'create_google_negative_keywords',
+  'delete_google_campaign',
+  'create_google_responsive_search_ad',
+  'add_google_campaign_targeting'
+]
+AI is calling functions: [
+  {
+    id: 'call_L8YXwMUoInDzCqZN1PF0IPlX',
+    type: 'function',
+    function: { name: 'get_current_date', arguments: '{"format":"YYYY-MM-DD"}' }
+  }
+]
+Handling function call: get_current_date with args: { format: 'YYYY-MM-DD' }
+Function get_current_date result: {
+  success: true,
+  date: '2025-04-03',
+  tomorrow: '2025-04-04',
+  nextWeek: '2025-04-10',
+  message: 'Today is 2025-04-03, tomorrow is 2025-04-04'
+}
+10:04:57 PM [express] POST /api/chat/conversations/27f2f90c-b47b-4e69-9a1c-21a6becfd766/messages 201 …
+10:04:58 PM [express] GET /api/chat/conversations/27f2f90c-b47b-4e69-9a1c-21a6becfd766 200 in 167ms :…
+10:04:58 PM [express] POST /api/chat/completions 200 in 4ms
+10:04:58 PM [express] GET /api/chat/conversations/27f2f90c-b47b-4e69-9a1c-21a6becfd766 304 in 168ms :…
+Sending message to OpenAI with tools: [
+  'get_current_date',
+  'create_amazon_sp_campaign',
+  'create_amazon_ad_group',
+  'create_amazon_product_ads',
+  'create_amazon_keywords',
+  'create_amazon_negative_keywords',
+  'create_google_campaign_budget',
+  'create_google_campaign',
+  'create_google_ad_group',
+  'create_google_keywords',
+  'create_google_negative_keywords',
+  'delete_google_campaign',
+  'create_google_responsive_search_ad',
+  'add_google_campaign_targeting'
+]
+AI is calling functions: [
+  {
+    id: 'call_mpcEr6zozC7rbtGdq3tnXFXs',
+    type: 'function',
+    function: { name: 'get_current_date', arguments: '{"format":"YYYY-MM-DD"}' }
+  }
+]
+Handling function call: get_current_date with args: { format: 'YYYY-MM-DD' }
+Function get_current_date result: {
+  success: true,
+  date: '2025-04-03',
+  tomorrow: '2025-04-04',
+  nextWeek: '2025-04-10',
+  message: 'Today is 2025-04-03, tomorrow is 2025-04-04'
+}
+10:05:05 PM [express] POST /api/chat/conversations/27f2f90c-b47b-4e69-9a1c-21a6becfd766/messages 201 …
+10:05:05 PM [express] GET /api/chat/conversations/27f2f90c-b47b-4e69-9a1c-21a6becfd766 200 in 174ms :…
+10:05:05 PM [express] POST /api/chat/completions 200 in 4ms
+10:05:06 PM [express] GET /api/chat/conversations/27f2f90c-b47b-4e69-9a1c-21a6becfd766 304 in 170ms :…
+Sending message to OpenAI with tools: [
+  'get_current_date',
+  'create_amazon_sp_campaign',
+  'create_amazon_ad_group',
+  'create_amazon_product_ads',
+  'create_amazon_keywords',
+  'create_amazon_negative_keywords',
+  'create_google_campaign_budget',
+  'create_google_campaign',
+  'create_google_ad_group',
+  'create_google_keywords',
+  'create_google_negative_keywords',
+  'delete_google_campaign',
+  'create_google_responsive_search_ad',
+  'add_google_campaign_targeting'
+]
+10:05:16 PM [express] POST /api/chat/conversations/27f2f90c-b47b-4e69-9a1c-21a6becfd766/messages 201 …
+10:05:16 PM [express] GET /api/chat/conversations/27f2f90c-b47b-4e69-9a1c-21a6becfd766 200 in 170ms :…
+10:05:16 PM [express] POST /api/chat/completions 200 in 3ms
+10:05:17 PM [express] GET /api/chat/conversations/27f2f90c-b47b-4e69-9a1c-21a6becfd766 304 in 171ms :…
+Sending message to OpenAI with tools: [
+  'get_current_date',
+  'create_amazon_sp_campaign',
+  'create_amazon_ad_group',
+  'create_amazon_product_ads',
+  'create_amazon_keywords',
+  'create_amazon_negative_keywords',
+  'create_google_campaign_budget',
+  'create_google_campaign',
+  'create_google_ad_group',
+  'create_google_keywords',
+  'create_google_negative_keywords',
+  'delete_google_campaign',
+  'create_google_responsive_search_ad',
+  'add_google_campaign_targeting'
+]
+10:06:19 PM [express] POST /api/chat/conversations/27f2f90c-b47b-4e69-9a1c-21a6becfd766/messages 201 …
+10:06:19 PM [express] GET /api/chat/conversations/27f2f90c-b47b-4e69-9a1c-21a6becfd766 200 in 168ms :…
+10:06:20 PM [express] POST /api/chat/completions 200 in 3ms
+10:06:20 PM [express] GET /api/chat/conversations/27f2f90c-b47b-4e69-9a1c-21a6becfd766 304 in 168ms :…
+Sending message to OpenAI with tools: [
+  'get_current_date',
+  'create_amazon_sp_campaign',
+  'create_amazon_ad_group',
+  'create_amazon_product_ads',
+  'create_amazon_keywords',
+  'create_amazon_negative_keywords',
+  'create_google_campaign_budget',
+  'create_google_campaign',
+  'create_google_ad_group',
+  'create_google_keywords',
+  'create_google_negative_keywords',
+  'delete_google_campaign',
+  'create_google_responsive_search_ad',
+  'add_google_campaign_targeting'
+]
+AI is calling functions: [
+  {
+    id: 'call_jjL3TkstUWbG1liuODx1zOUe',
+    type: 'function',
+    function: { name: 'get_current_date', arguments: '{"format":"YYYY-MM-DD"}' }
+  }
+]
+Handling function call: get_current_date with args: { format: 'YYYY-MM-DD' }
+Function get_current_date result: {
+  success: true,
+  date: '2025-04-03',
+  tomorrow: '2025-04-04',
+  nextWeek: '2025-04-10',
+  message: 'Today is 2025-04-03, tomorrow is 2025-04-04'
+}
