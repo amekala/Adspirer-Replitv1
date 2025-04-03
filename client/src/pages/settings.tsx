@@ -7,6 +7,7 @@ import {
   TabsTrigger 
 } from "@/components/ui/tabs";
 import { Card } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 import { SubscriptionSettings } from "@/components/subscription-settings";
 import { ProfileSettings } from "@/components/profile-settings";
 import { BrandSettings } from "@/components/brand-settings";
@@ -36,62 +37,71 @@ export default function SettingsPage() {
           {/* Sidebar Navigation */}
           <div className="space-y-6">
             <Card className="p-2">
-              <TabsList className="flex flex-col h-auto w-full bg-transparent space-y-1">
-                <TabsTrigger 
-                  value="profile" 
+              <div className="flex flex-col h-auto w-full bg-transparent space-y-1">
+                <Button 
+                  variant={activeTab === "profile" ? "default" : "ghost"} 
                   onClick={() => setActiveTab("profile")}
-                  className={`justify-start w-full ${activeTab === "profile" ? "bg-accent" : ""}`}
+                  className="justify-start w-full"
                 >
                   <User className="h-4 w-4 mr-2" />
                   Profile
-                </TabsTrigger>
-                <TabsTrigger 
-                  value="brand" 
+                </Button>
+                <Button 
+                  variant={activeTab === "brand" ? "default" : "ghost"} 
                   onClick={() => setActiveTab("brand")}
-                  className={`justify-start w-full ${activeTab === "brand" ? "bg-accent" : ""}`}
+                  className="justify-start w-full"
                 >
                   <Building className="h-4 w-4 mr-2" />
                   Brand
-                </TabsTrigger>
-                <TabsTrigger 
-                  value="subscription" 
+                </Button>
+                <Button 
+                  variant={activeTab === "subscription" ? "default" : "ghost"} 
                   onClick={() => setActiveTab("subscription")}
-                  className={`justify-start w-full ${activeTab === "subscription" ? "bg-accent" : ""}`}
+                  className="justify-start w-full"
                 >
                   <CreditCard className="h-4 w-4 mr-2" />
                   Subscription
-                </TabsTrigger>
-                <TabsTrigger 
-                  value="connections" 
+                </Button>
+                <Button 
+                  variant={activeTab === "connections" ? "default" : "ghost"} 
                   onClick={() => setActiveTab("connections")}
-                  className={`justify-start w-full ${activeTab === "connections" ? "bg-accent" : ""}`}
+                  className="justify-start w-full"
                 >
                   <Globe className="h-4 w-4 mr-2" />
                   Connections
-                </TabsTrigger>
-                <TabsTrigger 
-                  value="api-keys" 
+                </Button>
+                <Button 
+                  variant={activeTab === "api-keys" ? "default" : "ghost"} 
                   onClick={() => setActiveTab("api-keys")}
-                  className={`justify-start w-full ${activeTab === "api-keys" ? "bg-accent" : ""}`}
+                  className="justify-start w-full"
                 >
                   <KeyRound className="h-4 w-4 mr-2" />
                   API Keys
-                </TabsTrigger>
-                <TabsTrigger 
-                  value="compliance" 
+                </Button>
+                <Button 
+                  variant={activeTab === "compliance" ? "default" : "ghost"} 
                   onClick={() => setActiveTab("compliance")}
-                  className={`justify-start w-full ${activeTab === "compliance" ? "bg-accent" : ""}`}
+                  className="justify-start w-full"
                 >
                   <Shield className="h-4 w-4 mr-2" />
                   Compliance
-                </TabsTrigger>
-              </TabsList>
+                </Button>
+              </div>
             </Card>
           </div>
           
           {/* Main Content */}
           <div>
             <Tabs value={activeTab} className="space-y-6">
+              <TabsList className="hidden">
+                <TabsTrigger value="profile">Profile</TabsTrigger>
+                <TabsTrigger value="brand">Brand</TabsTrigger>
+                <TabsTrigger value="subscription">Subscription</TabsTrigger>
+                <TabsTrigger value="connections">Connections</TabsTrigger>
+                <TabsTrigger value="api-keys">API Keys</TabsTrigger>
+                <TabsTrigger value="compliance">Compliance</TabsTrigger>
+              </TabsList>
+              
               <TabsContent value="profile" className="m-0 space-y-6">
                 <Card className="p-6">
                   <ProfileSettings />
