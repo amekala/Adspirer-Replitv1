@@ -335,7 +335,8 @@ export const MultiViewVisualization: React.FC<MultiViewProps> = ({
   className = '',
   views
 }) => {
-  const [activeTab, setActiveTab] = React.useState(views[0]?.id || "");
+  // Use the first view's ID as the default value
+  const defaultTab = views[0]?.id || "";
   
   return (
     <motion.div
@@ -350,37 +351,41 @@ export const MultiViewVisualization: React.FC<MultiViewProps> = ({
           {description && <CardDescription>{description}</CardDescription>}
         </CardHeader>
         <CardContent className="p-4">
-          <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-            <TabsList className="w-full justify-start mb-4 overflow-x-auto flex-wrap">
-              {views.map((view) => (
-                <TabsTrigger 
-                  key={`tab-${view.id}`} 
-                  value={view.id}
-                  className="min-w-[100px]"
-                >
-                  {view.label}
-                </TabsTrigger>
-              ))}
-            </TabsList>
-            <AnimatePresence mode="wait">
-              {views.map((view) => (
-                <TabsContent 
-                  key={`content-${view.id}`} 
-                  value={view.id}
-                  className="mt-0"
-                >
-                  <motion.div
-                    initial={{ opacity: 0, y: 10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: -10 }}
-                    transition={{ duration: 0.2 }}
+          {views.length > 0 ? (
+            <Tabs defaultValue={defaultTab} className="w-full">
+              <TabsList className="w-full justify-start mb-4 overflow-x-auto flex-wrap">
+                {views.map((view) => (
+                  <TabsTrigger 
+                    key={`tab-${view.id}`} 
+                    value={view.id}
+                    className="min-w-[100px]"
                   >
-                    {view.chart}
-                  </motion.div>
-                </TabsContent>
-              ))}
-            </AnimatePresence>
-          </Tabs>
+                    {view.label}
+                  </TabsTrigger>
+                ))}
+              </TabsList>
+              <AnimatePresence mode="wait">
+                {views.map((view) => (
+                  <TabsContent 
+                    key={`content-${view.id}`} 
+                    value={view.id}
+                    className="mt-0"
+                  >
+                    <motion.div
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: -10 }}
+                      transition={{ duration: 0.2 }}
+                    >
+                      {view.chart}
+                    </motion.div>
+                  </TabsContent>
+                ))}
+              </AnimatePresence>
+            </Tabs>
+          ) : (
+            <div className="text-center py-4 text-slate-500">No visualization views available</div>
+          )}
         </CardContent>
       </Card>
     </motion.div>
