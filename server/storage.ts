@@ -1,28 +1,34 @@
 import { 
   User, InsertUser, AmazonToken, ApiKey, AdvertiserAccount, 
-  CampaignMetrics, amazonAdReports, type AmazonAdReport,
-  DemoRequest, InsertDemoRequest, demoRequests,
+  CampaignMetrics, type AmazonAdReport,
+  DemoRequest, InsertDemoRequest,
   GoogleToken, GoogleAdvertiserAccount, GoogleCampaignMetrics,
   ChatConversation, ChatMessage, InsertChatConversation, InsertChatMessage,
   CampaignMetricsSummary, GoogleCampaignMetricsSummary, QueryCacheEntry,
-  InsertCampaignMetricsSummary, InsertGoogleCampaignMetricsSummary, InsertQueryCache,
+  Campaign, AdGroup, ProductAd, Keyword, NegativeKeyword,
+  InsertCampaign, InsertAdGroup, InsertProductAd, InsertKeyword, InsertNegativeKeyword
+} from "@shared/types";
+
+import {
   users, amazonTokens, apiKeys, advertiserAccounts, tokenRefreshLog, 
   campaignMetrics, googleTokens, googleAdvertiserAccounts, googleCampaignMetrics, 
   chatConversations, chatMessages, campaignMetricsSummary, googleCampaignMetricsSummary,
-  queryCacheEntries
-} from "@shared/schema";
+  queryCacheEntries, amazonAdReports, demoRequests,
+  campaigns, adGroups, productAds, keywords, negativeKeywords,
+  insertCampaignMetricsSummarySchema, insertGoogleCampaignMetricsSummarySchema, insertQueryCacheSchema
+} from "./db/schema";
+
 import session from "express-session";
-import { drizzle } from "drizzle-orm/postgres-js";
-import postgres from "postgres";
 import { and, eq, gte, lte, desc, or, sql } from "drizzle-orm";
 import connectPg from "connect-pg-simple";
 import { nanoid } from "nanoid";
 import crypto from "crypto";
+import dotenv from "dotenv";
+import { db } from "./db";
+
+dotenv.config();
 
 const PostgresSessionStore = connectPg(session);
-
-const queryClient = postgres(process.env.DATABASE_URL!);
-const db = drizzle(queryClient);
 
 export interface IStorage {
   // User management
@@ -104,6 +110,30 @@ export interface IStorage {
   updateQueryCacheHitCount(id: number): Promise<QueryCacheEntry>;
   invalidateQueryCache(userId: string, olderThan?: Date): Promise<void>;
   
+  // Campaign management methods
+  createCampaign(campaign: Omit<InsertCampaign, "userId"> & { userId: string }): Promise<Campaign>;
+  getCampaign(id: number): Promise<Campaign | undefined>;
+  getCampaigns(userId: string, profileId?: string): Promise<Campaign[]>;
+  updateCampaignState(id: number, state: string): Promise<Campaign>;
+  
+  // Ad group management methods
+  createAdGroup(adGroup: Omit<InsertAdGroup, "userId"> & { userId: string }): Promise<AdGroup>;
+  getAdGroup(id: number): Promise<AdGroup | undefined>;
+  getAdGroups(campaignId: number): Promise<AdGroup[]>;
+  updateAdGroupState(id: number, state: string): Promise<AdGroup>;
+  
+  // Product ad management methods
+  createProductAd(productAd: Omit<InsertProductAd, "userId"> & { userId: string }): Promise<ProductAd>;
+  getProductAds(adGroupId: number): Promise<ProductAd[]>;
+  
+  // Keyword management methods
+  createKeyword(keyword: Omit<InsertKeyword, "userId"> & { userId: string }): Promise<Keyword>;
+  getKeywords(adGroupId: number): Promise<Keyword[]>;
+  
+  // Negative keyword management methods
+  createNegativeKeyword(negativeKeyword: Omit<InsertNegativeKeyword, "userId"> & { userId: string }): Promise<NegativeKeyword>;
+  getNegativeKeywords(adGroupId: number): Promise<NegativeKeyword[]>;
+  
   sessionStore: session.Store;
 }
 
@@ -111,12 +141,8 @@ export class DatabaseStorage implements IStorage {
   sessionStore: session.Store;
 
   constructor() {
-    this.sessionStore = new PostgresSessionStore({
-      conObject: {
-        connectionString: process.env.DATABASE_URL,
-      },
-      createTableIfMissing: true,
-    });
+    // No longer using session store with JWT authentication
+    this.sessionStore = null as any;
   }
 
   async getUser(id: string): Promise<User | undefined> {
@@ -253,13 +279,17 @@ export class DatabaseStorage implements IStorage {
 
   async getCampaignMetrics(userId: string, startDate: Date, endDate: Date): Promise<CampaignMetrics[]> {
     try {
+      // Convert Date objects to date objects for the database
+      const startDateStr = startDate.toISOString().split('T')[0];
+      const endDateStr = endDate.toISOString().split('T')[0];
+      
       return await db.select()
         .from(campaignMetrics)
         .where(
           and(
             eq(campaignMetrics.userId, userId),
-            gte(campaignMetrics.date, startDate),
-            lte(campaignMetrics.date, endDate)
+            gte(campaignMetrics.date, startDateStr),
+            lte(campaignMetrics.date, endDateStr)
           )
         )
         .orderBy(desc(campaignMetrics.date));
@@ -416,13 +446,17 @@ export class DatabaseStorage implements IStorage {
 
   async getGoogleCampaignMetrics(userId: string, startDate: Date, endDate: Date): Promise<GoogleCampaignMetrics[]> {
     try {
+      // Convert Date objects to date strings for the database
+      const startDateStr = startDate.toISOString().split('T')[0];
+      const endDateStr = endDate.toISOString().split('T')[0];
+      
       return await db.select()
         .from(googleCampaignMetrics)
         .where(
           and(
             eq(googleCampaignMetrics.userId, userId),
-            gte(googleCampaignMetrics.date, startDate),
-            lte(googleCampaignMetrics.date, endDate)
+            gte(googleCampaignMetrics.date, startDateStr),
+            lte(googleCampaignMetrics.date, endDateStr)
           )
         )
         .orderBy(desc(googleCampaignMetrics.date));
@@ -518,12 +552,14 @@ export class DatabaseStorage implements IStorage {
   async createCampaignMetricsSummary(summary: Omit<CampaignMetricsSummary, "id" | "createdAt" | "updatedAt">): Promise<CampaignMetricsSummary> {
     try {
       const now = new Date();
+      const summaryData = {
+        ...summary,
+        createdAt: now,
+        updatedAt: now
+      };
+      
       const [result] = await db.insert(campaignMetricsSummary)
-        .values({
-          ...summary,
-          createdAt: now,
-          updatedAt: now
-        })
+        .values(summaryData)
         .returning();
       return result;
     } catch (error) {
@@ -534,25 +570,27 @@ export class DatabaseStorage implements IStorage {
   
   async getCampaignMetricsSummaries(userId: string, timeFrame: string, startDate?: Date, endDate?: Date): Promise<CampaignMetricsSummary[]> {
     try {
-      let query = db.select()
-        .from(campaignMetricsSummary)
-        .where(
-          and(
-            eq(campaignMetricsSummary.userId, userId),
-            eq(campaignMetricsSummary.timeFrame, timeFrame)
-          )
-        );
-      
-      // Add date filters if provided
+      // Build the base query conditions
+      const conditions = [
+        eq(campaignMetricsSummary.userId, userId),
+        eq(campaignMetricsSummary.timeFrame, timeFrame)
+      ];
+
+      // Add date filters if provided, converting to string format
       if (startDate) {
-        query = query.where(gte(campaignMetricsSummary.startDate, startDate));
+        const startDateStr = startDate.toISOString().split('T')[0];
+        conditions.push(gte(campaignMetricsSummary.startDate, startDateStr));
       }
       
       if (endDate) {
-        query = query.where(lte(campaignMetricsSummary.endDate, endDate));
+        const endDateStr = endDate.toISOString().split('T')[0];
+        conditions.push(lte(campaignMetricsSummary.endDate, endDateStr));
       }
       
-      return await query.orderBy(desc(campaignMetricsSummary.endDate));
+      return await db.select()
+        .from(campaignMetricsSummary)
+        .where(and(...conditions))
+        .orderBy(desc(campaignMetricsSummary.endDate));
     } catch (error) {
       console.error('Error fetching campaign metrics summaries:', error);
       throw error;
@@ -667,7 +705,7 @@ export class DatabaseStorage implements IStorage {
                 });
               } else {
                 // Create new summary
-                await this.createCampaignMetricsSummary({
+                const summaryData = {
                   userId,
                   timeFrame: timeFrame.name,
                   startDate: startDateStr,
@@ -679,7 +717,8 @@ export class DatabaseStorage implements IStorage {
                   totalCost: Number(totalCost),
                   ctr,
                   conversions: 0 // Default value
-                });
+                };
+                await this.createCampaignMetricsSummary(summaryData);
               }
             }
           }
@@ -711,25 +750,27 @@ export class DatabaseStorage implements IStorage {
   
   async getGoogleCampaignMetricsSummaries(userId: string, timeFrame: string, startDate?: Date, endDate?: Date): Promise<GoogleCampaignMetricsSummary[]> {
     try {
-      let query = db.select()
-        .from(googleCampaignMetricsSummary)
-        .where(
-          and(
-            eq(googleCampaignMetricsSummary.userId, userId),
-            eq(googleCampaignMetricsSummary.timeFrame, timeFrame)
-          )
-        );
+      // Build the base query conditions
+      const conditions = [
+        eq(googleCampaignMetricsSummary.userId, userId),
+        eq(googleCampaignMetricsSummary.timeFrame, timeFrame)
+      ];
       
-      // Add date filters if provided
+      // Add date filters if provided, converting to string format
       if (startDate) {
-        query = query.where(gte(googleCampaignMetricsSummary.startDate, startDate));
+        const startDateStr = startDate.toISOString().split('T')[0];
+        conditions.push(gte(googleCampaignMetricsSummary.startDate, startDateStr));
       }
       
       if (endDate) {
-        query = query.where(lte(googleCampaignMetricsSummary.endDate, endDate));
+        const endDateStr = endDate.toISOString().split('T')[0];
+        conditions.push(lte(googleCampaignMetricsSummary.endDate, endDateStr));
       }
       
-      return await query.orderBy(desc(googleCampaignMetricsSummary.endDate));
+      return await db.select()
+        .from(googleCampaignMetricsSummary)
+        .where(and(...conditions))
+        .orderBy(desc(googleCampaignMetricsSummary.endDate));
     } catch (error) {
       console.error('Error fetching Google campaign metrics summaries:', error);
       throw error;
@@ -940,6 +981,134 @@ export class DatabaseStorage implements IStorage {
       console.error('Error invalidating query cache:', error);
       throw error;
     }
+  }
+
+  // Campaign management methods
+  async createCampaign(campaign: Omit<InsertCampaign, "userId"> & { userId: string }): Promise<Campaign> {
+    const campaignValues = {
+      ...campaign,
+      dailyBudget: typeof campaign.dailyBudget === 'string' ? 
+        parseFloat(campaign.dailyBudget) : campaign.dailyBudget,
+      createdAt: new Date(),
+      updatedAt: new Date()
+    };
+    
+    const [result] = await db.insert(campaigns)
+      .values(campaignValues)
+      .returning();
+    return result;
+  }
+  
+  async getCampaign(id: number): Promise<Campaign | undefined> {
+    const [result] = await db.select().from(campaigns).where(eq(campaigns.id, id));
+    return result;
+  }
+  
+  async getCampaigns(userId: string, profileId?: string): Promise<Campaign[]> {
+    let query = db.select()
+      .from(campaigns)
+      .where(eq(campaigns.userId, userId));
+      
+    if (profileId) {
+      query = query.where(eq(campaigns.profileId, profileId));
+    }
+    
+    return query.orderBy(desc(campaigns.createdAt));
+  }
+  
+  async updateCampaignState(id: number, state: string): Promise<Campaign> {
+    const [result] = await db.update(campaigns)
+      .set({ 
+        state,
+        updatedAt: new Date()
+      })
+      .where(eq(campaigns.id, id))
+      .returning();
+    return result;
+  }
+  
+  // Ad group management methods
+  async createAdGroup(adGroup: Omit<InsertAdGroup, "userId"> & { userId: string }): Promise<AdGroup> {
+    const adGroupValues = {
+      ...adGroup,
+      defaultBid: typeof adGroup.defaultBid === 'string' ? 
+        parseFloat(adGroup.defaultBid) : adGroup.defaultBid,
+      createdAt: new Date(),
+      updatedAt: new Date()
+    };
+    
+    const [result] = await db.insert(adGroups)
+      .values(adGroupValues)
+      .returning();
+    return result;
+  }
+  
+  async getAdGroup(id: number): Promise<AdGroup | undefined> {
+    const [result] = await db.select().from(adGroups).where(eq(adGroups.id, id));
+    return result;
+  }
+  
+  async getAdGroups(campaignId: number): Promise<AdGroup[]> {
+    return db.select()
+      .from(adGroups)
+      .where(eq(adGroups.campaignId, campaignId))
+      .orderBy(desc(adGroups.createdAt));
+  }
+  
+  async updateAdGroupState(id: number, state: string): Promise<AdGroup> {
+    const [result] = await db.update(adGroups)
+      .set({ 
+        state,
+        updatedAt: new Date()
+      })
+      .where(eq(adGroups.id, id))
+      .returning();
+    return result;
+  }
+  
+  // Product ad management methods
+  async createProductAd(productAd: Omit<InsertProductAd, "userId"> & { userId: string }): Promise<ProductAd> {
+    const [result] = await db.insert(productAds).values({
+      ...productAd,
+      createdAt: new Date()
+    }).returning();
+    return result;
+  }
+  
+  async getProductAds(adGroupId: number): Promise<ProductAd[]> {
+    return db.select()
+      .from(productAds)
+      .where(eq(productAds.adGroupId, adGroupId));
+  }
+  
+  // Keyword management methods
+  async createKeyword(keyword: Omit<InsertKeyword, "userId"> & { userId: string }): Promise<Keyword> {
+    const [result] = await db.insert(keywords).values({
+      ...keyword,
+      createdAt: new Date()
+    }).returning();
+    return result;
+  }
+  
+  async getKeywords(adGroupId: number): Promise<Keyword[]> {
+    return db.select()
+      .from(keywords)
+      .where(eq(keywords.adGroupId, adGroupId));
+  }
+  
+  // Negative keyword management methods
+  async createNegativeKeyword(negativeKeyword: Omit<InsertNegativeKeyword, "userId"> & { userId: string }): Promise<NegativeKeyword> {
+    const [result] = await db.insert(negativeKeywords).values({
+      ...negativeKeyword,
+      createdAt: new Date()
+    }).returning();
+    return result;
+  }
+  
+  async getNegativeKeywords(adGroupId: number): Promise<NegativeKeyword[]> {
+    return db.select()
+      .from(negativeKeywords)
+      .where(eq(negativeKeywords.adGroupId, adGroupId));
   }
 }
 

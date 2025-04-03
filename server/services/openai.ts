@@ -11,10 +11,20 @@ import OpenAI from "openai";
 import { Response } from "express";
 import { storage } from "../storage";
 import * as SQLBuilder from "./sqlBuilder";
-import { ChatConversation, ChatMessage as DbChatMessage } from "@shared/schema";
+import { ChatConversation, ChatMessage as DbChatMessage } from "@shared/types";
+import { amazonCampaignTools } from "../functions/amazon-campaign";
+import { googleCampaignTools } from "../functions/google-campaign";
+import { handleFunctionCall } from "../functions/handler";
+import { 
+  ChatCompletionMessageParam, 
+  ChatCompletionTool, 
+  ChatCompletionToolMessageParam,
+  ChatCompletionAssistantMessageParam,
+  ChatCompletionMessageToolCall
+} from "openai/resources/chat/completions";
 
 // Types for message roles in the OpenAI API
-export type MessageRole = "user" | "assistant" | "developer" | "system";
+export type MessageRole = "user" | "assistant" | "developer" | "system" | "tool";
 
 // Define the proper types for streaming response objects
 export interface ResponseTextDeltaEvent {
@@ -32,9 +42,37 @@ export interface ResponseFinishEvent {
 }
 
 export type ResponseStreamEvent = ResponseTextDeltaEvent | ResponseFinishEvent;
+
+// Extend the DbChatMessage interface to include toolCalls and toolCallId properties
+interface ExtendedDbChatMessage extends DbChatMessage {
+  toolCalls?: any[];
+  toolCallId?: string;
+}
+
+// For storing chat messages with extended properties
+type ExtendedChatMessage = DbChatMessage & {
+  toolCalls?: any[];
+  toolCallId?: string;
+};
+
+// Interface for messages to be sent to OpenAI API - use ChatCompletionMessageParam when needed
 export interface OpenAIMessage {
   role: MessageRole;
-  content: string;
+  content: string | null;
+  // For tool calls and tool results
+  tool_calls?: Array<{
+    id: string;
+    type: string;
+    function: {
+      name: string;
+      arguments: string;
+    }
+  }>;
+  tool_call_id?: string;
+}
+
+// Interface for our internal message tracking that can include metadata
+export interface InternalMessage extends OpenAIMessage {
   metadata?: Record<string, any>;
 }
 
@@ -46,350 +84,228 @@ export interface ChatCompletionOptions {
 }
 
 // Interface for database message data
-// Type for createChatMessage
+// Type for createChatMessage with extended properties
 interface MessageData {
   conversationId: string;
-  role: "user" | "assistant"; // Database requires "user" or "assistant" at this time
-  content: string;
+  role: "user" | "assistant" | "system" | "tool";
+  content: string | null;
+  toolCalls?: any[];
+  toolCallId?: string;
   metadata?: Record<string, any>;
 }
 
-/**
- * Initialize the OpenAI client with the API key
- */
-function getOpenAIClient(): OpenAI {
+// Initialize the OpenAI client
   const apiKey = process.env.OPENAI_API_KEY;
   if (!apiKey) {
-    throw new Error("OpenAI API key not found");
+  console.error("WARNING: OPENAI_API_KEY environment variable is not set");
+}
+
+const openaiClient = new OpenAI({
+  apiKey: apiKey || "dummy-key-for-development",
+});
+
+// Helper to extract content from message objects
+export function extractOpenAIMessageContent(message: any): string {
+  // If it's already a string, return it
+  if (typeof message === "string") return message;
+  
+  // If it's an array, convert to text
+  if (Array.isArray(message)) {
+    return message.map(item => {
+      if (typeof item === "string") return item;
+      // Handle text content from an object
+      if (item.type === "text" && item.text) return item.text;
+      return "";
+    }).join("\n");
   }
   
-  return new OpenAI({
-    apiKey
+  // If it's an object try to extract content
+  return message?.content || "";
+}
+
+/**
+ * Process messages from the database for use with OpenAI API
+ * This converts our DB format to OpenAI's expected format
+ */
+export function processMessagesForOpenAI(messages: ExtendedDbChatMessage[]): OpenAIMessage[] {
+  return messages.map((message): OpenAIMessage => {
+    let content = message.content;
+    
+    // Handle tool calls that are stored in the DB
+    if (message.role === "assistant" && message.toolCalls && message.toolCalls.length > 0) {
+      return {
+        role: "assistant",
+        content: message.content,
+        tool_calls: message.toolCalls.map(call => ({
+          id: call.id,
+          type: "function",
+          function: {
+            name: call.function.name,
+            arguments: typeof call.function.arguments === "string" 
+              ? call.function.arguments 
+              : JSON.stringify(call.function.arguments)
+          }
+        }))
+      };
+    }
+    
+    // Handle tool results
+    if (message.role === "tool" && message.toolCallId) {
+      return {
+        role: "tool",
+        content: message.content,
+        tool_call_id: message.toolCallId
+      };
+    }
+    
+    // Regular message
+            return {
+      role: message.role as MessageRole,
+      content: content
+    };
   });
 }
 
 /**
- * Handles data queries by using SQL Builder to convert natural language to SQL,
- * executing the query, and then formatting the results for the user.
- *
- * This function maintains a complete separation of concerns - the user never sees
- * the SQL or knows that a second LLM is involved.
- *
- * @param conversationId - The ID of the conversation
- * @param userId - The user ID making the query
- * @param res - Express response object for streaming
- * @param query - The natural language query from the user
- * @param conversationContext - Optional prior conversation for context
+ * Clean system prompt by removing excess whitespace and normalizing line breaks
  */
-async function handleDataQuery(
-  conversationId: string,
-  userId: string,
-  res: Response,
-  query: string,
-  conversationContext?: string,
-): Promise<void> {
-  // Check if this is a meta-query asking about previous campaign selection
-  const isSelectionExplanationQuery = query.toLowerCase().match(/(why|how).*(pick|chose|select|unique|special|only|criteria)/);
-    
-  if (isSelectionExplanationQuery) {
-    console.log(`Handling selection explanation query: "${query}" with ${conversationContext ? "context" : "no context"}`);
-  } else {
-    console.log(`Handling data query: "${query}" with ${conversationContext ? "context" : "no context"}`);
+function cleanSystemPrompt(prompt: string): string {
+  // Remove excess leading/trailing whitespace from lines
+  return prompt
+    .split('\n')
+    .map(line => line.trim())
+    .join('\n')
+    .trim();
+}
+
+/**
+ * Extract SQL query from an LLM response
+ */
+export function extractSQLQuery(content: string): string | null {
+  // Match SQL query pattern between ```sql and ``` tags
+  const sqlMatch = content.match(/```sql\s*([\s\S]*?)\s*```/);
+  if (sqlMatch && sqlMatch[1]) {
+    return sqlMatch[1].trim();
   }
+  
+  // Also try without the sql language specifier
+  const codeMatch = content.match(/```\s*(SELECT[\s\S]*?)\s*```/i);
+  if (codeMatch && codeMatch[1]) {
+    return codeMatch[1].trim();
+  }
+  
+  return null;
+}
 
+/**
+ * Detect if a message might need tools enabled.
+ * Used to determine whether to include tools in the API request.
+ */
+function mightNeedToolsEnabled(message: string): boolean {
+  // Always include tools for most messages to ensure availability
+  if (!message) return false;
+  
+  const toolRelatedPatterns = [
+    /campaign/i,
+    /advert/i,
+    /amazon/i,
+    /google/i,
+    /sponsor/i,
+    /product/i,
+    /ad group/i, 
+    /keyword/i,
+    /budget/i,
+    /creat/i,
+    /set ?up/i,
+    /launch/i,
+    /start/i,
+    /new/i,
+    /add/i,
+    /make/i,
+    /generat/i,
+    /build/i,
+    /advertis/i,
+    /display/i,
+    /date/i,
+    /today/i,
+    /tomorrow/i,
+    /bid/i,
+    /target/i
+  ];
+  
+  return toolRelatedPatterns.some(pattern => pattern.test(message));
+}
+
+/**
+ * Get or create a chat conversation, adding a helper method to storage
+ */
+async function getOrCreateChatConversation(conversationId: string, userId: string): Promise<ChatConversation> {
   try {
-    // Send a thinking message to the client, with different wording based on query type
-    if (isSelectionExplanationQuery) {
-      res.write(
-        `data: ${JSON.stringify({
-          content: "I'm looking at the selection criteria behind these campaigns...",
-        })}\n\n`,
-      );
-    } else {
-      res.write(
-        `data: ${JSON.stringify({
-          content: "I'm analyzing your campaign data...",
-        })}\n\n`,
-      );
+    let conversation = await storage.getChatConversation(conversationId);
+    if (!conversation) {
+      conversation = await storage.createChatConversation(conversationId, userId);
     }
-
-    // Parse the conversation context for revenue information
-    let revenueInfo = null;
-    if (conversationContext) {
-      const revenueMatch = conversationContext.match(/revenue\s+is\s+(\d+)/i);
-      if (revenueMatch && revenueMatch[1]) {
-        revenueInfo = {
-          value: parseFloat(revenueMatch[1]),
-          currency: "$",
-        };
-        console.log(
-          `Found revenue information in conversation context: ${revenueInfo.currency}${revenueInfo.value}`,
-        );
-      }
-    }
-
-    // Parse for campaign IDs in the context
-    let campaignIds: string[] = [];
-    if (conversationContext) {
-      const campaignIdRegex = /Campaign\s+(?:ID)?\s*[:\s]+(\d{8,})/gi;
-      let match;
-      while ((match = campaignIdRegex.exec(conversationContext)) !== null) {
-        if (match[1] && !campaignIds.includes(match[1])) {
-          campaignIds.push(match[1]);
-        }
-      }
-      if (campaignIds.length > 0) {
-        console.log(`Found campaign IDs in context: ${campaignIds.join(", ")}`);
-      }
-    }
-
-    // Process the query with SQL Builder, passing conversation context if available
-    // The SQL Builder checks cache & summaries before executing SQL
-    const sqlResult = await SQLBuilder.processSQLQuery(userId, query, conversationContext);
-
-    let responseContent = "";
-    let messageData: MessageData;
-
-    if (sqlResult.error) {
-      // If there was an error processing the SQL query
-      responseContent = `I encountered an issue while analyzing your campaign data: ${sqlResult.error}`;
-    } else if (
-      !sqlResult.data ||
-      (Array.isArray(sqlResult.data) && sqlResult.data.length === 0)
-    ) {
-      // If no data was found
-      responseContent = "I couldn't find any campaign data matching your query. Could you please try rephrasing or specifying a different time period?";
-    } else {
-      // If we have data, process it
-
-      // Enhance data with revenue information if available
-      if (revenueInfo && sqlResult.data) {
-        // Assume sqlResult.data is an array of objects
-        const processedData = sqlResult.data.map((item: any) => {
-          // Only add revenue to items with campaignId that matches ones in context
-          if (
-            item.campaign_id &&
-            (!campaignIds.length || campaignIds.includes(item.campaign_id))
-          ) {
-            return {
-              ...item,
-              revenue: revenueInfo.value,
-              revenue_currency: revenueInfo.currency,
-            };
-          }
-          return item;
-        });
-
-        // Replace the data with our processed version
-        sqlResult.data = processedData;
-      }
-
-      // Use OpenAI to format the data, with stronger instructions against hallucination
-      const openaiClient = getOpenAIClient();
-
-      const response = await openaiClient.responses.create({
-        model: "gpt-4o",
-        input: [
-          {
-            role: "developer",
-            content: `You are an engaging advertising campaign advisor with a friendly, conversational personality.
-                     Format the following campaign data into an insightful, personable response that tells a compelling story.
-                     
-                     CRITICAL INSTRUCTIONS:
-                     1. ONLY use the exact data provided to you. DO NOT add, modify, or invent any metrics.
-                     2. If the data appears incomplete or suspicious, mention this fact rather than filling gaps.
-                     3. Use the exact campaign IDs and numeric values from the data - never round numbers.
-                     4. If values appear unusual (e.g., very high or low), note this but do not change them.
-                     5. Do not invent explanations for patterns unless clearly evident in the data.
-                     6. CTR values should be shown with % symbol and exactly one decimal place.
-                     7. Format ROAS values with an 'x' suffix to represent as a ratio (e.g., "9.98x").
-                     8. Only calculate metrics for campaigns mentioned in the context, never for random campaign IDs.
-                     
-                     STORYTELLING & NARRATIVE REQUIREMENTS:
-                     1. Frame data within a clear narrative structure (setup → insight → implication)
-                     2. Connect current data to historical trends or industry benchmarks when appropriate
-                     3. Use vivid, descriptive language for campaign performance (e.g., "skyrocketing clicks" vs. "increased clicks")
-                     4. Create "bridging statements" between data points to make the narrative flow smoothly
-                     5. Include a clear "key takeaway" or main insight from the data
-                     6. When discussing trends, use specific quantitative changes (e.g., "CTR increased by 1.2%")
-                     7. Use industry-specific interpretive frameworks to add context to the numbers
-                     8. Frame metrics in terms of business outcomes, not just technical measurements
-                     9. Create narrative continuity between this response and previous conversations
-                     
-                     CONTEXTUAL AWARENESS (CRITICAL):
-                     1. Maintain explicit memory of campaign IDs, metrics, and time periods from previous messages
-                     2. Properly resolve references like "it," "that campaign," or "those metrics" by context
-                     3. When user references "the highest performing campaign" or similar, correctly identify which one
-                     4. Apply revenue/conversion information from previous messages to relevant campaign discussions
-                     5. If user mentions "yesterday's campaigns" or other temporal references, correctly connect to prior data
-                     6. Track campaign IDs mentioned across the entire conversation history
-                     7. Actively maintain context about which metrics were most important to the user
-                     8. If user refers to "the conversion issue we discussed," recall the specific conversion problems
-                     9. Recognize when current query is a follow-up to previous data discussion
-                     10. Apply revenue data provided earlier to calculate metrics in current responses
-                     
-                     SELECTION CRITERIA EXPLANATION (CRITICAL):
-                     1. ALWAYS explicitly explain WHY certain campaigns were selected for display
-                     2. Use selection criteria as a primary framing element in your narrative
-                     3. Connect the selection logic directly to the user's question
-                     4. Explain in plain language what made these specific campaigns relevant to their query
-                     5. If sorted by a metric, explain why that sort order matters in this context
-                     6. If filtered by date range, clarify why that timeframe is relevant
-                     7. Make the reasoning behind campaign inclusion/exclusion completely transparent
-                     8. Proactively explain why other campaigns might have been excluded
-                     9. When showing "top" campaigns, explain the specific metric used for ranking
-                     10. If selection criteria includes complex logic, break it down into simple explanations
-                     
-                     CONVERSATION & PERSONALITY REQUIREMENTS:
-                     1. Be conversational and friendly - sound like a curious colleague, not a data report
-                     2. Ask 2-3 specific follow-up questions that suggest next analytical directions
-                     3. Show appropriate emotion when metrics are good ("Great news!") or concerning
-                     4. Use the user's language style and match their level of formality/casualness
-                     5. Be curious about the "why" behind the metrics, not just the numbers themselves
-                     6. Suggest what they might want to look at next based on the current data
-                     7. Sound curious and ask follow-up questions to keep the conversation going
-                     8. Briefly mention why this data might be important to their business goals
-                     9. ALWAYS end with an open-ended question that invites further discussion
-                     
-                     Formatting guidelines:
-                     1. Present the data in a clear, easy-to-understand format
-                     2. Use bullet points, tables, or other formatting to make the data readable
-                     3. Highlight any insights visible in the actual data
-                     4. Do NOT mention SQL or databases - present as if you analyzed the data yourself
-                     5. Keep the tone professional yet friendly and conversational
-                     6. Make sure monetary values are formatted appropriately (with currency symbols)
-                     7. Break up your response with short paragraphs - avoid large text blocks`
-          },
-          {
-            role: "user",
-            content: `The user asked: "${query}"
-                     
-                     Here is the EXACT campaign data that must be used (do not modify these values):
-                     ${JSON.stringify(sqlResult.data, null, 2)}
-                     
-                     ${sqlResult.selectionMetadata ? `SELECTION CRITERIA: ${sqlResult.selectionMetadata.selectionCriteria}` : ''}
-                     ${revenueInfo ? `The user mentioned revenue is ${revenueInfo.currency}${revenueInfo.value}` : ""}
-                     ${campaignIds.length > 0 ? `The conversation mentioned these campaign IDs: ${campaignIds.join(", ")}` : ""}
-                     
-                     ${isSelectionExplanationQuery ? "The user wants to understand WHY specific campaigns were selected. Explain the criteria thoroughly." : ""}
-                     
-                     Format this data into a helpful response using ONLY the actual values provided.
-                     If the data seems incomplete or suspicious, acknowledge this in your response.`
-          }
-        ],
-        max_output_tokens: 1000,
-        temperature: 0.3, // Lower temperature for more factual responses
-        text: {
-          format: {
-            type: "text"
-          }
-        },
-        reasoning: {},
-        store: true
-      });
-
-      // Extract the response content
-      responseContent = response.output_text || "";
-      
-      // If we got a response, create a system message showing what SQL was used (for debugging)
-      console.log(`SQL used: ${sqlResult.sql}`);
-      console.log(`Data found: ${sqlResult.data.length} records`);
-    }
-
-    // Stream back the response content to the client
-    res.write(
-      `data: ${JSON.stringify({
-        content: responseContent,
-      })}\n\n`,
-    );
-
-    // Stream completion signal
-    res.write("data: [DONE]\n\n");
-
-    // Save the assistant's response to the database with enhanced metadata
-    messageData = {
-      conversationId,
-      role: "assistant" as const,
-      content: responseContent,
-      metadata: {
-        isDataQuery: true,
-        sqlUsed: sqlResult.sql,
-        recordCount: sqlResult.data ? sqlResult.data.length : 0,
-        fromCache: sqlResult.fromCache || false,
-        fromSummary: sqlResult.fromSummary || false,
-        fromFallback: sqlResult.fromFallback || false,
-        revenueApplied: revenueInfo !== null,
-        revenueValue: revenueInfo ? revenueInfo.value : null,
-        mentionedCampaignIds: campaignIds.length > 0 ? campaignIds : [],
-        // Add selection criteria metadata if available
-        selectionCriteria: sqlResult.selectionMetadata ? sqlResult.selectionMetadata.selectionCriteria : null,
-        originalQuery: sqlResult.selectionMetadata ? sqlResult.selectionMetadata.originalQuery : query,
-        // Track dates and time periods to improve future contextual responses
-        detectedTimeFrame: sqlResult.data && sqlResult.data.length > 0 && sqlResult.data[0].date ? 
-          {start: sqlResult.data[0].date, end: sqlResult.data[sqlResult.data.length-1].date} : null,
-        // Track key metrics found in the data
-        metricsFound: sqlResult.data && sqlResult.data.length > 0 ? 
-          Object.keys(sqlResult.data[0]).filter(key => 
-            ['impressions', 'clicks', 'cost', 'ctr', 'roas', 'conversions'].includes(key)
-          ) : [],
-      },
-    };
-
-    const assistantMessage = await storage.createChatMessage(messageData);
-    console.log("AI response saved successfully with ID:", assistantMessage.id);
+    return conversation;
   } catch (error) {
-    console.error("Error handling data query:", error);
-
-    // Send error message to client
-    res.write(
-      `data: ${JSON.stringify({
-        content:
-          "I'm sorry, I encountered an error while processing your data query. Please try again or contact support if the issue persists.",
-      })}\n\n`,
-    );
-
-    // Stream completion signal
-    res.write("data: [DONE]\n\n");
-
-    // Save error message to database
-    const messageData: MessageData = {
-      conversationId,
-      role: "assistant" as const,
-      content:
-        "I'm sorry, I encountered an error while processing your data query. Please try again or contact support if the issue persists.",
-      metadata: {
-        isDataQuery: true,
-        error: error instanceof Error ? error.message : String(error),
-        // Include the original query for debugging purposes
-        originalQuery: query,
-        isSelectionExplanationQuery: isSelectionExplanationQuery || false,
-      },
-    };
-
-    await storage.createChatMessage(messageData);
-  } finally {
-    // End the response
-    res.end();
+    console.error("Error getting or creating conversation:", error);
+    return await storage.createChatConversation(conversationId, userId);
   }
 }
 
 /**
- * Process streaming response from OpenAI and save to database
- * @param conversationId - The ID of the conversation
- * @param res - The Express response object for streaming
- * @param messages - The messages to send to OpenAI
- * @param systemPrompt - Optional system prompt to override default
+ * Stream a chat completion from OpenAI, handling token streaming,
+ * tool calls, and function invocation.
+ * 
+ * @param conversationId The ID of the conversation
+ * @param userId The ID of the user
+ * @param res Express response object for streaming
+ * @param messages Messages to send to OpenAI
+ * @param systemPrompt System prompt to prepend
  */
 export async function streamChatCompletion(
   conversationId: string,
   userId: string,
   res: Response | null,
   messages?: OpenAIMessage[],
-  systemPrompt: string = `You are a friendly, conversational AI assistant for Adspirer, a platform that helps manage retail media advertising campaigns. You're a knowledgeable expert with a warm, engaging personality who understands both the data side and human side of advertising campaigns.
+  systemPrompt: string = `You are an AI assistant that helps advertisers create and manage their online ads for Amazon and Google. You can help users create campaigns, ad groups, keywords, and ads through natural language conversations.
+
+For Amazon advertising, you can:
+1. Create Sponsored Products campaigns
+2. Create ad groups within campaigns
+3. Add products to ad groups
+4. Add keywords to ad groups
+5. Add negative keywords to ad groups
+
+For Google Ads, you can:
+1. Create campaign budgets
+2. Create search campaigns
+3. Create ad groups
+4. Add keywords to ad groups
+5. Add negative keywords to ad groups
+6. Create responsive search ads
+7. Add location and language targeting to campaigns
+
+When helping users, follow these guidelines:
+- Ask for all necessary information before creating a campaign
+- For Google Ads campaigns, guide users through the complete process:
+  a) Create campaign budget
+  b) Create campaign
+  c) Add location and language targeting (important for proper ad delivery)
+  d) Create ad group
+  e) Add keywords
+  f) Create responsive search ads (at least 3 headlines and 2 descriptions required)
+- Explain the purpose of each step
+- Suggest best practices for campaign settings
+- Recommend relevant keywords based on the products or services
+- For Google Responsive Search Ads, suggest multiple headlines (at least 3) and descriptions (at least 2)
+- Provide clear feedback on the success or failure of operations
+
+You can use the following function calls to interact with the respective advertising platforms.
+Only use these functions when the user has provided enough information to create a specific entity.
   
 KEY CONVERSATION GUIDELINES:
 1. Be genuinely conversational and personable - interact like a helpful colleague, not a data report
-2. ALWAYS ask clarifying questions when the user's request is vague or could be interpreted in multiple ways
+2. Ask clarifying questions only when essential information is missing for a task or when the request is genuinely ambiguous
 3. Show authentic enthusiasm for good results and appropriate concern for poor metrics
 4. Express interest in the user's business and their challenges/successes
 5. Match the user's tone, style, and level of formality in your responses
@@ -419,6 +335,33 @@ CONTEXTUAL AWARENESS:
 11. When the user asks "why" questions about your previous responses, clearly explain the criteria or methodology you used
 12. If the user asks about your selection of campaigns or data points, explain exactly what factors guided that selection
 
+DATE HANDLING:
+1. The current date is available via the get_current_date tool - use this as your reference when needed
+2. Understand natural language dates from the user (e.g., "tomorrow", "next Monday", "April 10th")
+3. Calculate the specific date based on the user's input and the current date as reference
+4. **CRITICAL:** When calling any tool that requires a date (like create_amazon_sp_campaign), you MUST format the calculated date into the **YYYY-MM-DD** string format
+5. Do not pass relative terms like "tomorrow" or "next week" to tools - always convert to YYYY-MM-DD
+6. If a user provides a date without a year (e.g., "April 3rd"), assume the current year unless the date has clearly passed
+7. When ambiguous, confirm the calculated date with the user before proceeding
+8. If a user provides a date that is before the current date for a start date, point this out gently and ask for a valid future date
+9. After the user confirms the dates, use the string date in YYYY-MM-DD format in your tool calls
+10. IMPORTANT SEQUENCE FOR DATES:
+   a. When user mentions a relative date (like 'tomorrow'), FIRST call get_current_date
+   b. From the get_current_date response, extract the specific date string (e.g. response.tomorrow)
+   c. THEN use that extracted date string for the tool parameter requiring a date
+
+CAMPAIGN CREATION CAPABILITIES:
+1. You can help users create both Amazon Ads campaigns and Google Ads campaigns through a series of guided questions
+2. When users request to create a campaign, gather ALL necessary information conversationally
+3. Do NOT ask only one question per turn. Ask for related details together (e.g., "Okay, let's set up your campaign! What name, daily budget, and start date are you thinking of?")
+4. Guide the user naturally. If they provide multiple pieces of info at once, acknowledge them. If they miss something, ask for it specifically
+5. Once you have gathered necessary information for a step, proceed with the appropriate tool call
+6. When the user has provided or confirmed the necessary information, proceed to use the appropriate tools
+7. CRITICAL: When you have enough information to use a tool (even if not every possible field is specified), proceed to call the tool rather than asking more questions. Default values will be used for optional parameters.
+8. You may need to make multiple tool calls sequentially based on the results
+9. After the tools execute successfully, inform the user that the campaign setup is complete
+10. For Amazon campaigns, use the amazon_* tools. For Google campaigns, use the google_* tools.
+
 FORMATTING AND TECHNICAL GUIDELINES:
 1. ALWAYS present ROAS (Return on Ad Spend) as a ratio with the "x" suffix (e.g., "9.98x" not "998%")
 2. Compare ROAS values properly (e.g., "ROAS increased from 4.2x to 9.8x")
@@ -434,733 +377,357 @@ EXAMPLES OF GOOD RESPONSES:
 2. "I notice your click-through rate has dropped by 0.5% since last week for the campaigns you mentioned. This could indicate several things, such as ad fatigue or changing market conditions. Would you like me to analyze what might be causing this change?"
 3. "Thanks for sharing that information! $15 per conversion will help me calculate more meaningful ROAS for your campaigns. Looking at Campaign 87654, with this conversion value, your ROAS is actually 3.2x - a solid performer. Would you like to see which of your campaigns is getting the best return based on this value?"`,
 ): Promise<void> {
-  // Determine if this is a streaming response (with res object) or non-streaming (welcome message)
-  const isStreaming = !!res;
-
   try {
-    // Get the current conversation 
-    const conversation = await storage.getChatConversation(conversationId);
-    if (!conversation) {
-      throw new Error(`Conversation not found: ${conversationId}`);
+    // Get or create a new conversation
+    const conversation = await getOrCreateChatConversation(conversationId, userId);
+    
+    // If no messages are provided, load from the database
+    if (!messages) {
+      const dbMessages = await storage.getChatMessages(conversationId) as ExtendedDbChatMessage[];
+      messages = processMessagesForOpenAI(dbMessages);
     }
     
-    // If no messages were provided, fetch them from the database
-    if (!messages || !Array.isArray(messages)) {
-      console.log("No messages provided, fetching from database");
-      messages = await getConversationHistory(conversationId);
-    }
-
-    console.log("Generating chat completion for conversation:", conversationId);
-    console.log("Retrieved", messages.length, "messages for chat completion context");
-
-    // ----- INTELLIGENT QUERY HANDLING -----
-    // Get the most recent user message
-    const userMessages = messages.filter((msg) => msg.role === "user");
-    const lastUserMessage =
-      userMessages.length > 0
-        ? userMessages[userMessages.length - 1].content
-        : "";
-
-    // Generate enhanced conversation context with structured information
-    let conversationContext = "";
-    let structuredContext = {
-      mentionedCampaignIds: [] as string[],
-      timeFrames: [] as {start?: string, end?: string, description?: string}[],
-      revenue: null as {value: number, currency: string} | null,
-      metrics: [] as string[],
-      recentTopics: [] as string[]
-    };
+    // Get last user message to detect if we need tools
+    const lastUserMessageIdx = [...messages].reverse().findIndex(m => m.role === "user");
+    const lastUserMessage = lastUserMessageIdx >= 0 ? 
+      messages[messages.length - 1 - lastUserMessageIdx] : null;
     
-    // Process messages to extract structured context information
-    for (const msg of messages.filter((m: OpenAIMessage) => m.role !== "developer")) {
-      // Add the basic message content
-      conversationContext += `${msg.role}: ${msg.content}\n\n`;
-      
-      // We need to use type assertions because TypeScript doesn't know the structure
-      // of the metadata object that might be present in the message
-      const msgWithMetadata = msg as unknown as { 
-        role: string;
-        content: string;
-        metadata?: { 
-          mentionedCampaignIds?: string[];
-          detectedTimeFrame?: { start?: string; end?: string; description?: string };
-          revenueApplied?: boolean;
-          revenueValue?: number;
-          metricsFound?: string[];
-        } 
-      };
-      
-      // Extract additional structured information if this is an assistant message with metadata
-      if (msg.role === "assistant" && msgWithMetadata.metadata) {
-        const metadata = msgWithMetadata.metadata;
-        
-        // Track campaign IDs mentioned
-        if (metadata.mentionedCampaignIds && Array.isArray(metadata.mentionedCampaignIds)) {
-          structuredContext.mentionedCampaignIds = [
-            ...structuredContext.mentionedCampaignIds,
-            ...metadata.mentionedCampaignIds.filter((id: string) => 
-              !structuredContext.mentionedCampaignIds.includes(id)
-            )
-          ];
-        }
-        
-        // Track time frames
-        if (metadata.detectedTimeFrame) {
-          structuredContext.timeFrames.push(metadata.detectedTimeFrame);
-        }
-        
-        // Track revenue information
-        if (metadata.revenueApplied && metadata.revenueValue !== undefined) {
-          structuredContext.revenue = {
-            value: metadata.revenueValue,
-            currency: "$" // Default for now
-          };
-        }
-        
-        // Track metrics discussed
-        if (metadata.metricsFound && Array.isArray(metadata.metricsFound)) {
-          structuredContext.metrics = [
-            ...structuredContext.metrics,
-            ...metadata.metricsFound.filter((metric: string) => !structuredContext.metrics.includes(metric))
-          ];
-        }
-      }
-      
-      // Also check user messages for revenue information
-      if (msg.role === "user") {
-        const revenueMatch = msg.content.match(/revenue\s+is\s+\$?(\d+)/i);
-        if (revenueMatch && revenueMatch[1]) {
-          structuredContext.revenue = {
-            value: parseFloat(revenueMatch[1]),
-            currency: "$"
-          };
-        }
-        
-        // Extract campaign IDs from user messages
-        const campaignIdRegex = /Campaign\s+(?:ID)?\s*[:\s]+(\d{8,})/gi;
-        let match;
-        while ((match = campaignIdRegex.exec(msg.content)) !== null) {
-          if (match[1] && !structuredContext.mentionedCampaignIds.includes(match[1])) {
-            structuredContext.mentionedCampaignIds.push(match[1]);
-          }
-        }
-      }
-    }
+    // Check if the message might need tools
+    const mightNeedTools = lastUserMessage && 
+      typeof lastUserMessage.content === "string" && 
+      mightNeedToolsEnabled(lastUserMessage.content);
     
-    // Add structured context summary to the conversation context
-    conversationContext += "\n--- CONVERSATION SUMMARY ---\n";
-    if (structuredContext.mentionedCampaignIds.length > 0) {
-      conversationContext += `Previously mentioned campaign IDs: ${structuredContext.mentionedCampaignIds.join(", ")}\n`;
-    }
-    
-    if (structuredContext.timeFrames.length > 0) {
-      conversationContext += "Time periods discussed: ";
-      structuredContext.timeFrames.forEach((tf, i) => {
-        if (tf.description) {
-          conversationContext += tf.description;
-        } else if (tf.start && tf.end) {
-          conversationContext += `${tf.start} to ${tf.end}`;
-        }
-        conversationContext += i < structuredContext.timeFrames.length - 1 ? ", " : "\n";
-      });
-    }
-    
-    if (structuredContext.revenue) {
-      conversationContext += `Revenue per conversion: ${structuredContext.revenue.currency}${structuredContext.revenue.value}\n`;
-    }
-    
-    if (structuredContext.metrics.length > 0) {
-      conversationContext += `Metrics discussed: ${structuredContext.metrics.join(", ")}\n`;
-    }
-    
-    console.log("Enhanced conversation context created with structured information");
-
-    // For streaming responses, check if this is a data query that should be handled by SQL Builder
-    if (isStreaming) {
-      // Quick early check for common message patterns that should never go to SQL Builder
-      // These include greetings, short messages, questions about the assistant, etc.
-      const simpleGreetings = [
-        "hi", "hello", "hey", "hi there", "hello there", "hey there", 
-        "good morning", "good afternoon", "good evening", "greetings",
-        "thanks", "thank you", "cool", "awesome", "nice", "great",
-        "i see", "got it", "understood", "ok", "okay"
-      ];
-      
-      // Patterns to bypass SQL routing entirely
-      const bypassPatterns = [
-        // Questions about the AI itself
-        /\byou\b.*\b(mean|said|do|think|know|understand|explain)\b/i,
-        /\bwhy did you\b/i,
-        /\bwhat do you\b/i,
-        /\bcan you\b/i,
-        
-        // Meta discussion about the conversation
-        /\bwhat (does|did) that mean\b/i,
-        /\bi('m| am) confused\b/i,
-        /\bclarify\b/i,
-        /\bexplain\b/i,
-        
-        // Follow-up patterns
-        /\btell me more\b/i,
-        /\belaborate\b/i,
-        /^(what|why|how) about/i,
-        
-        // Feedback patterns
-        /\bthat('s| is) (not|wrong|incorrect|right|correct)\b/i,
-        
-        // Non-data information requests
-        /\bhow (do|can|should) I\b/i
-      ];
-      
-      // Check if message matches any bypass conditions
-      const isSimpleGreeting = simpleGreetings.includes(lastUserMessage.toLowerCase()) || lastUserMessage.length < 10;
-      const matchesPatterns = bypassPatterns.some(pattern => pattern.test(lastUserMessage));
-      
-      if (lastUserMessage && (isSimpleGreeting || matchesPatterns)) {
-        // Pattern detected that should never use SQL Builder
-        console.log(`Conversational pattern detected: "${lastUserMessage}" → GENERAL (bypassed routing)`);
-        // Continue to regular chat completion after this if block (don't enter the else block)
-      } else {
-        // Proceed with LLM-based routing for more complex queries
-        const openaiClient = getOpenAIClient();
-
-        // Use Responses API for routing decision
-        const routingResponse = await openaiClient.responses.create({
-          model: "gpt-4o",
-          input: [
-            {
-              role: "developer",
-              content: `You are a routing agent for an advertising platform assistant.
-                       Your job is to determine if a user's message should be answered with:
-                       1. Campaign data from the database (using SQL) - respond with "DATA"
-                       2. General knowledge or conversational responses - respond with "GENERAL"
-                       
-                       ONLY route to "DATA" if the user is CLEARLY asking for NEW information about:
-                       - Current campaign performance or metrics
-                       - Specific data analysis about their ad accounts
-                       - Reports on impressions, clicks, costs, etc. requiring fresh data
-                       
-                       Examples of valid DATA queries:
-                       - "How are my Amazon campaigns performing right now?"
-                       - "What was my CTR last week?"
-                       - "Show me my campaigns with the highest ROAS"
-                       - "Which of my Google ads had the most impressions yesterday?"
-                       
-                       DO NOT route to DATA (use GENERAL instead) for:
-                       - Questions about previous responses ("why did you say X?")
-                       - Clarifications about data already provided ("what does this mean?")
-                       - Questions about the conversation itself
-                       - General advertising concepts or strategy
-                       - Simple greetings or casual conversation
-                       - Meta-discussion about previous answers
-                       - Requests to summarize the conversation
-                       - Questions that start with "I'm confused..." or similar phrases
-                       - Questions that refer to "you" (the assistant) rather than campaigns
-                       - Questions that ask for explanation rather than new data
-                       
-                       Respond with EXACTLY one word only: either "DATA" or "GENERAL".`
-            },
-            {
-              role: "user",
-              content: `User message: "${lastUserMessage}"
-                       
-                       Previous conversation context (if any):
-                       ${conversationContext.length > 0 ? conversationContext : "No previous context"}`
-            }
-          ],
-          max_output_tokens: 1000, // Very short response needed
-          temperature: 0.0, // Zero temperature for deterministic response
-          text: {
-            format: {
-              type: "text"
-            }
-          },
-          reasoning: {},
-          store: true
-        });
-
-        // Get routing decision
-        const routingDecision = routingResponse.output_text?.trim().toUpperCase() || "";
-        console.log(`Routing decision for "${lastUserMessage}": ${routingDecision}`);
-
-        if (routingDecision === "DATA") {
-          // Handle as data query with SQL Builder
-          await handleDataQuery(
-            conversationId,
-            userId,
-            res!,
-            lastUserMessage,
-            conversationContext,
-          );
-          return; // Exit early as response was handled in handleDataQuery
-        }
-        // If not a data query, continue with regular chat completion below
-      }
-    }
-    // ----- END INTELLIGENT QUERY HANDLING -----
-
-    // Initialize OpenAI client
-    const openaiClient = getOpenAIClient();
-
-    // Configure SSE headers for streaming
-    if (isStreaming) {
-      res!.setHeader("Content-Type", "text/event-stream");
-      res!.setHeader("Cache-Control", "no-cache");
-      res!.setHeader("Connection", "keep-alive");
-    }
-
-    console.log("Creating chat completion with OpenAI GPT-4o...");
-    console.log(
-      `Mode: ${isStreaming ? "Streaming" : "Non-streaming welcome message"}`,
-    );
-
-    // Convert to the format expected by the Responses API
-    // System prompt goes into the developer role at the beginning of the array
-    const inputMessages = [
-      { role: "developer" as MessageRole, content: systemPrompt },
-      ...messages
+    // Create final messages array with system prompt
+    const fullMessages: ChatCompletionMessageParam[] = [
+      { 
+        role: "system", 
+        content: cleanSystemPrompt(systemPrompt) 
+      },
+      ...messages as ChatCompletionMessageParam[]
     ];
-
-    console.log("Messages being sent to OpenAI:", JSON.stringify(inputMessages, null, 2));
-
-    // For welcome messages we can use non-streaming for simplicity
-    if (!isStreaming) {
-      // Non-streaming completion for welcome messages
-      const welcomeResponse = await openaiClient.responses.create({
-        model: "gpt-4o",
-        input: inputMessages,
-        temperature: 0.7,
-        max_output_tokens: 500, // Welcome messages can be shorter
-        text: {
-          format: {
-            type: "text"
-          }
-        },
-        reasoning: {},
-        store: true
-      });
-
-      // Use string indexing for type safety since the API types might not match actual response
-      let welcomeMessage = "";
-      if (typeof welcomeResponse === 'object' && welcomeResponse !== null) {
-        // Try to get the text from various possible locations in the response
-        welcomeMessage = 
-          (typeof welcomeResponse['text'] === 'string' ? welcomeResponse['text'] : '') || 
-          (typeof welcomeResponse['output_text'] === 'string' ? welcomeResponse['output_text'] : '') || 
-          "Hi there! 👋 I'm your friendly Adspirer assistant, ready to help you get the most from your advertising campaigns. I can analyze your campaign data, help you understand performance metrics, or just chat about digital advertising strategy. What would you like to explore today?";
+      
+    console.log(`Might need tools: ${mightNeedTools}`);
+    
+    // Convert Amazon and Google campaign tools to the OpenAI expected format
+    const toolsFormatted = [
+      ...amazonCampaignTools.map(tool => ({
+        type: 'function' as const,
+      function: {
+        name: tool.name,
+        description: tool.description,
+        parameters: tool.parameters
       }
-
-      // Save welcome message to database
-      const messageData: MessageData = {
-        conversationId,
-        role: "assistant" as const,
-        content: welcomeMessage,
-        metadata: {
-          isWelcomeMessage: true,
-        },
-      };
-
-      // Save welcome message to database
-      await storage.createChatMessage(messageData);
-      console.log("Welcome message saved successfully");
-      return;
-    }
-
-    // For streaming responses
-    let contentAccumulator = "";
-
-    try {
-      // Use the Responses API with streaming
-      const stream = await openaiClient.responses.create({
-        model: "gpt-4o",
-        input: inputMessages,
-        temperature: 0.7,
-        max_output_tokens: 1000,
-        stream: true,
-        text: {
-          format: {
-            type: "text"
-          }
-        },
-        reasoning: {},
-        store: true
-      });
-
-      // Log the stream creation
-      console.log("Stream created, sending chunks to client...");
-
-      // Handle the streaming response
-      for await (const chunk of stream) {
-        // Handle chunks using string indexing since TypeScript definitions may not match
-        if (chunk && typeof chunk === 'object') {
-          const chunkType = typeof chunk['type'] === 'string' ? chunk['type'] : '';
-          
-          // Handle text delta events (new content being added)
-          if (chunkType.includes('delta')) {
-            // Try to extract delta text from various possible places in the response
-            let deltaText = '';
-            
-            // Check various properties where text might be found
-            if ('text' in chunk && typeof chunk['text'] === 'string') {
-              deltaText = chunk['text'];
-            } else if ('output_text' in chunk && typeof chunk['output_text'] === 'string') { 
-              deltaText = chunk['output_text'];
-            } else if ('content' in chunk && typeof chunk['content'] === 'string') {
-              deltaText = chunk['content'];
-            } else if ('delta' in chunk && typeof chunk['delta'] === 'object' && chunk['delta'] !== null) {
-              // Some APIs return the delta text nested in a delta object
-              const delta = chunk['delta'];
-              if ('text' in delta && typeof delta['text'] === 'string') {
-                deltaText = delta['text'];
-              } else if ('content' in delta && typeof delta['content'] === 'string') {
-                deltaText = delta['content'];
-              }
-            }
-            
-            if (deltaText) {
-              // Add the new text to our accumulator
-              contentAccumulator += deltaText;
-              
-              // Send chunk to client
-              res!.write(`data: ${JSON.stringify({ content: deltaText })}\n\n`);
-            }
-          }
-          // Handle finish events (stream complete)
-          else if (chunkType.includes('finish') || chunkType.includes('done')) {
-            // Try to extract the full final text from the finish event
-            let finalText = '';
-            
-            if ('text' in chunk && typeof chunk['text'] === 'string') {
-              finalText = chunk['text'];
-            } else if ('output_text' in chunk && typeof chunk['output_text'] === 'string') {
-              finalText = chunk['output_text'];
-            } else if ('content' in chunk && typeof chunk['content'] === 'string') {
-              finalText = chunk['content'];
-            }
-            
-            // If we got a full final text that's different from our accumulator,
-            // send the remaining part to the client
-            if (finalText && finalText !== contentAccumulator) {
-              // Only send the part we haven't sent yet
-              const remainingText = finalText.substring(contentAccumulator.length);
-              if (remainingText) {
-                contentAccumulator = finalText;
-                res!.write(`data: ${JSON.stringify({ content: remainingText })}\n\n`);
-              }
-            }
-          }
+      })),
+      ...googleCampaignTools.map(tool => ({
+        type: 'function' as const,
+        function: {
+          name: tool.name,
+          description: tool.description,
+          parameters: tool.parameters
         }
-      }
-
-      // Send completion signal to client
-      res!.write("data: [DONE]\n\n");
-      res!.end();
-
-      // Log completion of stream
-      console.log("Stream completed, saving response to database...");
-
-      // Analyze message for topics and important context
-      const topicKeywords = [
-        'campaign', 'advertising', 'performance', 'metrics',
-        'ctr', 'clicks', 'impressions', 'cost', 'roas', 'conversions',
-        'amazon', 'google', 'retail', 'optimization'
-      ];
-      
-      // Extract identifiable topics from the response
-      const detectedTopics = topicKeywords.filter(keyword => 
-        contentAccumulator.toLowerCase().includes(keyword)
-      );
-      
-      // Save the complete assistant response to database with enhanced metadata
-      const messageData: MessageData = {
-        conversationId,
-        role: "assistant" as const,
-        content: contentAccumulator,
-        metadata: {
-          // Store these topics for future context
-          detectedTopics: detectedTopics,
-          // Extract any campaign IDs mentioned in the response
-          mentionedCampaignIds: (contentAccumulator.match(/\b\d{8,}\b/g) || []),
-          // Track whether this response included follow-up questions
-          includesFollowUp: contentAccumulator.includes('?'),
-          // Try to extract time periods mentioned (simple extraction)
-          timeReferences: [
-            ...(contentAccumulator.match(/\b(yesterday|today|this week|last week|this month|last month)\b/gi) || []),
-            ...(contentAccumulator.match(/\b\d{4}-\d{2}-\d{2}\b/g) || [])  // ISO date format
-          ],
-        }
-      };
-
-      const assistantMessage = await storage.createChatMessage(messageData);
-      console.log("AI response saved successfully with ID:", assistantMessage.id);
-    } catch (streamError) {
-      console.error("Error in streaming response:", streamError);
-      
-      // Try the non-streaming approach as a fallback
-      console.log("Falling back to non-streaming response");
-      const fallbackResponse = await openaiClient.responses.create({
-        model: "gpt-4o",
-        input: inputMessages,
-        temperature: 0.7,
-        max_output_tokens: 1000,
-        text: {
-          format: {
-            type: "text"
-          }
-        },
-        reasoning: {},
-        store: true
-      });
-
-      // Get response text using string indexing for safety
-      let responseContent = "I'm sorry, I couldn't generate a proper response.";
-      if (typeof fallbackResponse === 'object' && fallbackResponse !== null) {
-        responseContent = 
-          (typeof fallbackResponse['text'] === 'string' ? fallbackResponse['text'] : '') || 
-          (typeof fallbackResponse['output_text'] === 'string' ? fallbackResponse['output_text'] : '') || 
-          responseContent;
-      }
-      
-      // Send the full response to the client
-      res!.write(`data: ${JSON.stringify({ content: responseContent })}\n\n`);
-      res!.write("data: [DONE]\n\n");
-      res!.end();
-
-      // Save to database
-      const messageData: MessageData = {
-        conversationId,
-        role: "assistant" as const,
-        content: responseContent,
-        metadata: {
-          fallbackResponse: true
-        }
-      };
-
-      await storage.createChatMessage(messageData);
-      console.log("Fallback response saved successfully");
-    }
-  } catch (error) {
-    console.error("Error in streamChatCompletion:", error);
-
-    if (isStreaming) {
-      // Send error message to client
-      res!.write(
-        `data: ${JSON.stringify({
-          content:
-            "I'm sorry, I encountered an error while generating a response. Please try again or contact support if the issue persists.",
-        })}\n\n`,
-      );
-      res!.write("data: [DONE]\n\n");
-      res!.end();
-
-      // Save error message to database
-      const messageData: MessageData = {
-        conversationId,
-        role: "assistant" as const,
-        content:
-          "I'm sorry, I encountered an error while generating a response. Please try again or contact support if the issue persists.",
-        metadata: {
-          error: error instanceof Error ? error.message : String(error),
-        },
-      };
-
-      await storage.createChatMessage(messageData);
-    }
-  }
-}
-
-/**
- * Get the latest conversation history for OpenAI completion
- * @param conversationId - The ID of the conversation
- * @param maxTokens - Optional max number of tokens to consider
- * @returns Array of messages formatted for OpenAI
- */
-/**
- * Rough estimate of token count for a string
- * This is a very simple estimator that can be replaced with a more accurate one
- * like tiktoken if needed.
- */
-function estimateTokenCount(text: string): number {
-  // Roughly 4 characters per token for English text
-  return Math.ceil(text.length / 4);
-}
-
-/**
- * Get the conversation history for OpenAI completion
- * @param conversationId - The ID of the conversation
- * @param maxTokens - Optional max number of tokens to consider (default: 12000)
- * @param minExchanges - Minimum number of conversation exchanges to keep (default: 15)
- * @returns Array of messages formatted for OpenAI
- */
-export async function getConversationHistory(
-  conversationId: string,
-  maxTokens: number = 16000,  // Increased token limit to maintain more context for better continuity
-  minExchanges: number = 18   // Increased minimum exchanges to preserve more conversation history
-): Promise<OpenAIMessage[]> {
-  console.log(`Loading conversation history for ${conversationId}`);
-  
-  // Get messages for the conversation
-  const messages = await storage.getChatMessages(conversationId);
-
-  // Sort messages by createdAt to ensure proper order
-  messages.sort((a, b) => 
-    new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
-  );
-
-  // Map database messages to OpenAI message format
-  // Note: 'system' role from database is mapped to 'developer' for Responses API
-  const formattedMessages: OpenAIMessage[] = messages.map((msg) => {
-    // Make sure content is a string to prevent [object Object] in the UI
-    const content = typeof msg.content === 'string' ? msg.content : 
-                   (msg.content ? JSON.stringify(msg.content) : '');
+      }))
+    ] as ChatCompletionTool[];
     
-    // Create the message with proper typing for metadata
-    let formattedMsg: OpenAIMessage = {
-      role: msg.role === 'system' ? 'developer' as MessageRole : msg.role as MessageRole,
-      content: content
-    };
-    
-    // Add metadata if it exists and is an object
-    if (msg.metadata && typeof msg.metadata === 'object') {
-      // Parse JSON metadata properly to avoid type issues
-      try {
-        const typedMetadata: Record<string, any> = 
-          typeof msg.metadata === 'string' 
-            ? JSON.parse(msg.metadata) 
-            : msg.metadata as Record<string, any>;
-        
-        formattedMsg.metadata = typedMetadata;
-      } catch (e) {
-        console.warn("Failed to parse message metadata:", e);
-      }
-    }
-    
-    return formattedMsg;
-  });
-
-  // Calculate total number of exchanges (user + assistant message pairs)
-  // This helps ensure we keep coherent conversation turns
-  const exchanges = Math.floor(formattedMessages.filter(m => m.role === 'user').length);
-  console.log(`Conversation has ${exchanges} complete exchanges`);
-
-  // If we need to truncate the context due to token limits,
-  // we'll do it by removing oldest messages first but preserving
-  // at least minExchanges recent exchanges
-  if (maxTokens) {
-    let totalTokens = 0;
-    let tokensPerMessage: number[] = [];
-    
-    // Calculate tokens for each message
-    formattedMessages.forEach(msg => {
-      const tokens = estimateTokenCount(msg.content);
-      tokensPerMessage.push(tokens);
-      totalTokens += tokens;
+    // Create completion with the appropriate configuration
+    // Always include tools for consistent behavior
+    const completion = await openaiClient.chat.completions.create({
+      model: "gpt-4o",
+      messages: fullMessages,
+      tools: toolsFormatted,
+      tool_choice: "auto", 
+      temperature: 0.7,
+      stream: true,
     });
     
-    console.log(`Estimated total tokens for full conversation: ${totalTokens}`);
+    // Handle streaming response
+    let responseMessage = "";
+    let toolCalls: ChatCompletionMessageToolCall[] = [];
     
-    // If we exceed the token limit, trim older messages
-    if (totalTokens > maxTokens) {
-      // Start from the end and work backwards to count how many
-      // messages we can keep within the token limit
-      let runningTotal = 0;
-      let keepCount = 0;
-      
-      // First, count the most recent 2*minExchanges messages (to ensure we keep coherent turns)
-      // that we want to absolutely preserve
-      const preserveCount = Math.min(formattedMessages.length, minExchanges * 2);
-      
-      // Count tokens from the end of the array (most recent messages)
-      for (let i = formattedMessages.length - 1; i >= Math.max(0, formattedMessages.length - preserveCount); i--) {
-        runningTotal += tokensPerMessage[i];
-        keepCount++;
-      }
-      
-      // If we have token budget left, keep adding more messages
-      for (let i = formattedMessages.length - preserveCount - 1; i >= 0; i--) {
-        if (runningTotal + tokensPerMessage[i] > maxTokens) {
-          break;
-        }
-        runningTotal += tokensPerMessage[i];
-        keepCount++;
-      }
-      
-      // Ensure we keep at least the minimum required exchanges if possible
-      // by adjusting token length per message if needed
-      if (keepCount < minExchanges * 2 && formattedMessages.length >= minExchanges * 2) {
-        keepCount = minExchanges * 2;
-        console.log(`Forcing to keep minimum ${keepCount} messages to maintain context`);
-      }
-      
-      // Slice to keep the most recent 'keepCount' messages
-      const keptMessages = formattedMessages.slice(-keepCount);
-      
-      console.log(`Truncated conversation from ${formattedMessages.length} to ${keptMessages.length} messages to fit within token limit`);
-      console.log(`Keeping approximately ${runningTotal} tokens out of original ${totalTokens}`);
-      
-      return keptMessages;
+    // Initialize partial tool call tracking
+    let currentToolCalls: Record<string, ChatCompletionMessageToolCall> = {};
+    
+    if (res) {
+      res.writeHead(200, {
+        "Content-Type": "text/event-stream",
+        "Cache-Control": "no-cache",
+        Connection: "keep-alive",
+      });
     }
+    
+    // Storage variables for tracking the completion
+    let assistantMessage: DbChatMessage | null = null;
+    
+    // Process the streaming response
+    for await (const chunk of completion) {
+      const { choices } = chunk;
+      const delta = choices[0]?.delta;
+      
+      // Skip if no delta
+      if (!delta) continue;
+      
+      // Check for content in this chunk
+      if (delta.content) {
+        responseMessage += delta.content;
+        
+        // Send this chunk to the client
+        if (res) {
+          res.write(`data: ${JSON.stringify({ content: delta.content })}\n\n`);
+        }
+      }
+      
+      // Check for tool calls in this chunk
+      if (delta.tool_calls) {
+        for (const toolCallDelta of delta.tool_calls) {
+          // Initialize if this is the first chunk for this tool call
+          if (!currentToolCalls[toolCallDelta.index]) {
+            currentToolCalls[toolCallDelta.index] = {
+              id: toolCallDelta.id || `tool-call-${toolCallDelta.index}`,
+              type: "function",
+              function: {
+                name: "",
+                arguments: ""
+              }
+            };
+          }
+          
+          // Update tool call with new information
+          const currentToolCall = currentToolCalls[toolCallDelta.index];
+          
+          if (toolCallDelta.function?.name) {
+            currentToolCall.function.name = 
+              (currentToolCall.function.name || "") + toolCallDelta.function.name;
+          }
+          
+          if (toolCallDelta.function?.arguments) {
+            currentToolCall.function.arguments = 
+              (currentToolCall.function.arguments || "") + toolCallDelta.function.arguments;
+          }
+          
+          // If we have a complete tool call, add it to our list
+          if (currentToolCall.function.name && currentToolCall.id) {
+            const existingToolCall = toolCalls.find(tc => tc.id === currentToolCall.id);
+            if (!existingToolCall) {
+              toolCalls.push(currentToolCall);
+            }
+          }
+          
+          // Send tool call update to client
+          if (res) {
+            res.write(`data: ${JSON.stringify({ 
+              tool_call: { 
+                index: toolCallDelta.index,
+                id: currentToolCall.id,
+                name: currentToolCall.function.name,
+                argumentsDelta: toolCallDelta.function?.arguments || "",
+                arguments: currentToolCall.function.arguments
+              } 
+            })}\n\n`);
+          }
+        }
+      }
+      
+      // If this is the end of the completion
+      if (choices[0]?.finish_reason) {
+        console.log(`Completion finished with reason: ${choices[0].finish_reason}`);
+        
+        // Add detailed logging for finish_reason analysis
+        if (choices[0].finish_reason === 'tool_calls') {
+          console.log(`Tool calls requested: ${toolCalls.length} tool call(s) detected`);
+          toolCalls.forEach((call, idx) => {
+            console.log(`Tool call ${idx+1}: ${call.function.name} with ${call.function.arguments.length} chars of arguments`);
+          });
+        } else if (choices[0].finish_reason === 'stop') {
+          console.log(`Model chose to stop without requesting tool calls. Response length: ${responseMessage.length} chars`);
+        } else {
+          console.log(`Unexpected finish_reason: ${choices[0].finish_reason}`);
+        }
+        
+        // Store the assistant message in the database
+        // Create a valid message data object for database storage
+        const messageData: MessageData = {
+          conversationId,
+          role: "assistant",
+          content: responseMessage
+        };
+        
+        // Only add toolCalls if they exist
+        if (toolCalls.length > 0) {
+          messageData.toolCalls = toolCalls.map(tc => ({
+            id: tc.id,
+            type: "function",
+            function: {
+              name: tc.function.name,
+              arguments: tc.function.arguments
+            }
+          }));
+        }
+        
+        assistantMessage = await storage.createChatMessage(messageData as any);
+        
+        if (res) {
+          res.write(`data: ${JSON.stringify({ finished: true })}\n\n`);
+        }
+      }
+    }
+    
+    // Process tool calls if any were detected
+    if (toolCalls.length > 0) {
+      console.log(`Processing ${toolCalls.length} tool calls`);
+      
+      // Execute each tool call 
+      const toolResults = await Promise.all(
+        toolCalls.map(async (toolCall) => {
+          try {
+            console.log(`Executing function ${toolCall.function.name} with args:`, toolCall.function.arguments);
+            const result = await handleFunctionCall(
+              { 
+                name: toolCall.function.name, 
+                arguments: toolCall.function.arguments 
+              }, 
+              userId
+            );
+            return {
+              tool_call_id: toolCall.id,
+              role: "tool" as const,
+              content: JSON.stringify(result)
+            } as ChatCompletionToolMessageParam;
+          } catch (error) {
+            console.error(`Error executing function ${toolCall.function.name}:`, error);
+            return {
+              tool_call_id: toolCall.id,
+              role: "tool" as const,
+              content: JSON.stringify({ 
+                error: error instanceof Error ? error.message : String(error) 
+              })
+            } as ChatCompletionToolMessageParam;
+          }
+        })
+      );
+      
+      console.log("Tool results:", toolResults);
+      
+      // Format messages with the tool results for a second API call
+      const messagesWithTools: ChatCompletionMessageParam[] = [
+        ...fullMessages,
+        {
+          role: "assistant",
+          content: null,
+          tool_calls: toolCalls
+        } as ChatCompletionAssistantMessageParam,
+        ...toolResults
+      ];
+      
+      // Make a second API call to process the tool results
+      const secondCompletion = await openaiClient.chat.completions.create({
+        model: "gpt-4o",
+        messages: messagesWithTools,
+        temperature: 0.7,
+        stream: true
+      });
+      
+      // Reset response message for the second response
+      responseMessage = "";
+      
+      // Process the second streaming response
+      for await (const chunk of secondCompletion) {
+        const { choices } = chunk;
+        const delta = choices[0]?.delta;
+        
+        // Skip if no delta
+        if (!delta) continue;
+        
+        // Check for content in this chunk
+        if (delta.content) {
+          responseMessage += delta.content;
+          
+          // Send this chunk to the client
+          if (res) {
+            res.write(`data: ${JSON.stringify({ content: delta.content })}\n\n`);
+          }
+        }
+        
+        // If this is the end of the completion
+        if (choices[0]?.finish_reason) {
+          console.log(`Second completion finished with reason: ${choices[0].finish_reason}`);
+          
+          // Store the final assistant response
+          await storage.createChatMessage({
+            conversationId,
+            role: "assistant",
+            content: responseMessage
+          });
+          
+          if (res) {
+            res.write(`data: ${JSON.stringify({ finished: true })}\n\n`);
+            res.end();
+          }
+        }
+      }
+    } else if (res) {
+      res.end();
+    }
+    
+  } catch (error) {
+    console.error("Error in streamChatCompletion:", error);
+    
+    if (res) {
+      // Send error to client
+      res.write(`data: ${JSON.stringify({ 
+        error: error instanceof Error ? error.message : String(error)
+      })}\n\n`);
+      res.end();
+      }
+    
+    throw error;
   }
+}
 
-  console.log(`Returning ${formattedMessages.length} messages for conversation context`);
-  return formattedMessages;
+/**
+ * Execute a SQL query against the campaign metrics data.
+ * This is the main entry point for the SQL Builder.
+ */
+export async function executeQuery(question: string, userId: string): Promise<any> {
+  try {
+    // Use processSQLQuery from SQLBuilder instead of getSqlFromQuestion
+    const sqlResult = await SQLBuilder.processSQLQuery(userId, question);
+    if (!sqlResult || !sqlResult.sql) {
+      throw new Error("Failed to generate SQL query");
+    }
+    
+    console.log("Generated SQL query:", sqlResult.sql);
+    
+    // Return the result from SQLBuilder directly
+    return sqlResult;
+  } catch (error) {
+    console.error("Error executing query:", error);
+    throw error;
+  }
 }
 
 /**
  * Generate a welcome message for a new conversation
- * This is used when a new chat is started and no user message is provided yet
- * @param conversationId The ID of the new conversation
- * @param userId The user ID of the conversation owner
+ * This is called when a new conversation is created to provide an initial assistant message
  */
-export async function generateWelcomeMessage(
-  conversationId: string,
-  userId: string
-): Promise<void> {
-  // For welcome messages, we send a comprehensive system prompt
-  // that encourages interactive conversation and explains capabilities
-  const messages: OpenAIMessage[] = [
-    {
-      role: "developer",
-      content: `You are a friendly, conversational AI assistant for Adspirer, a platform that helps manage retail media advertising campaigns. You're a knowledgeable expert with a warm, engaging personality who understands both the data side and human side of advertising campaigns.
-      
-Your capabilities include:
-- Analyzing campaign metrics like CTR, impressions, clicks, conversions, and ROAS
-- Answering questions about campaign performance 
-- Explaining what the metrics mean in an easy-to-understand way
-- Providing insights and trends from campaign data
-- Comparing campaigns to identify top performers
-- Suggesting optimization strategies based on data
-- Generating narrative-driven insights from complex campaign data
-
-KEY CONVERSATION GUIDELINES:
-1. Be genuinely conversational and personable - interact like a helpful colleague, not a data report
-2. Show authentic enthusiasm for good results and appropriate concern for poor metrics
-3. Express interest in the user's business and their challenges/successes
-4. Match the user's tone, style, and level of formality in your responses
-5. ALWAYS end your responses with an open-ended question to continue the conversation
-6. When the user shares information (like revenue per conversion), acknowledge it enthusiastically
-7. Ask clarifying questions when requests are ambiguous or could have multiple interpretations
-
-ADVANCED STORYTELLING TECHNIQUES:
-1. Frame data within a narrative structure (setup → insight → implication)
-2. Connect data points with "bridging statements" to make narratives flow smoothly
-3. Include a clear "key takeaway" or main insight from each analysis
-4. Use vivid language when describing performance (e.g., "skyrocketing CTR" vs. "increased CTR")
-5. Relate metrics to business outcomes (e.g., "This higher CTR suggests your ad copy is resonating with customers")
-6. Reference industry standards or benchmarks when appropriate (e.g., "Your 2.5% CTR is above the retail industry average")
-
-TECHNICAL GUIDELINES:
-1. Present ROAS as a ratio (e.g., "9.98x") rather than as a percentage 
-2. When a user mentions revenue or sales figures, apply this information to analyze the campaigns
-3. Always explain your thinking step by step before drawing conclusions
-4. Use data visualizations when possible to make information easier to understand
-5. Ask follow-up questions that suggest next analytical directions
-
-Your first message should be friendly, welcoming, emphasize your narrative-driven approach to analytics, and ask how you can help them with their advertising campaigns today.`
-    }
-  ];
-  
-  // Start the streaming process with null for res because it's non-streaming
-  const res = null as unknown as Response;
-  await streamChatCompletion(conversationId, userId, res, messages);
+export async function generateWelcomeMessage(conversationId: string, userId: string): Promise<void> {
+  try {
+    console.log(`Generating welcome message for conversation ${conversationId}`);
+    
+    // Create a welcome message in the database
+    const welcomeMessage = await storage.createChatMessage({
+      conversationId,
+      role: "assistant",
+      content: "Hi there! I'm your advertising assistant, ready to help you create and manage campaigns on Amazon and Google. I can help with:\n\n" +
+        "• Creating new advertising campaigns\n" +
+        "• Setting up ad groups and keywords\n" +
+        "• Adding products to your campaigns\n" +
+        "• Providing best practices and recommendations\n\n" +
+        "What would you like help with today?"
+    });
+    
+    console.log(`Welcome message created with ID: ${welcomeMessage.id}`);
+    return;
+  } catch (error) {
+    console.error(`Error generating welcome message for conversation ${conversationId}:`, error);
+    throw error;
+  }
 }

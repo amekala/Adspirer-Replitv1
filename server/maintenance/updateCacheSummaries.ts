@@ -63,29 +63,31 @@ async function main() {
  * Get all users who have campaign data
  */
 async function getAllUsersWithCampaignData(): Promise<{ id: string }[]> {
-  // Get unique user IDs from campaign metrics tables
-  const amazonUsersSql = `
-    SELECT DISTINCT user_id as id FROM campaign_metrics
-  `;
-  
-  const googleUsersSql = `
-    SELECT DISTINCT user_id as id FROM google_campaign_metrics
-  `;
-  
-  // Execute queries
-  const amazonUsersResult = await db.execute(amazonUsersSql);
-  const googleUsersResult = await db.execute(googleUsersSql);
-  
-  // Extract user IDs
-  const amazonUsers = amazonUsersResult.rows || [];
-  const googleUsers = googleUsersResult.rows || [];
-  
-  // Combine and deduplicate user IDs
-  const allUsers = [...amazonUsers, ...googleUsers];
-  const uniqueUserIds = new Set(allUsers.map(user => user.id));
-  
-  // Cast to string to match expected type
-  return Array.from(uniqueUserIds).map(id => ({ id: String(id) }));
+  // Use drizzle's select() instead of raw SQL
+  try {
+    // Import the schema
+    const { campaignMetrics, googleCampaignMetrics } = await import('@shared/schema');
+    
+    // Get distinct user IDs from Amazon campaign metrics
+    const amazonUsers = await db
+      .selectDistinct({ id: campaignMetrics.userId })
+      .from(campaignMetrics);
+    
+    // Get distinct user IDs from Google campaign metrics
+    const googleUsers = await db
+      .selectDistinct({ id: googleCampaignMetrics.userId })
+      .from(googleCampaignMetrics);
+    
+    // Combine and deduplicate user IDs
+    const allUsers = [...amazonUsers, ...googleUsers];
+    const uniqueUserIds = new Set(allUsers.map(user => user.id));
+    
+    // Return as array of objects with id property
+    return Array.from(uniqueUserIds).map(id => ({ id }));
+  } catch (error) {
+    console.error('Error getting users with campaign data:', error);
+    return [];
+  }
 }
 
 // Run the maintenance script

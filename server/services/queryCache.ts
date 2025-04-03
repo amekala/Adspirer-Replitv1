@@ -11,7 +11,7 @@ import crypto from 'crypto';
 import { storage } from '../storage';
 import { db } from '../db';
 import { and, eq, gte, lte, desc } from 'drizzle-orm';
-import { campaignMetricsSummary, googleCampaignMetricsSummary } from '@shared/schema';
+import { campaignMetricsSummary, googleCampaignMetricsSummary } from '../db/schema';
 
 // Default time-to-live for cached queries in milliseconds
 const DEFAULT_CACHE_TTL = 24 * 60 * 60 * 1000; // 24 hours

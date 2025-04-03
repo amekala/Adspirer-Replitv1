@@ -1,6 +1,6 @@
 import { Express, Request, Response } from "express";
 import { createServer, type Server } from "http";
-import { setupAuth } from "./auth";
+import { setupAuth, authenticate } from "./auth";
 import { storage } from "./storage";
 import { openai } from "@ai-sdk/openai";
 import { streamText } from "ai";
@@ -10,10 +10,16 @@ import {
   insertDemoRequestSchema,
   insertChatConversationSchema,
   insertChatMessageSchema,
-  campaignMetrics 
-} from "@shared/schema";
+  campaignMetrics,
+  insertCampaignSchema,
+  insertAdGroupSchema,
+  insertProductAdSchema,
+  insertKeywordSchema,
+  insertNegativeKeywordSchema
+} from "./db/schema";
 
 interface AmazonToken {
+  id: number;
   userId: string;
   accessToken: string;
   refreshToken: string;
@@ -223,7 +229,6 @@ async function processSingleProfile(profile: AdvertiserAccount, token: AmazonTok
         downloadUrl: null,
         urlExpiry: null,
         localFilePath: null,
-        lastCheckedAt: new Date(),
         completedAt: null,
         retryCount: 0,
         errorMessage: null
@@ -331,6 +336,7 @@ async function processSingleProfile(profile: AdvertiserAccount, token: AmazonTok
 }
 
 interface GoogleToken {
+  id: number;
   userId: string;
   accessToken: string;
   refreshToken: string;
@@ -375,12 +381,11 @@ async function refreshGoogleToken(userId: string, refreshToken: string): Promise
   return token;
 }
 
-export async function registerRoutes(app: Express): Promise<Server> {
+export async function registerRoutes(app: Express): Promise<void> {
   setupAuth(app);
 
   // Amazon OAuth endpoints
-  app.post("/api/amazon/connect", async (req: Request, res: Response) => {
-    if (!req.isAuthenticated()) return res.sendStatus(401);
+  app.post("/api/amazon/connect", authenticate, async (req: Request, res: Response) => {
     const { code } = req.body;
 
     if (!code) {
@@ -475,15 +480,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/amazon/status", async (req: Request, res: Response) => {
-    if (!req.isAuthenticated()) return res.sendStatus(401);
+  app.get("/api/amazon/status", authenticate, async (req: Request, res: Response) => {
 
     const token = await storage.getAmazonToken(req.user!.id);
     res.json({ connected: !!token });
   });
 
-  app.get("/api/amazon/profiles", async (req: Request, res: Response) => {
-    if (!req.isAuthenticated()) return res.sendStatus(401);
+  app.get("/api/amazon/profiles", authenticate, async (req: Request, res: Response) => {
 
     try {
       const advertisers = await storage.getAdvertiserAccounts(req.user!.id);
@@ -494,8 +497,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.delete("/api/amazon/disconnect", async (req: Request, res: Response) => {
-    if (!req.isAuthenticated()) return res.sendStatus(401);
+  app.delete("/api/amazon/disconnect", authenticate, async (req: Request, res: Response) => {
 
     await storage.deleteAmazonToken(req.user!.id);
     await storage.deleteAdvertiserAccounts(req.user!.id);
@@ -503,8 +505,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Google OAuth endpoints
-  app.post("/api/google/connect", async (req: Request, res: Response) => {
-    if (!req.isAuthenticated()) return res.sendStatus(401);
+  app.post("/api/google/connect", authenticate, async (req: Request, res: Response) => {
     const { code } = req.body;
 
     if (!code) {
@@ -582,15 +583,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/google/status", async (req: Request, res: Response) => {
-    if (!req.isAuthenticated()) return res.sendStatus(401);
+  app.get("/api/google/status", authenticate, async (req: Request, res: Response) => {
 
     const token = await storage.getGoogleToken(req.user!.id);
     res.json({ connected: !!token });
   });
 
-  app.get("/api/google/accounts", async (req: Request, res: Response) => {
-    if (!req.isAuthenticated()) return res.sendStatus(401);
+  app.get("/api/google/accounts", authenticate, async (req: Request, res: Response) => {
 
     try {
       const accounts = await storage.getGoogleAdvertiserAccounts(req.user!.id);
@@ -604,8 +603,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.delete("/api/google/disconnect", async (req: Request, res: Response) => {
-    if (!req.isAuthenticated()) return res.sendStatus(401);
+  app.delete("/api/google/disconnect", authenticate, async (req: Request, res: Response) => {
 
     await storage.deleteGoogleToken(req.user!.id);
     await storage.deleteGoogleAdvertiserAccounts(req.user!.id);
@@ -613,8 +611,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // API key management
-  app.post("/api/keys", async (req: Request, res: Response) => {
-    if (!req.isAuthenticated()) return res.sendStatus(401);
+  app.post("/api/keys", authenticate, async (req: Request, res: Response) => {
 
     const result = insertApiKeySchema.safeParse(req.body);
     if (!result.success) {
@@ -625,22 +622,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
     res.status(201).json(apiKey);
   });
 
-  app.get("/api/keys", async (req: Request, res: Response) => {
-    if (!req.isAuthenticated()) return res.sendStatus(401);
+  app.get("/api/keys", authenticate, async (req: Request, res: Response) => {
 
     const keys = await storage.getApiKeys(req.user!.id);
     res.json(keys);
   });
 
-  app.delete("/api/keys/:id", async (req: Request, res: Response) => {
-    if (!req.isAuthenticated()) return res.sendStatus(401);
+  app.delete("/api/keys/:id", authenticate, async (req: Request, res: Response) => {
 
     await storage.deactivateApiKey(parseInt(req.params.id), req.user!.id);
     res.sendStatus(200);
   });
 
-  app.post("/api/amazon/campaigns/sync", async (req: Request, res: Response) => {
-    if (!req.isAuthenticated()) return res.sendStatus(401);
+  app.post("/api/amazon/campaigns/sync", authenticate, async (req: Request, res: Response) => {
 
     let token = await storage.getAmazonToken(req.user!.id);
     if (!token) {
@@ -718,261 +712,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
         Object.entries(profileStats.byMarketplace).forEach(([marketplace, stats]) => {
           const total = stats.success + stats.failed;
           const successRate = (stats.success/total*100).toFixed(1);
-          console.log(`${marketplace}: ${stats.success}/${total} (${successRate}%)`);
+          console.log(`${marketplace}: ${stats.success}/${total} (${successRate}%)`)
         });
-        console.log('\nCampaign sync completed');
-
       } catch (error) {
-        console.error("Error in background campaign sync:", error);
+        console.error("Error processing campaign sync:", error);
+        res.status(500).json({ message: "Failed to process campaign sync" });
       }
-    })().catch(console.error);
+    })();
   });
-
-  app.post("/api/demo-request", async (req: Request, res: Response) => {
-    const result = insertDemoRequestSchema.safeParse(req.body);
-    if (!result.success) {
-      return res.status(400).json({ message: "Invalid request data", errors: result.error.errors });
-    }
-
-    try {
-      const demoRequest = await storage.createDemoRequest(result.data);
-      res.status(201).json(demoRequest);
-    } catch (error) {
-      console.error("Failed to create demo request:", error);
-      res.status(500).json({ message: "Failed to submit demo request" });
-    }
-  });
-
-  // Initialize OpenAI
-  // OpenAI client is now imported from @ai-sdk/openai at the top of the file
-
-  // Chat endpoints
-  app.get("/api/chat/conversations", async (req: Request, res: Response) => {
-    if (!req.isAuthenticated()) return res.sendStatus(401);
-    try {
-      const conversations = await storage.getChatConversations(req.user!.id);
-      return res.json(conversations);
-    } catch (error) {
-      console.error('Error fetching conversations:', error);
-      return res.status(500).json({ message: "Failed to fetch conversations" });
-    }
-  });
-
-  app.post("/api/chat/conversations", async (req: Request, res: Response) => {
-    if (!req.isAuthenticated()) return res.sendStatus(401);
-    
-    const { title = "New conversation", generateWelcome = true } = req.body;
-    
-    try {
-      // Create new conversation
-      const conversation = await storage.createChatConversation(req.user!.id, title);
-      
-      // Optionally generate a welcome message
-      if (generateWelcome) {
-        try {
-          // Import the service to avoid circular dependencies
-          const { generateWelcomeMessage } = await import('./services/openai');
-          
-          // Generate welcome message
-          // We'll use await here to make sure welcome message is ready before the client loads the conversation
-          await generateWelcomeMessage(conversation.id, req.user!.id)
-            .then(() => {
-              console.log(`Welcome message generated for conversation ${conversation.id}`);
-            })
-            .catch(err => {
-              console.error(`Failed to generate welcome message for conversation ${conversation.id}:`, err);
-            });
-        } catch (welcomeError) {
-          console.error('Error importing OpenAI service for welcome message:', welcomeError);
-          // We still continue as this is not critical
-        }
-      }
-      
-      return res.status(201).json(conversation);
-    } catch (error) {
-      console.error('Error creating conversation:', error);
-      return res.status(500).json({ message: "Failed to create conversation" });
-    }
-  });
-
-  app.get("/api/chat/conversations/:id", async (req: Request, res: Response) => {
-    if (!req.isAuthenticated()) return res.sendStatus(401);
-    
-    try {
-      const conversation = await storage.getChatConversation(req.params.id);
-      if (!conversation) {
-        return res.status(404).json({ message: "Conversation not found" });
-      }
-      
-      // Security check: ensure user owns the conversation
-      if (conversation.userId !== req.user!.id) {
-        return res.status(403).json({ message: "Unauthorized access to conversation" });
-      }
-      
-      const messages = await storage.getChatMessages(req.params.id);
-      return res.json({ conversation, messages });
-    } catch (error) {
-      console.error('Error fetching conversation:', error);
-      return res.status(500).json({ message: "Failed to fetch conversation" });
-    }
-  });
-
-  app.put("/api/chat/conversations/:id", async (req: Request, res: Response) => {
-    if (!req.isAuthenticated()) return res.sendStatus(401);
-    
-    const { title } = req.body;
-    if (!title) {
-      return res.status(400).json({ message: "Title is required" });
-    }
-    
-    try {
-      const conversation = await storage.getChatConversation(req.params.id);
-      if (!conversation) {
-        return res.status(404).json({ message: "Conversation not found" });
-      }
-      
-      // Security check: ensure user owns the conversation
-      if (conversation.userId !== req.user!.id) {
-        return res.status(403).json({ message: "Unauthorized access to conversation" });
-      }
-      
-      const updatedConversation = await storage.updateChatConversationTitle(req.params.id, title);
-      return res.json(updatedConversation);
-    } catch (error) {
-      console.error('Error updating conversation:', error);
-      return res.status(500).json({ message: "Failed to update conversation" });
-    }
-  });
-
-  app.delete("/api/chat/conversations/:id", async (req: Request, res: Response) => {
-    if (!req.isAuthenticated()) return res.sendStatus(401);
-    
-    try {
-      const conversation = await storage.getChatConversation(req.params.id);
-      if (!conversation) {
-        return res.status(404).json({ message: "Conversation not found" });
-      }
-      
-      // Security check: ensure user owns the conversation
-      if (conversation.userId !== req.user!.id) {
-        return res.status(403).json({ message: "Unauthorized access to conversation" });
-      }
-      
-      await storage.deleteChatConversation(req.params.id);
-      return res.status(204).send();
-    } catch (error) {
-      console.error('Error deleting conversation:', error);
-      return res.status(500).json({ message: "Failed to delete conversation" });
-    }
-  });
-
-  app.post("/api/chat/conversations/:id/messages", async (req: Request, res: Response) => {
-    if (!req.isAuthenticated()) return res.sendStatus(401);
-    
-    // Add conversationId to the request body
-    const messageData = {
-      ...req.body,
-      conversationId: req.params.id
-    };
-    
-    const result = insertChatMessageSchema.safeParse(messageData);
-    if (!result.success) {
-      return res.status(400).json({ message: "Invalid message data", errors: result.error.errors });
-    }
-    
-    try {
-      const conversation = await storage.getChatConversation(req.params.id);
-      if (!conversation) {
-        return res.status(404).json({ message: "Conversation not found" });
-      }
-      
-      // Security check: ensure user owns the conversation
-      if (conversation.userId !== req.user!.id) {
-        return res.status(403).json({ message: "Unauthorized access to conversation" });
-      }
-      
-      // Save the user message
-      console.log('Creating user message with data:', JSON.stringify(result.data, null, 2));
-      const message = await storage.createChatMessage(result.data);
-      console.log('User message saved with ID:', message.id);
-      
-      return res.status(201).json(message);
-    } catch (error) {
-      console.error('Error creating message:', error);
-      return res.status(500).json({ message: "Failed to create message" });
-    }
-  });
-
-  // Chat completion endpoint with streaming
-  app.post("/api/chat/completions", async (req: Request, res: Response) => {
-    if (!req.isAuthenticated() || !req.user) {
-      console.log('Unauthorized request to chat completions endpoint - user not authenticated');
-      return res.status(401).send("Unauthorized");
-    }
-    
-    console.log('User authenticated:', req.user.id);
-
-    const { conversationId, message } = req.body;
-    
-    // Require both conversation ID and message
-    if (!conversationId || !message) {
-      return res.status(400).json({ message: "Conversation ID and message are required" });
-    }
-
-    try {
-      console.log('Generating chat completion for conversation:', conversationId);
-      
-      // Check if the conversation exists and belongs to the user
-      const conversation = await storage.getChatConversation(conversationId);
-      if (!conversation) {
-        return res.status(404).json({ message: "Conversation not found" });
-      }
-      
-      if (conversation.userId !== req.user!.id) {
-        return res.status(403).json({ message: "Unauthorized access to conversation" });
-      }
-
-      try {
-        // Import OpenAI service dynamically to avoid circular dependencies
-        const { getConversationHistory, streamChatCompletion } = await import('./services/openai');
-        
-        // Get conversation history from the database
-        // This already includes the user message we just saved
-        const messages = await getConversationHistory(conversationId);
-        console.log(`Retrieved ${messages.length} messages for chat completion context`);
-        
-        // Stream the chat completion using our dedicated service
-        await streamChatCompletion(conversationId, req.user.id, res, messages);
-        
-        // No need to end the response here - the service handles that
-      } catch (openaiError) {
-        console.error('Error in OpenAI service:', openaiError instanceof Error ? openaiError.message : 'Unknown OpenAI setup error');
-        
-        // If we haven't sent any response yet, send error
-        if (!res.headersSent) {
-          return res.status(500).json({ 
-            message: "Failed to generate chat completion", 
-            error: openaiError instanceof Error ? openaiError.message : 'Unknown OpenAI error' 
-          });
-        }
-        
-        // Otherwise ensure the stream is properly ended
-        try {
-          res.write('data: [ERROR]\n\n');
-          res.end();
-        } catch (streamError) {
-          console.error('Error ending stream after OpenAI error:', streamError);
-        }
-      }
-    } catch (error) {
-      console.error('Error generating chat completion:', error instanceof Error ? error.message : 'Unknown error');
-      return res.status(500).json({ 
-        message: "Failed to generate chat completion", 
-        error: error instanceof Error ? error.message : 'Unknown error' 
-      });
-    }
-  });
-
-  const httpServer = createServer(app);
-  return httpServer;
 }
