@@ -380,7 +380,7 @@ async function refreshGoogleToken(userId: string, refreshToken: string): Promise
   return token;
 }
 
-export async function registerRoutes(app: Express): Promise<Server> {
+export async function registerRoutes(app: Express): Promise<void> {
   setupAuth(app);
 
   // Amazon OAuth endpoints
@@ -729,10 +729,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
 
     try {
-      const campaign = await storage.createCampaign({
+      // Convert numeric values to strings for Drizzle if needed
+      const campaignData = {
         ...result.data,
-        userId: req.user!.id
-      });
+        userId: req.user!.id,
+        dailyBudget: String(result.data.dailyBudget)
+      };
+      
+      const campaign = await storage.createCampaign(campaignData);
       res.status(201).json(campaign);
     } catch (error) {
       console.error("Failed to create campaign:", error);
@@ -1255,7 +1259,4 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({ message: "Failed to generate completion" });
     }
   });
-
-  const httpServer = createServer(app);
-  return httpServer;
 }

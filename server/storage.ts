@@ -275,13 +275,17 @@ export class DatabaseStorage implements IStorage {
 
   async getCampaignMetrics(userId: string, startDate: Date, endDate: Date): Promise<CampaignMetrics[]> {
     try {
+      // Convert Date objects to YYYY-MM-DD strings for the database
+      const startDateStr = startDate.toISOString().split('T')[0];
+      const endDateStr = endDate.toISOString().split('T')[0];
+      
       return await db.select()
         .from(campaignMetrics)
         .where(
           and(
             eq(campaignMetrics.userId, userId),
-            gte(campaignMetrics.date, startDate),
-            lte(campaignMetrics.date, endDate)
+            gte(campaignMetrics.date, startDateStr),
+            lte(campaignMetrics.date, endDateStr)
           )
         )
         .orderBy(desc(campaignMetrics.date));
@@ -438,13 +442,17 @@ export class DatabaseStorage implements IStorage {
 
   async getGoogleCampaignMetrics(userId: string, startDate: Date, endDate: Date): Promise<GoogleCampaignMetrics[]> {
     try {
+      // Convert Date objects to YYYY-MM-DD strings for the database
+      const startDateStr = startDate.toISOString().split('T')[0];
+      const endDateStr = endDate.toISOString().split('T')[0];
+      
       return await db.select()
         .from(googleCampaignMetrics)
         .where(
           and(
             eq(googleCampaignMetrics.userId, userId),
-            gte(googleCampaignMetrics.date, startDate),
-            lte(googleCampaignMetrics.date, endDate)
+            gte(googleCampaignMetrics.date, startDateStr),
+            lte(googleCampaignMetrics.date, endDateStr)
           )
         )
         .orderBy(desc(googleCampaignMetrics.date));
@@ -556,25 +564,27 @@ export class DatabaseStorage implements IStorage {
   
   async getCampaignMetricsSummaries(userId: string, timeFrame: string, startDate?: Date, endDate?: Date): Promise<CampaignMetricsSummary[]> {
     try {
-      let query = db.select()
-        .from(campaignMetricsSummary)
-        .where(
-          and(
-            eq(campaignMetricsSummary.userId, userId),
-            eq(campaignMetricsSummary.timeFrame, timeFrame)
-          )
-        );
-      
-      // Add date filters if provided
+      // Build the base query conditions
+      const conditions = [
+        eq(campaignMetricsSummary.userId, userId),
+        eq(campaignMetricsSummary.timeFrame, timeFrame)
+      ];
+
+      // Add date filters if provided, converting to string format
       if (startDate) {
-        query = query.where(gte(campaignMetricsSummary.startDate, startDate));
+        const startDateStr = startDate.toISOString().split('T')[0];
+        conditions.push(gte(campaignMetricsSummary.startDate, startDateStr));
       }
       
       if (endDate) {
-        query = query.where(lte(campaignMetricsSummary.endDate, endDate));
+        const endDateStr = endDate.toISOString().split('T')[0];
+        conditions.push(lte(campaignMetricsSummary.endDate, endDateStr));
       }
       
-      return await query.orderBy(desc(campaignMetricsSummary.endDate));
+      return await db.select()
+        .from(campaignMetricsSummary)
+        .where(and(...conditions))
+        .orderBy(desc(campaignMetricsSummary.endDate));
     } catch (error) {
       console.error('Error fetching campaign metrics summaries:', error);
       throw error;
@@ -733,25 +743,27 @@ export class DatabaseStorage implements IStorage {
   
   async getGoogleCampaignMetricsSummaries(userId: string, timeFrame: string, startDate?: Date, endDate?: Date): Promise<GoogleCampaignMetricsSummary[]> {
     try {
-      let query = db.select()
-        .from(googleCampaignMetricsSummary)
-        .where(
-          and(
-            eq(googleCampaignMetricsSummary.userId, userId),
-            eq(googleCampaignMetricsSummary.timeFrame, timeFrame)
-          )
-        );
+      // Build the base query conditions
+      const conditions = [
+        eq(googleCampaignMetricsSummary.userId, userId),
+        eq(googleCampaignMetricsSummary.timeFrame, timeFrame)
+      ];
       
-      // Add date filters if provided
+      // Add date filters if provided, converting to string format
       if (startDate) {
-        query = query.where(gte(googleCampaignMetricsSummary.startDate, startDate));
+        const startDateStr = startDate.toISOString().split('T')[0];
+        conditions.push(gte(googleCampaignMetricsSummary.startDate, startDateStr));
       }
       
       if (endDate) {
-        query = query.where(lte(googleCampaignMetricsSummary.endDate, endDate));
+        const endDateStr = endDate.toISOString().split('T')[0];
+        conditions.push(lte(googleCampaignMetricsSummary.endDate, endDateStr));
       }
       
-      return await query.orderBy(desc(googleCampaignMetricsSummary.endDate));
+      return await db.select()
+        .from(googleCampaignMetricsSummary)
+        .where(and(...conditions))
+        .orderBy(desc(googleCampaignMetricsSummary.endDate));
     } catch (error) {
       console.error('Error fetching Google campaign metrics summaries:', error);
       throw error;

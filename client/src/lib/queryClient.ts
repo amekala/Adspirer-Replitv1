@@ -7,6 +7,21 @@ async function throwIfResNotOk(res: Response) {
   }
 }
 
+// Get the base URL depending on the environment
+function getBaseUrl() {
+  // Check if we're in a browser environment
+  if (typeof window !== 'undefined') {
+    // Check if there's an API URL in the environment
+    if (import.meta.env.VITE_API_URL) {
+      return import.meta.env.VITE_API_URL;
+    }
+    // Fall back to current origin
+    return window.location.origin;
+  }
+  // Fallback for non-browser environments
+  return '';
+}
+
 export async function apiRequest(
   method: string,
   url: string,
@@ -25,7 +40,12 @@ export async function apiRequest(
     headers["Authorization"] = `Bearer ${token}`;
   }
   
-  const res = await fetch(url, {
+  // Ensure URL starts with base URL in production
+  const fullUrl = url.startsWith('http') ? url : `${getBaseUrl()}${url}`;
+  
+  console.log(`API Request to: ${fullUrl}`);
+  
+  const res = await fetch(fullUrl, {
     method,
     headers,
     body: data ? JSON.stringify(data) : undefined,
@@ -50,7 +70,11 @@ export const getQueryFn: <T>(options: {
       headers["Authorization"] = `Bearer ${token}`;
     }
     
-    const res = await fetch(queryKey[0] as string, { headers });
+    // Get the full URL with base URL if needed
+    const url = queryKey[0] as string;
+    const fullUrl = url.startsWith('http') ? url : `${getBaseUrl()}${url}`;
+    
+    const res = await fetch(fullUrl, { headers });
 
     if (unauthorizedBehavior === "returnNull" && res.status === 401) {
       return null;

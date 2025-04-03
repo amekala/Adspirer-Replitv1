@@ -10,7 +10,7 @@ import { insertUserSchema, User as SelectUser } from "@shared/schema";
 
 // JWT auth middleware
 export const authenticate = (req: Request, res: Response, next: NextFunction) => {
-  passport.authenticate('jwt', { session: false }, (err: any, user: any, info: any) => {
+  passport.authenticate('jwt', { session: false }, (err: Error | null, user: Express.User | false | null, info: any) => {
     if (err) return next(err);
     if (!user) return res.status(401).json({ message: 'Unauthorized' });
     req.user = user;
@@ -45,7 +45,7 @@ export function setupAuth(app: Express) {
     new LocalStrategy({
       usernameField: 'email',
       passwordField: 'password'
-    }, async (email, password, done) => {
+    }, async (email: string, password: string, done: (error: Error | null, user?: Express.User | false | null) => void) => {
       try {
         const user = await storage.getUserByEmail(email);
         if (!user || !(await comparePasswords(password, user.password))) {
@@ -53,7 +53,7 @@ export function setupAuth(app: Express) {
         }
         return done(null, user);
       } catch (error) {
-        return done(error);
+        return done(error as Error);
       }
     }),
   );
@@ -63,7 +63,7 @@ export function setupAuth(app: Express) {
     new JwtStrategy({
       jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
       secretOrKey: jwtSecret,
-    }, async (payload, done) => {
+    }, async (payload: any, done: (error: Error | null, user?: Express.User | false | null) => void) => {
       try {
         // Find the user by ID from the JWT payload
         const user = await storage.getUser(payload.id);
@@ -79,7 +79,7 @@ export function setupAuth(app: Express) {
         
         return done(null, user);
       } catch (error) {
-        return done(error);
+        return done(error as Error);
       }
     })
   );
@@ -122,7 +122,7 @@ export function setupAuth(app: Express) {
   });
 
   app.post("/api/login", (req, res, next) => {
-    passport.authenticate('local', { session: false }, (err, user) => {
+    passport.authenticate('local', { session: false }, (err: Error | null, user: Express.User | false | null) => {
       if (err) return next(err);
       if (!user) return res.status(401).json({ message: 'Invalid email or password' });
       
