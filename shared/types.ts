@@ -1,6 +1,7 @@
 // shared/types.ts
 // Pure TypeScript types for sharing between client and server
 // NO imports from drizzle-orm here!
+import { z } from "zod"; // Safe to import zod, it's not server-specific
 
 // Auth types
 export interface User {
@@ -358,4 +359,12 @@ export interface InsertNegativeKeyword {
   keywordText: string;
   matchType: 'negativePhrase' | 'negativeExact';
   state: 'enabled' | 'paused' | 'archived';
-} 
+}
+
+// Form validation schemas
+export const insertUserSchema = z.object({
+  email: z.string().email("Invalid email address"),
+  password: z.string().min(6, "Password must be at least 6 characters"),
+});
+
+export const loginSchema = insertUserSchema; 

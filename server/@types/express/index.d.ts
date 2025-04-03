@@ -1,14 +1,14 @@
 // Type declaration file for Express
-import { User as SelectUser } from '@shared/schema';
+import { User as UserType } from '@shared/types';
 
 declare global {
   namespace Express {
-    // Define User interface to extend the SelectUser type
-    interface User extends SelectUser {}
+    // Define User interface to extend the UserType
+    interface User extends UserType {}
     
     // Augment the Request interface to include user property
     interface Request {
-      user?: User;
+      user?: UserType;
     }
   }
 }
