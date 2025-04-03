@@ -67,6 +67,7 @@
     "nanoid": "^5.1.4",
     "openai": "^4.89.0",
     "passport": "^0.7.0",
+    "passport-jwt": "^4.0.1",
     "passport-local": "^1.0.0",
     "postgres": "^3.4.5",
     "puppeteer": "^24.4.0",
