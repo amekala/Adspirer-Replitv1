@@ -263,21 +263,57 @@ export default function ChatPage() {
   const handleSubmitMessage = (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (message.trim() && currentConversationId && !messageSending) {
+    if (message.trim() && !messageSending) {
       setMessageSending(true);
       
-      handleSendMessage()
-        .catch(error => {
-          console.error("Error sending message:", error);
-          toast({
-            title: "Error",
-            description: "Failed to send message. Please try again.",
-            variant: "destructive",
-          });
-        })
-        .finally(() => {
-          setMessageSending(false);
+      // If no conversation is selected, create a new one first
+      if (!currentConversationId) {
+        createConversationMutation.mutate(undefined, {
+          onSuccess: (newConversation) => {
+            // After creating the conversation, send the message
+            setCurrentConversationId(newConversation.id);
+            
+            // Small delay to ensure the conversation is properly set
+            setTimeout(() => {
+              handleSendMessage(newConversation.id)
+                .catch(error => {
+                  console.error("Error sending message to new conversation:", error);
+                  toast({
+                    title: "Error",
+                    description: "Failed to send message. Please try again.",
+                    variant: "destructive",
+                  });
+                })
+                .finally(() => {
+                  setMessageSending(false);
+                });
+            }, 300);
+          },
+          onError: (error) => {
+            console.error("Error creating new conversation:", error);
+            toast({
+              title: "Error",
+              description: "Failed to create a new conversation.",
+              variant: "destructive",
+            });
+            setMessageSending(false);
+          }
         });
+      } else {
+        // If a conversation is already selected, just send the message
+        handleSendMessage()
+          .catch(error => {
+            console.error("Error sending message:", error);
+            toast({
+              title: "Error",
+              description: "Failed to send message. Please try again.",
+              variant: "destructive",
+            });
+          })
+          .finally(() => {
+            setMessageSending(false);
+          });
+      }
     }
   };
 
@@ -290,7 +326,7 @@ export default function ChatPage() {
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
-      if (message.trim() && currentConversationId && !messageSending) {
+      if (message.trim() && !messageSending) {
         handleSubmitMessage(e);
       }
     }
@@ -329,10 +365,13 @@ export default function ChatPage() {
   };
 
   // Handle sending a message
-  const handleSendMessage = async () => {
+  const handleSendMessage = async (conversationId?: string) => {
     try {
+      // Use the provided conversation ID or the current one
+      const targetConversationId = conversationId || currentConversationId;
+      
       // Check if there's a message and conversation ID
-      if (!message.trim() || !currentConversationId) return;
+      if (!message.trim() || !targetConversationId) return;
       
       // Save the message content before clearing input
       const messageContent = message;
@@ -368,7 +407,7 @@ export default function ChatPage() {
           
           // Update the conversation in the query cache with both messages
           queryClient.setQueryData(
-            ['/api/chat/conversations', currentConversationId],
+            ['/api/chat/conversations', targetConversationId],
             {
               conversation: formatted.conversation,
               messages: updatedMessages
@@ -377,7 +416,7 @@ export default function ChatPage() {
           
           // Also update the specific query cache for the current conversation
           queryClient.setQueryData(
-            ['/api/chat/conversations', currentConversationId, 'specific'],
+            ['/api/chat/conversations', targetConversationId, 'specific'],
             {
               conversation: formatted.conversation,
               messages: updatedMessages
@@ -390,14 +429,14 @@ export default function ChatPage() {
       
       // IMPORTANT: First persist the user message to the database
       try {
-        await apiRequest("POST", `/api/chat/conversations/${currentConversationId}/messages`, {
+        await apiRequest("POST", `/api/chat/conversations/${targetConversationId}/messages`, {
           role: "user",
           content: messageContent
         });
           
         // Step 1: Make sure we have the user's message in the UI
         await queryClient.invalidateQueries({ 
-          queryKey: ["/api/chat/conversations", currentConversationId, "specific"]
+          queryKey: ["/api/chat/conversations", targetConversationId, "specific"]
         });
         
         // Step 2: Call the AI completions endpoint
@@ -410,7 +449,7 @@ export default function ChatPage() {
             'Authorization': `Bearer ${token}`
           },
           body: JSON.stringify({
-            conversationId: currentConversationId,
+            conversationId: targetConversationId,
             message: messageContent
           })
         });
@@ -423,14 +462,14 @@ export default function ChatPage() {
 
         // After the response has started, update the UI to remove the typing indicator
         await queryClient.invalidateQueries({ 
-          queryKey: ["/api/chat/conversations", currentConversationId, "specific"]
+          queryKey: ["/api/chat/conversations", targetConversationId, "specific"]
         });
 
       } catch (error) {
         console.error('Error in message handling process:', error);
         // Make sure we refresh the conversation data in case of an error
         await queryClient.invalidateQueries({ 
-          queryKey: ["/api/chat/conversations", currentConversationId, "specific"]
+          queryKey: ["/api/chat/conversations", targetConversationId, "specific"]
         });
         throw error;
       }
@@ -547,7 +586,7 @@ export default function ChatPage() {
                       value={message}
                       onChange={handleMessageChange}
                       onKeyDown={handleKeyDown}
-                      disabled={messageSending || !currentConversationId}
+                      disabled={messageSending}
                     />
                     <div className="absolute right-2 bottom-2 flex items-center gap-2">
                       <Toggle
@@ -564,7 +603,7 @@ export default function ChatPage() {
                       <Button
                         type="submit"
                         size="sm"
-                        disabled={!message.trim() || messageSending || !currentConversationId}
+                        disabled={!message.trim() || messageSending}
                         className="h-8 w-8 p-0 bg-gradient-to-r from-indigo-500 to-purple-500 hover:from-indigo-600 hover:to-purple-600 text-white border-0"
                       >
                         <Send className="h-4 w-4" />
