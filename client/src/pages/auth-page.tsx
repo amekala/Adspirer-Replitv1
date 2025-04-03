@@ -15,7 +15,7 @@ import { Input } from "@/components/ui/input";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { insertUserSchema, loginSchema } from "@shared/types";
+import { insertUserSchema, loginSchema } from "@shared/schema";
 import { z } from "zod";
 import { 
   Loader2, 

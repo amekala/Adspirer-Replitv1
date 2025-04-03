@@ -6,7 +6,7 @@ import jwt from "jsonwebtoken";
 import { scrypt, randomBytes, timingSafeEqual } from "crypto";
 import { promisify } from "util";
 import { storage } from "./storage";
-import { User } from "@shared/types";
+import { User } from "@shared/schema";
 import { insertUserSchema } from "./db/schema";
 
 // JWT auth middleware
