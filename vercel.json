@@ -19,11 +19,19 @@
       "dest": "server/index.ts"
     },
     {
+      "src": "/favicon.ico",
+      "dest": "client/public/favicon.ico"
+    },
+    {
       "src": "/(.*)",
       "dest": "client/dist/$1"
     }
   ],
   "env": {
     "NODE_ENV": "production"
-  }
+  },
+  "github": {
+    "silent": true
+  },
+  "ignoreCommand": "git diff HEAD^ HEAD --name-only | grep -qv \"^(client/|server/|shared/|package.json|vercel.json)\""
 }
