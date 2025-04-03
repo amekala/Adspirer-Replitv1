@@ -19,14 +19,22 @@ function MessageSkeleton({ role }: { role: 'user' | 'assistant' }) {
   
   return (
     <div className={`flex ${isUser ? 'justify-end' : 'justify-start'} group py-2`}>
-      <div className={`flex ${isUser ? 'flex-row-reverse' : 'flex-row'} gap-3 max-w-[80%] md:max-w-[70%]`}>
+      <div className={`flex ${isUser ? 'flex-row-reverse' : 'flex-row'} gap-3 max-w-[85%] md:max-w-[75%]`}>
         <div className="flex-shrink-0">
-          <Skeleton className="h-9 w-9 rounded-full" />
+          <Skeleton className={`h-9 w-9 rounded-full ${isUser ? 'bg-indigo-800/30' : 'bg-blue-800/30'}`} />
         </div>
-        <div className="space-y-2">
-          <Skeleton className="h-4 w-[200px]" />
-          <Skeleton className="h-4 w-[170px]" />
-          <Skeleton className="h-4 w-[230px]" />
+        <div className="flex flex-col gap-1">
+          <div className={`space-y-2 p-3 rounded-2xl 
+            ${isUser 
+              ? 'bg-gradient-to-r from-indigo-500/20 to-purple-500/20 rounded-tr-sm' 
+              : 'bg-white/5 backdrop-blur-sm border border-white/10 rounded-tl-sm'}`}>
+            <Skeleton className={`h-4 w-[200px] ${isUser ? 'bg-indigo-300/20' : 'bg-blue-300/20'}`} />
+            <Skeleton className={`h-4 w-[170px] ${isUser ? 'bg-indigo-300/20' : 'bg-blue-300/20'}`} />
+            <Skeleton className={`h-4 w-[230px] ${isUser ? 'bg-indigo-300/20' : 'bg-blue-300/20'}`} />
+          </div>
+          <div className="px-2">
+            <Skeleton className="h-3 w-16 bg-slate-700/20" />
+          </div>
         </div>
       </div>
     </div>
@@ -37,21 +45,26 @@ function MessageSkeleton({ role }: { role: 'user' | 'assistant' }) {
 function TypingIndicator() {
   return (
     <div className="flex justify-start group py-2">
-      <div className="flex flex-row gap-3">
+      <div className="flex flex-row gap-3 max-w-[85%] md:max-w-[75%]">
         <div className="flex-shrink-0">
-          <Avatar className="h-9 w-9 bg-indigo-600 dark:bg-zinc-800 overflow-hidden ring-2 ring-background">
+          <Avatar className="h-9 w-9 bg-gradient-to-r from-blue-500 to-cyan-400 overflow-hidden ring-2 ring-white/10">
             <div className="flex items-center justify-center h-full w-full">
               <Bot className="h-5 w-5 text-white" />
             </div>
           </Avatar>
         </div>
-        <Card className="p-3 border-slate-200 dark:border-slate-700 shadow-sm rounded-2xl rounded-tl-sm">
-          <div className="flex space-x-2 items-center">
-            <span className="h-2 w-2 bg-slate-400 dark:bg-zinc-500 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></span>
-            <span className="h-2 w-2 bg-slate-400 dark:bg-zinc-500 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></span>
-            <span className="h-2 w-2 bg-slate-400 dark:bg-zinc-500 rounded-full animate-bounce" style={{ animationDelay: '600ms' }}></span>
+        <div className="flex flex-col gap-1">
+          <div className="bg-white/10 backdrop-blur-sm border border-white/20 text-white p-3 rounded-2xl rounded-tl-sm shadow-md">
+            <div className="flex space-x-2 items-center">
+              <span className="h-2 w-2 bg-blue-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></span>
+              <span className="h-2 w-2 bg-blue-400 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></span>
+              <span className="h-2 w-2 bg-blue-400 rounded-full animate-bounce" style={{ animationDelay: '600ms' }}></span>
+            </div>
           </div>
-        </Card>
+          <div className="px-2 text-xs text-slate-400">
+            {new Date().toLocaleTimeString()}
+          </div>
+        </div>
       </div>
     </div>
   );
@@ -156,8 +169,14 @@ export function Chat({ conversation, isLoading, useRichVisualizations = true }: 
 
   if (!conversation && !isLoading) {
     return (
-      <div className="flex items-center justify-center h-full">
-        <p className="text-slate-500 dark:text-muted-foreground">No conversation selected</p>
+      <div className="flex flex-col items-center justify-center h-full">
+        <div className="w-20 h-20 mb-4 rounded-full bg-gradient-to-r from-blue-500/20 to-indigo-500/20 flex items-center justify-center">
+          <Bot className="h-10 w-10 text-blue-400/50" />
+        </div>
+        <p className="text-slate-400 mb-2">No conversation selected</p>
+        <p className="text-slate-500 text-sm max-w-md text-center">
+          Create a new conversation or select an existing one from the sidebar to get started.
+        </p>
       </div>
     );
   }
@@ -179,8 +198,11 @@ export function Chat({ conversation, isLoading, useRichVisualizations = true }: 
   return (
     <div className="space-y-6 pb-4">
       {messages.length === 0 ? (
-        <div className="text-center py-12">
-          <p className="text-slate-500 dark:text-muted-foreground">Start the conversation by typing a message below.</p>
+        <div className="text-center py-12 flex flex-col items-center justify-center">
+          <div className="w-16 h-16 mb-4 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center">
+            <Bot className="h-8 w-8 text-white" />
+          </div>
+          <p className="text-slate-300 max-w-md">Start the conversation by typing a message below to get insights about your advertising campaigns.</p>
         </div>
       ) : (
         messages.map((message, index) => {

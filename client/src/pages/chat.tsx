@@ -208,39 +208,100 @@ export default function ChatPage() {
     },
   });
 
-  // Send a message mutation
-  const sendMessageMutation = useMutation({
-    mutationFn: async (messageContent: string) => {
-      // Don't allow empty messages
-      if (!messageContent.trim()) return;
-      
-      // Create the message object
-      const messageToSend = {
-        role: "user" as const,
-        content: messageContent,
-      };
-
-      // Send the message to the API
-      const res = await apiRequest("POST", `/api/chat/conversations/${currentConversationId}/messages`, messageToSend);
+  // Update conversation mutation
+  const updateConversationMutation = useMutation({
+    mutationFn: async ({ id, title }: { id: string; title: string }) => {
+      const res = await apiRequest("PUT", `/api/chat/conversations/${id}`, { title });
       return res.json();
     },
     onSuccess: () => {
-      // Clear the text area after sending
-      setMessage("");
+      queryClient.invalidateQueries({ queryKey: ["/api/chat/conversations"] });
       
-      // Update the conversation with the new message
-      queryClient.invalidateQueries({ 
-        queryKey: ["/api/chat/conversations", currentConversationId] 
+      toast({
+        title: "Updated",
+        description: "Conversation renamed successfully"
       });
     },
     onError: (error: Error) => {
       toast({
         title: "Error",
-        description: `Failed to send message: ${error.message}`,
+        description: `Failed to update conversation: ${error.message}`,
         variant: "destructive",
       });
     },
   });
+
+  // Delete conversation mutation
+  const deleteConversationMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const res = await apiRequest("DELETE", `/api/chat/conversations/${id}`);
+      if (!res.ok) throw new Error("Failed to delete conversation");
+      return id;
+    },
+    onSuccess: (id) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/chat/conversations"] });
+      
+      if (currentConversationId === id) {
+        setCurrentConversationId(null);
+      }
+      
+      toast({
+        title: "Deleted",
+        description: "Conversation was deleted successfully"
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Error",
+        description: `Failed to delete conversation: ${error.message}`,
+        variant: "destructive",
+      });
+    },
+  });
+
+  // Handle sending a message
+  const handleSubmitMessage = (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    if (message.trim() && currentConversationId && !messageSending) {
+      setMessageSending(true);
+      
+      handleSendMessage()
+        .catch(error => {
+          console.error("Error sending message:", error);
+          toast({
+            title: "Error",
+            description: "Failed to send message. Please try again.",
+            variant: "destructive",
+          });
+        })
+        .finally(() => {
+          setMessageSending(false);
+        });
+    }
+  };
+
+  // Handle the message input change
+  const handleMessageChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    setMessage(e.target.value);
+  };
+
+  // Handle keyboard shortcuts
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      if (message.trim() && currentConversationId && !messageSending) {
+        handleSubmitMessage(e);
+      }
+    }
+  };
+
+  // Scroll to bottom when messages change
+  useEffect(() => {
+    if (chatContainerRef.current) {
+      chatContainerRef.current.scrollTop = chatContainerRef.current.scrollHeight;
+    }
+  }, [conversationMessages]);
 
   // Handle a new conversation
   const handleNewConversation = () => {
@@ -272,9 +333,6 @@ export default function ChatPage() {
     try {
       // Check if there's a message and conversation ID
       if (!message.trim() || !currentConversationId) return;
-      
-      // Set message sending state to true
-      setMessageSending(true);
       
       // Save the message content before clearing input
       const messageContent = message;
@@ -363,231 +421,35 @@ export default function ChatPage() {
           throw new Error(`HTTP error! status: ${completionResponse.status}`);
         }
 
-        // Process the streaming response
-        console.log('Processing streaming response...');
-        const reader = completionResponse.body?.getReader();
-        if (!reader) {
-          throw new Error('No reader available from response');
-        }
-        
-        const decoder = new TextDecoder();
-        let streamedContent = '';
-        
-        // Start reading the stream
-        try {
-          let done = false;
-          
-          while (!done) {
-            const { value, done: doneReading } = await reader.read();
-            done = doneReading;
-            
-            if (value) {
-              // Decode the chunk and parse it
-              const chunk = decoder.decode(value, { stream: true });
-              console.log('Received chunk:', chunk);
-              
-              // Process each line (could be multiple SSE events in one chunk)
-              const lines = chunk.split('\n\n');
-              for (const line of lines) {
-                if (line.startsWith('data: ')) {
-                  const data = line.substring(6); // Remove 'data: ' prefix
-                  
-                  if (data === '[DONE]') {
-                    console.log('Stream completed');
-                    done = true;
-                    break;
-                  }
-                  
-                  if (data === '[ERROR]') {
-                    console.error('Server reported an error');
-                    done = true;
-                    break;
-                  }
-                  
-                  try {
-                    // Parse the JSON data
-                    const parsedData = JSON.parse(data);
-                    if (parsedData.content) {
-                      streamedContent += parsedData.content;
-                      
-                      // Create an updated conversation object with streamed content
-                      if (currentConversation) {
-                        // Get latest conversation data
-                        const latestConversation = queryClient.getQueryData([
-                          "/api/chat/conversations", 
-                          currentConversationId, 
-                          "specific"
-                        ]) as { conversation: any; messages: any[] } || {
-                          conversation: typeof currentConversation === 'object' && currentConversation ? 
-                            (currentConversation as any).conversation || {} : {},
-                          messages: typeof currentConversation === 'object' && currentConversation ? 
-                            (currentConversation as any).messages || [] : []
-                        };
-                        
-                        // Create a copy of the messages array
-                        let messages = Array.isArray(latestConversation.messages) 
-                          ? [...latestConversation.messages] 
-                          : [];
-                          
-                        // Find if we have a typing indicator already
-                        const typingIndex = messages.findIndex(m => 
-                          m.id === 'typing-indicator' || m.id.startsWith('streaming-'));
-                        
-                        if (typingIndex >= 0) {
-                          // Update the existing typing indicator with content
-                          messages[typingIndex] = {
-                            ...messages[typingIndex],
-                            id: 'streaming-' + Date.now(),
-                            content: streamedContent
-                          };
-                        } else {
-                          // Add new assistant message
-                          messages.push({
-                            id: 'streaming-' + Date.now(),
-                            role: 'assistant',
-                            content: streamedContent,
-                            createdAt: new Date().toISOString()
-                          });
-                        }
-                        
-                        // Update the query cache
-                        queryClient.setQueryData(
-                          ['/api/chat/conversations', currentConversationId, 'specific'],
-                          {
-                            conversation: latestConversation.conversation,
-                            messages
-                          }
-                        );
-                      }
-                    }
-                  } catch (parseError) {
-                    console.error('Error parsing streaming data:', parseError);
-                  }
-                }
-              }
-            }
-          }
-        } finally {
-          reader.releaseLock();
-        }
+        // After the response has started, update the UI to remove the typing indicator
+        await queryClient.invalidateQueries({ 
+          queryKey: ["/api/chat/conversations", currentConversationId, "specific"]
+        });
+
       } catch (error) {
-        console.error("Error handling streaming response:", error);
+        console.error('Error in message handling process:', error);
+        // Make sure we refresh the conversation data in case of an error
+        await queryClient.invalidateQueries({ 
+          queryKey: ["/api/chat/conversations", currentConversationId, "specific"]
+        });
+        throw error;
       }
-      
-      // Final refresh to ensure we have the server's latest state
-      queryClient.invalidateQueries({ 
-        queryKey: ["/api/chat/conversations", currentConversationId] 
-      });
       
     } catch (error) {
-      console.error("Error in chat process:", error);
+      console.error("Error sending message:", error);
       toast({
         title: "Error",
-        description: `Failed to get AI response: ${error instanceof Error ? error.message : String(error)}`,
+        description: `Failed to send message: ${error instanceof Error ? error.message : String(error)}`,
         variant: "destructive",
       });
-      
-      // Refresh messages to show at least the user's message
-      queryClient.invalidateQueries({ 
-        queryKey: ["/api/chat/conversations", currentConversationId] 
-      });
-    } finally {
-      // Set message sending state back to false when done
-      setMessageSending(false);
     }
   };
-
-  // Handle message input change
-  const handleMessageChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-    setMessage(e.target.value);
-  };
-
-  // Handle form submission
-  const handleSubmitMessage = (e: React.FormEvent) => {
-    e.preventDefault();
-    handleSendMessage();
-  };
-
-  // Handle textarea resize and keyboard shortcuts
-  const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === "Enter" && !e.shiftKey) {
-      e.preventDefault();
-      handleSendMessage();
-    }
-  };
-
-  // Auto-resize textarea based on content
-  useEffect(() => {
-    if (textareaRef.current) {
-      textareaRef.current.style.height = "auto";
-      textareaRef.current.style.height = `${textareaRef.current.scrollHeight}px`;
-    }
-  }, [message]);
-
-  // Scroll to bottom when new messages arrive
-  useEffect(() => {
-    if (chatContainerRef.current) {
-      chatContainerRef.current.scrollTop = chatContainerRef.current.scrollHeight;
-    }
-  }, [currentConversation?.messages]);
-
-  // Handle chat title editing
-  const updateConversationMutation = useMutation({
-    mutationFn: async ({ id, title }: { id: string; title: string }) => {
-      const res = await apiRequest("PUT", `/api/chat/conversations/${id}`, { 
-        title 
-      });
-      return res.json();
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/chat/conversations"] });
-    },
-    onError: (error: Error) => {
-      toast({
-        title: "Error",
-        description: `Failed to update conversation: ${error.message}`,
-        variant: "destructive",
-      });
-    },
-  });
-
-  // Handle chat deletion
-  const deleteConversationMutation = useMutation({
-    mutationFn: async (id: string) => {
-      await apiRequest("DELETE", `/api/chat/conversations/${id}`);
-    },
-    onSuccess: (_, id) => {
-      queryClient.invalidateQueries({ queryKey: ["/api/chat/conversations"] });
-      
-      // If we deleted the current conversation, select another one
-      if (id === currentConversationId && Array.isArray(conversations)) {
-        const remainingConversations = conversations.filter((c: any) => c.id !== id);
-        if (remainingConversations.length > 0) {
-          setCurrentConversationId(remainingConversations[0].id);
-        } else {
-          setCurrentConversationId(null);
-        }
-      }
-      
-      toast({
-        title: "Conversation deleted",
-        description: "The conversation has been deleted",
-      });
-    },
-    onError: (error: Error) => {
-      toast({
-        title: "Error",
-        description: `Failed to delete conversation: ${error.message}`,
-        variant: "destructive",
-      });
-    },
-  });
 
   return (
     <Layout>
-      <div className="flex flex-row min-h-[calc(100vh-4rem)] mx-auto container p-4 sm:p-6 relative z-10">
+      <div className="flex flex-row h-[calc(100vh-4rem)] mx-auto container p-4 sm:p-6 relative z-10 overflow-hidden">
         {/* Sidebar */}
-        <div className="w-64 flex-shrink-0 hidden md:flex flex-col mr-6">
+        <div className="w-64 flex-shrink-0 hidden md:flex flex-col mr-6 h-full">
           <div className="bg-white/10 backdrop-blur-xl border border-white/20 rounded-xl overflow-hidden shadow-lg flex flex-col h-full">
             <div className="p-4 flex justify-between items-center border-b border-white/10">
               <h2 className="text-lg font-semibold bg-clip-text text-transparent bg-gradient-to-r from-indigo-400 via-purple-400 to-pink-400">Chats</h2>
@@ -603,9 +465,10 @@ export default function ChatPage() {
                 </Button>
               </div>
             </div>
-            {/* Using directly ChatSidebar which already has ScrollArea component inside it */}
-            <div className="flex-1 overflow-hidden h-full">
-                <ChatSidebar
+            
+            {/* Conversation list with scroll */}
+            <div className="flex-1 overflow-y-auto">
+              <ChatSidebar
                 conversations={conversations}
                 currentConversationId={currentConversationId}
                 onConversationSelect={handleConversationSelect}
@@ -624,13 +487,13 @@ export default function ChatPage() {
         </div>
 
         {/* Main content area - conditionally show either chat or settings */}
-        <div className="flex-1 flex flex-col bg-white/10 backdrop-blur-xl border border-white/20 rounded-xl overflow-hidden shadow-lg relative">
+        <div className="flex-1 flex flex-col bg-white/10 backdrop-blur-xl border border-white/20 rounded-xl overflow-hidden shadow-lg h-full">
           {showSettings ? (
-            <div className="h-full p-6">
+            <div className="h-full p-6 overflow-y-auto">
               <ChatSettings onBack={() => setShowSettings(false)} />
             </div>
           ) : (
-            <>
+            <div className="flex flex-col h-full">
               {/* Mobile header */}
               <div className="md:hidden border-b border-white/10 p-3 flex items-center justify-between gap-2">
                 <Button
@@ -659,15 +522,10 @@ export default function ChatPage() {
                 </div>
               </div>
 
-              {/* Chat conversation container with fixed height - scrollable */}
+              {/* Chat messages container - takes available space and scrolls */}
               <div 
                 className="flex-1 overflow-y-auto" 
                 ref={chatContainerRef}
-                style={{ 
-                  height: "calc(100vh - 16rem)", // Adjust height to leave space for the input
-                  maxHeight: "calc(100vh - 16rem)",
-                  overflowY: "auto"
-                }}
               >
                 <div className="p-4 md:p-6 space-y-6">
                   <Chat 
@@ -679,13 +537,13 @@ export default function ChatPage() {
               </div>
 
               {/* Input area - fixed at bottom */}
-              <div className="border-t border-white/10 p-4 sticky bottom-0 bg-white/5 backdrop-blur-md">
-                <form onSubmit={handleSubmitMessage} className="space-y-2">
+              <div className="border-t border-white/10 p-4 bg-white/5 backdrop-blur-md">
+                <form onSubmit={handleSubmitMessage}>
                   <div className="relative">
                     <Textarea
                       ref={textareaRef}
                       placeholder="Ask me anything..."
-                      className="min-h-24 pr-20 resize-none overflow-hidden bg-background/40 backdrop-blur-sm border-white/20 focus:border-white/40 focus:ring-2 focus:ring-indigo-500/40"
+                      className="min-h-20 pr-20 resize-none overflow-hidden bg-background/40 backdrop-blur-sm border-white/20 focus:border-white/40 focus:ring-2 focus:ring-indigo-500/40"
                       value={message}
                       onChange={handleMessageChange}
                       onKeyDown={handleKeyDown}
@@ -715,7 +573,7 @@ export default function ChatPage() {
                   </div>
                 </form>
               </div>
-            </>
+            </div>
           )}
         </div>
       </div>

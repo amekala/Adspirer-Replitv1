@@ -28,17 +28,17 @@ export function EnhancedMessageBubble({ message, isStreaming = false }: Enhanced
       <div className="flex justify-end group py-2">
         <div className="flex flex-row-reverse gap-3 max-w-[85%] md:max-w-[75%]">
           <div className="flex-shrink-0">
-            <Avatar className="h-9 w-9 bg-primary overflow-hidden ring-2 ring-background">
+            <Avatar className="h-9 w-9 bg-gradient-to-r from-indigo-500 to-purple-500 overflow-hidden ring-2 ring-white/10">
               <div className="flex items-center justify-center h-full w-full">
                 <User className="h-5 w-5 text-white" />
               </div>
             </Avatar>
           </div>
           <div className="flex flex-col gap-1 items-end">
-            <div className="p-3 rounded-2xl bg-primary text-primary-foreground dark:bg-primary dark:text-primary-foreground rounded-tr-sm">
+            <div className="p-3 rounded-2xl bg-gradient-to-r from-indigo-500/80 to-purple-500/80 text-white rounded-tr-sm backdrop-blur-sm">
               <div className="whitespace-pre-wrap">{message.content}</div>
             </div>
-            <div className="px-2 text-xs text-muted-foreground text-right">
+            <div className="px-2 text-xs text-slate-400 text-right">
               {new Date(message.createdAt).toLocaleTimeString()}
             </div>
           </div>
@@ -196,7 +196,7 @@ export function EnhancedMessageBubble({ message, isStreaming = false }: Enhanced
     <div className={`flex ${isUser ? 'justify-end' : 'justify-start'} group py-2`}>
       <div className={`flex ${isUser ? 'flex-row-reverse' : 'flex-row'} gap-3 max-w-[85%] md:max-w-[75%]`}>
         <div className="flex-shrink-0">
-          <Avatar className={`h-9 w-9 ${isUser ? 'bg-primary' : 'bg-indigo-600 dark:bg-zinc-800'} overflow-hidden ring-2 ring-background`}>
+          <Avatar className={`h-9 w-9 ${isUser ? 'bg-gradient-to-r from-indigo-500 to-purple-500' : 'bg-gradient-to-r from-blue-500 to-cyan-400'} overflow-hidden ring-2 ring-white/10`}>
             <div className="flex items-center justify-center h-full w-full">
               {isUser ? (
                 <User className="h-5 w-5 text-white" />
@@ -217,9 +217,9 @@ export function EnhancedMessageBubble({ message, isStreaming = false }: Enhanced
           <div 
             className={`p-3 rounded-2xl ${
               isUser 
-                ? 'bg-primary text-primary-foreground dark:bg-primary dark:text-primary-foreground rounded-tr-sm' 
-                : 'bg-card border border-slate-200 dark:border-slate-700 rounded-tl-sm shadow-sm'
-            } ${isStreaming ? 'border-l-4 border-l-indigo-500' : ''}`}
+                ? 'bg-gradient-to-r from-indigo-500/80 to-purple-500/80 text-white rounded-tr-sm backdrop-blur-sm' 
+                : 'bg-white/10 backdrop-blur-sm border border-white/20 text-white rounded-tl-sm shadow-md'
+            } ${isStreaming ? 'border-l-4 border-l-cyan-400' : ''}`}
           >
             {isUser ? (
               <div className="whitespace-pre-wrap">{message.content}</div>
@@ -228,7 +228,7 @@ export function EnhancedMessageBubble({ message, isStreaming = false }: Enhanced
             )}
           </div>
           
-          <div className={`px-2 text-xs text-muted-foreground ${isUser ? 'text-right' : 'text-left'}`}>
+          <div className={`px-2 text-xs text-slate-400 ${isUser ? 'text-right' : 'text-left'}`}>
             {new Date(message.createdAt).toLocaleTimeString()}
           </div>
         </div>
