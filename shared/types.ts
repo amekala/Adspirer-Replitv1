@@ -1,7 +1,7 @@
 // shared/types.ts
 // Pure TypeScript types for sharing between client and server
 // NO imports from drizzle-orm here!
-import { z } from "zod"; // Safe to import zod, it's not server-specific
+import * as z from "zod"; // Changed import style for better compatibility
 
 // Auth types
 export interface User {
