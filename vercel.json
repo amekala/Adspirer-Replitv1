@@ -1,21 +1,8 @@
 {
-  "version": 2,
-  "public": true,
-  "builds": [
-    { "src": "public/**/*", "use": "@vercel/static" },
-    { "src": "server/index.ts", "use": "@vercel/node" }
-  ],
+  "buildCommand": false,
+  "outputDirectory": "public",
   "routes": [
     { "src": "/api/(.*)", "dest": "server/index.ts" },
-    { "src": "/(.*)", "dest": "/public/$1", "continue": true },
-    { "handle": "filesystem" },
-    { "src": "/(.*)", "dest": "/public/index.html" }
-  ],
-  "env": {
-    "NODE_ENV": "production"
-  },
-  "github": {
-    "silent": true
-  },
-  "ignoreCommand": "git diff HEAD^ HEAD --name-only | grep -qv \"^(client/|server/|shared/|package.json|vercel.json)\""
+    { "handle": "filesystem" }
+  ]
 }
