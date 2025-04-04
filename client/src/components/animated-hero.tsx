@@ -43,7 +43,7 @@ export function AnimatedHero({ scrollToDemo }: AnimatedHeroProps) {
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.8, delay: 0.1, ease: "easeOut" }}
             >
-              Ditch complex dashboards. Simply ask questions in natural language and get instant insights across Amazon, Google, and Meta platforms.
+Create campaigns, analyze performance, and get recommendations - just ask your marketing copilot in everyday language for insights across Amazon, Google, and Meta.
             </motion.p>
             
             <motion.div 
