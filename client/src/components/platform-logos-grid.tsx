@@ -10,7 +10,7 @@ export function PlatformLogosGrid() {
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.6 }}
       >
-        Connected with platforms that matter
+        One copilot for all your ad platforms
       </motion.h2>
       
       <motion.p 
@@ -19,7 +19,7 @@ export function PlatformLogosGrid() {
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.6, delay: 0.2 }}
       >
-        Optimize your advertising performance across top retail and ad platforms
+        Manage campaigns, analyze performance, and optimize strategies across all major retail and advertising platforms
       </motion.p>
       
       <motion.div 

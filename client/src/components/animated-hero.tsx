@@ -138,7 +138,7 @@ Create campaigns, analyze performance, and get recommendations - just ask your m
                 {/* User message 1 */}
                 <div className="flex justify-end gap-3">
                   <div className="bg-indigo-600/20 backdrop-blur-md p-3 rounded-lg max-w-[80%]">
-                    <p className="text-sm text-slate-200">How are my campaigns performing this week?</p>
+                    <p className="text-sm text-slate-200">Create a Google PMax and Meta Advantage+ campaign using my previous creatives and targeting</p>
                   </div>
                   <div className="w-8 h-8 rounded-full bg-slate-800 border border-slate-700 flex items-center justify-center">
                     <User className="h-4 w-4 text-slate-400" />
@@ -152,7 +152,7 @@ Create campaigns, analyze performance, and get recommendations - just ask your m
                   </div>
                   <div className="bg-slate-800/70 backdrop-blur-md p-3 rounded-lg max-w-[80%]">
                     <p className="text-sm text-slate-200">
-                      Your Amazon campaigns have seen a 24% increase in ROAS this week. Google Ads performance is stable with a slight increase in CTR by 0.3%.
+                      I've created a Google PMax campaign using your best-performing assets from the "Spring Sale" campaign and a Meta Advantage+ campaign with your top creatives. Both are set to launch tomorrow with your approved budget. Need to review the targeting?
                     </p>
                   </div>
                 </div>
@@ -160,7 +160,7 @@ Create campaigns, analyze performance, and get recommendations - just ask your m
                 {/* User message 2 */}
                 <div className="flex justify-end gap-3">
                   <div className="bg-indigo-600/20 backdrop-blur-md p-3 rounded-lg max-w-[80%]">
-                    <p className="text-sm text-slate-200">Which campaign has the highest ROAS?</p>
+                    <p className="text-sm text-slate-200">Why did my ad spend increase but ROAS dropped last week?</p>
                   </div>
                   <div className="w-8 h-8 rounded-full bg-slate-800 border border-slate-700 flex items-center justify-center">
                     <User className="h-4 w-4 text-slate-400" />
@@ -174,7 +174,7 @@ Create campaigns, analyze performance, and get recommendations - just ask your m
                   </div>
                   <div className="bg-slate-800/70 backdrop-blur-md p-3 rounded-lg max-w-[80%]">
                     <p className="text-sm text-slate-200">
-                      Your 'Summer Collection' campaign on Amazon has the highest ROAS at 4.8x, followed by 'Brand Awareness' on Google at 3.2x.
+                      Your Amazon campaign bid adjustments led to 45% higher CPCs, while seasonal trends affected conversion rates. I recommend refining your product targeting and adjusting bids for the 'Summer Essentials' campaign to improve efficiency.
                     </p>
                   </div>
                 </div>
@@ -185,7 +185,7 @@ Create campaigns, analyze performance, and get recommendations - just ask your m
                 <div className="flex items-center gap-2 relative">
                   <input 
                     type="text" 
-                    placeholder="Ask about your campaigns..."
+                    placeholder="Ask your marketing copilot for help..."
                     className="w-full py-2 px-4 bg-slate-800/50 border border-slate-700/50 rounded-lg text-sm text-slate-200 placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/50"
                   />
                   <button className="absolute right-3 flex items-center justify-center h-6 w-6 rounded-full bg-indigo-600 text-white">
