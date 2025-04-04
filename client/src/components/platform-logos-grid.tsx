@@ -30,12 +30,6 @@ export function PlatformLogosGrid() {
       size: "max-w-[260px]"
     },
     {
-      text: "Where should I reallocate $5K budget for best ROAS?",
-      color: "from-teal-400/80 to-green-400/80",
-      position: { top: "8%", right: "5%" },
-      size: "max-w-[280px]"
-    },
-    {
       text: "Create an A/B test for our product listings",
       color: "from-sky-400/90 to-blue-400/90",
       position: { top: "40%", right: "10%" },
@@ -46,12 +40,6 @@ export function PlatformLogosGrid() {
       color: "from-rose-400/80 to-red-400/80",
       position: { top: "65%", right: "15%" },
       size: "max-w-[240px]"
-    },
-    {
-      text: "Suggest budget optimization for holiday season",
-      color: "from-red-400/80 to-orange-400/80",
-      position: { top: "33%", left: "50%" },
-      size: "max-w-[280px]"
     }
   ];
 

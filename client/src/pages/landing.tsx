@@ -7,7 +7,7 @@ import { ThemeProvider } from "@/components/ui/theme-provider";
 import { AnimatedButton } from "@/components/ui/animated-button";
 import { AnimatedBackground } from "@/components/animated-background";
 import { AnimatedHero } from "@/components/animated-hero";
-import { PlatformLogosGrid } from "@/components/platform-logos-grid";
+import { MarketingCopilotQuestions } from "@/components/marketing-copilot-questions";
 import { AnimatedConversations } from "@/components/animated-conversations";
 import { AnimatedFeatures } from "@/components/animated-features";
 import { DemoRequestForm } from "@/components/demo-request-form";
@@ -116,9 +116,9 @@ export default function LandingPage() {
             <AnimatedHero scrollToDemo={scrollToDemo} />
           </section>
           
-          {/* Platforms Grid */}
+          {/* Marketing Copilot Questions */}
           <section className="container mx-auto px-4">
-            <PlatformLogosGrid />
+            <MarketingCopilotQuestions />
           </section>
           
           {/* Conversation Examples */}
@@ -140,29 +140,43 @@ export default function LandingPage() {
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.6 }}
               >
-                How It Works
+                Your Marketing Intelligence Partner
               </motion.h2>
+              <motion.p
+                className="text-lg md:text-xl text-slate-600 dark:text-slate-400 max-w-2xl mx-auto"
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.6, delay: 0.1 }}
+              >
+                Supercharge your advertising strategy with AI-powered insights and automation
+              </motion.p>
             </div>
             
-            <div className="max-w-4xl mx-auto grid md:grid-cols-3 gap-8">
+            <div className="max-w-5xl mx-auto grid md:grid-cols-4 gap-8">
               {[
                 {
                   step: 1,
-                  title: "Connect Your Accounts",
-                  description: "One-click authentication with your ad platforms",
+                  title: "Connect Platforms",
+                  description: "Integrate Amazon, Google, Facebook, and more with a single click",
                   delay: 0.1
                 },
                 {
                   step: 2,
-                  title: "Analyze Your Data",
-                  description: "Our AI automatically analyzes your campaigns",
+                  title: "Create Campaigns",
+                  description: "Let AI help you build optimized campaigns using natural language",
                   delay: 0.2
                 },
                 {
                   step: 3,
-                  title: "Optimize Performance",
-                  description: "Get data-driven recommendations to improve ROAS",
+                  title: "Analyze Performance",
+                  description: "Ask questions about your data and get instant visual insights",
                   delay: 0.3
+                },
+                {
+                  step: 4,
+                  title: "Optimize & Scale",
+                  description: "Receive actionable recommendations to improve ROAS across channels",
+                  delay: 0.4
                 }
               ].map((item) => (
                 <motion.div
