@@ -70,57 +70,41 @@ Create campaigns, analyze performance, and get recommendations - just ask your m
             </motion.div>
             
             <motion.div
-              className="flex flex-col gap-3 mt-10 relative"
+              className="flex flex-col gap-3 mt-10"
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               transition={{ duration: 0.8, delay: 0.4 }}
             >
-              {/* Floating chat bubbles with questions */}
-              <div className="relative h-[120px]">
-                <motion.div 
-                  className="absolute left-0 top-0 bg-gradient-to-r from-purple-500 to-pink-500 px-4 py-2 rounded-2xl shadow-lg text-white text-xs max-w-[200px]"
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.5, delay: 0.5 }}
-                >
-                  "Create a PMax campaign for my summer collection"
-                </motion.div>
+              <span className="text-sm text-slate-400 mb-1">
+                Works with top retail and ad platforms
+              </span>
+              
+              <div className="flex flex-wrap gap-4 items-center">
+                {/* Platform logos */}
+                <div className="flex items-center gap-3 p-2 rounded-lg bg-slate-900/50 backdrop-blur-sm border border-slate-800/50">
+                  <div className="w-6 h-6 rounded-full bg-amber-500/90 flex items-center justify-center text-xs font-semibold">A</div>
+                  <span className="text-xs font-medium text-amber-300">Amazon</span>
+                </div>
                 
-                <motion.div 
-                  className="absolute right-10 top-5 bg-gradient-to-r from-blue-500 to-cyan-400 px-4 py-2 rounded-2xl shadow-lg text-white text-xs max-w-[220px]"
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.5, delay: 0.7 }}
-                >
-                  "Build a Meta Advantage+ campaign for new line of Nike Airforce"
-                </motion.div>
+                <div className="flex items-center gap-3 p-2 rounded-lg bg-slate-900/50 backdrop-blur-sm border border-slate-800/50">
+                  <div className="w-6 h-6 rounded-full bg-blue-500/90 flex items-center justify-center text-xs font-semibold">G</div>
+                  <span className="text-xs font-medium text-blue-300">Google</span>
+                </div>
                 
-                <motion.div 
-                  className="absolute left-16 bottom-0 bg-gradient-to-r from-amber-500 to-orange-500 px-4 py-2 rounded-2xl shadow-lg text-white text-xs max-w-[200px]"
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.5, delay: 0.9 }}
-                >
-                  "What's our blended ROAS across platforms YTD?"
-                </motion.div>
+                <div className="flex items-center gap-3 p-2 rounded-lg bg-slate-900/50 backdrop-blur-sm border border-slate-800/50">
+                  <div className="w-6 h-6 rounded-full bg-facebook-500/90 flex items-center justify-center text-xs font-semibold">M</div>
+                  <span className="text-xs font-medium text-facebook-300">Meta</span>
+                </div>
                 
-                <motion.div 
-                  className="absolute right-0 bottom-5 bg-gradient-to-r from-emerald-500 to-teal-500 px-4 py-2 rounded-2xl shadow-lg text-white text-xs max-w-[210px]"
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.5, delay: 1.1 }}
-                >
-                  "Where should I reallocate $5K budget for best ROAS?"
-                </motion.div>
+                <div className="flex items-center gap-3 p-2 rounded-lg bg-slate-900/50 backdrop-blur-sm border border-slate-800/50">
+                  <div className="w-6 h-6 rounded-full bg-blue-700/90 flex items-center justify-center text-xs font-semibold">W</div>
+                  <span className="text-xs font-medium text-blue-300">Walmart</span>
+                </div>
                 
-                <motion.div 
-                  className="absolute right-24 bottom-2 bg-gradient-to-r from-indigo-500 to-blue-500 px-4 py-2 rounded-2xl shadow-lg text-white text-xs max-w-[210px]"
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.5, delay: 1.3 }}
-                >
-                  "How did Meta ROAS compare to Google last month?"
-                </motion.div>
+                <div className="flex items-center gap-3 p-2 rounded-lg bg-slate-900/50 backdrop-blur-sm border border-slate-800/50">
+                  <div className="w-6 h-6 rounded-full bg-red-600/90 flex items-center justify-center text-xs font-semibold">T</div>
+                  <span className="text-xs font-medium text-red-300">Target</span>
+                </div>
               </div>
             </motion.div>
           </div>
