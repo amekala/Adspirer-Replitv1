@@ -3,32 +3,56 @@ import { motion } from "framer-motion";
 import { MessageSquare } from "lucide-react";
 
 export function PlatformLogosGrid() {
-  // Example marketing questions that users can ask their copilot
-  const chatQuestions = [
-    "Create a PMax campaign for my summer collection",
-    "Build a Meta Advantage+ campaign for new line of Nike Airforce",
-    "What's our blended ROAS across platforms YTD?",
-    "Where should I reallocate $5K budget for best ROAS?",
-    "How did Meta ROAS compare to Google last month?",
-    "Which campaigns have the highest CTR?", 
-    "Analyze our Q1 performance vs competitors",
-    "Create an A/B test for our product listings",
-    "Show conversion trends for the last 6 months",
-    "Suggest budget optimization for holiday season"
-  ];
-
-  // Different gradient colors for the chat bubbles
-  const gradients = [
-    "from-purple-500 to-pink-500",      // Purple to Pink 
-    "from-blue-500 to-cyan-400",        // Blue to Cyan
-    "from-amber-500 to-orange-500",     // Amber to Orange
-    "from-emerald-500 to-teal-500",     // Emerald to Teal
-    "from-indigo-500 to-blue-500",      // Indigo to Blue
-    "from-red-500 to-rose-500",         // Red to Rose
-    "from-fuchsia-500 to-pink-500",     // Fuchsia to Pink
-    "from-sky-500 to-indigo-500",       // Sky to Indigo  
-    "from-lime-500 to-emerald-500",     // Lime to Emerald
-    "from-rose-500 to-red-500"          // Rose to Red
+  // Carefully selected marketing questions (fewer bubbles, better organization)
+  const chatBubbles = [
+    {
+      text: "How did Meta ROAS compare to Google last month?",
+      color: "from-indigo-400/90 to-blue-500/90",
+      position: { top: "10%", left: "5%" },
+      size: "max-w-[260px]"
+    },
+    {
+      text: "Analyze our Q1 performance vs competitors",
+      color: "from-purple-400/90 to-fuchsia-500/90",
+      position: { top: "12%", left: "62%" },
+      size: "max-w-[250px]"
+    },
+    {
+      text: "Show conversion trends for the last 6 months",
+      color: "from-lime-500/80 to-emerald-400/80",
+      position: { top: "37%", left: "15%" },
+      size: "max-w-[270px]"
+    },
+    {
+      text: "What's our blended ROAS across platforms YTD?",
+      color: "from-amber-400/80 to-orange-400/80",
+      position: { top: "66%", left: "8%" },
+      size: "max-w-[260px]"
+    },
+    {
+      text: "Where should I reallocate $5K budget for best ROAS?",
+      color: "from-teal-400/80 to-green-400/80",
+      position: { top: "8%", right: "5%" },
+      size: "max-w-[280px]"
+    },
+    {
+      text: "Create an A/B test for our product listings",
+      color: "from-sky-400/90 to-blue-400/90",
+      position: { top: "40%", right: "10%" },
+      size: "max-w-[250px]"
+    },
+    {
+      text: "Which campaigns have the highest CTR?",
+      color: "from-rose-400/80 to-red-400/80",
+      position: { top: "65%", right: "15%" },
+      size: "max-w-[240px]"
+    },
+    {
+      text: "Suggest budget optimization for holiday season",
+      color: "from-red-400/80 to-orange-400/80",
+      position: { top: "33%", left: "50%" },
+      size: "max-w-[280px]"
+    }
   ];
 
   return (
@@ -54,37 +78,55 @@ export function PlatformLogosGrid() {
       </motion.p>
       
       <motion.div 
-        className="max-w-5xl mx-auto relative"
+        className="max-w-6xl mx-auto px-4"
         initial={{ opacity: 0 }}
         whileInView={{ opacity: 1 }}
         viewport={{ once: true }}
         transition={{ duration: 0.6, delay: 0.4 }}
       >
-        <div className="h-[400px] md:h-[350px] relative">
-          {chatQuestions.map((question, index) => (
+        {/* Desktop layout (fixed positions) */}
+        <div className="hidden md:block h-[400px] relative">
+          {chatBubbles.map((bubble, index) => (
             <motion.div
               key={index}
-              className={`absolute bg-gradient-to-r ${gradients[index]} px-5 py-3 rounded-2xl shadow-lg text-white text-sm max-w-[280px] flex items-start gap-3`}
+              className={`absolute bg-gradient-to-r ${bubble.color} px-5 py-3 rounded-2xl border border-white/10 shadow-lg backdrop-blur-md text-white text-sm ${bubble.size} flex items-start gap-3`}
               initial={{ opacity: 0, y: 30 }}
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
-              transition={{ duration: 0.5, delay: 0.2 + (index * 0.1) }}
-              style={{
-                top: `${Math.floor(Math.random() * 60) + (index % 3) * 30}%`,
-                left: index % 2 === 0 
-                  ? `${Math.floor(Math.random() * 20)}%` 
-                  : `${Math.floor(Math.random() * 20) + 60}%`,
-                zIndex: index
-              }}
+              transition={{ duration: 0.5, delay: 0.3 + (index * 0.1) }}
+              style={bubble.position}
               whileHover={{ 
                 scale: 1.05, 
-                boxShadow: "0 20px 25px -5px rgba(0, 0, 0, 0.2)"
+                boxShadow: "0 0 20px rgba(255, 255, 255, 0.15)"
               }}
             >
-              <div className="rounded-full bg-white/20 p-1.5 mt-0.5">
+              <div className="rounded-full bg-white/20 p-1.5 mt-0.5 flex-shrink-0">
                 <MessageSquare className="h-3.5 w-3.5 text-white" />
               </div>
-              <span>{question}</span>
+              <span>{bubble.text}</span>
+            </motion.div>
+          ))}
+        </div>
+
+        {/* Mobile layout (stacked grid) */}
+        <div className="md:hidden grid grid-cols-1 gap-4">
+          {chatBubbles.map((bubble, index) => (
+            <motion.div
+              key={index}
+              className={`bg-gradient-to-r ${bubble.color} px-5 py-3 rounded-2xl border border-white/10 shadow-lg backdrop-blur-md text-white text-sm w-full flex items-start gap-3`}
+              initial={{ opacity: 0, y: 20 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              transition={{ duration: 0.3, delay: 0.1 + (index * 0.05) }}
+              whileHover={{ 
+                scale: 1.02, 
+                boxShadow: "0 0 15px rgba(255, 255, 255, 0.1)"
+              }}
+            >
+              <div className="rounded-full bg-white/20 p-1.5 mt-0.5 flex-shrink-0">
+                <MessageSquare className="h-3.5 w-3.5 text-white" />
+              </div>
+              <span>{bubble.text}</span>
             </motion.div>
           ))}
         </div>
