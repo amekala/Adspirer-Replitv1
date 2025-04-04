@@ -818,19 +818,56 @@ export async function registerRoutes(app: Express): Promise<void> {
           if (sqlResult && sqlResult.data && sqlResult.data.length > 0) {
             console.log("SQL Builder processed the query successfully with data:", sqlResult.data.length);
             
-            // Format the SQL Builder result for display
+            // Format the SQL Builder result in a user-friendly text format
             let formattedResponse = "Here are the results from your campaign data:\n\n";
             
             // Add the selection criteria if available
             if (sqlResult.selectionMetadata?.selectionCriteria) {
-              formattedResponse += `*${sqlResult.selectionMetadata.selectionCriteria}*\n\n`;
+              formattedResponse += `${sqlResult.selectionMetadata.selectionCriteria}\n\n`;
             }
             
-            // Include the data in the response
-            formattedResponse += "```json\n" + JSON.stringify(sqlResult.data, null, 2) + "\n```\n\n";
+            // Format the data in a human-readable way
+            if (sqlResult.data.length === 1 && Object.keys(sqlResult.data[0]).length === 1) {
+              // Single value result (like COUNT queries)
+              const key = Object.keys(sqlResult.data[0])[0];
+              const value = sqlResult.data[0][key];
+              
+              // Convert keys like "count_campaigns" to "campaigns"
+              const readableKey = key.replace(/^count_/i, '').replace(/_/g, ' ');
+              
+              if (key.toLowerCase().includes('count')) {
+                formattedResponse += `You have ${value} ${readableKey}.\n\n`;
+              } else {
+                formattedResponse += `${key}: ${value}\n\n`;
+              }
+            } else if (sqlResult.data.length <= 5) {
+              // Small result set, format as bullet points
+              sqlResult.data.forEach((row, index) => {
+                formattedResponse += `- Item ${index + 1}:\n`;
+                Object.entries(row).forEach(([key, value]) => {
+                  const readableKey = key.replace(/_/g, ' ');
+                  formattedResponse += `  • ${readableKey}: ${value}\n`;
+                });
+                formattedResponse += '\n';
+              });
+            } else {
+              // Larger datasets - summarize
+              formattedResponse += `I found ${sqlResult.data.length} items matching your query.\n\n`;
+              formattedResponse += "Here are the first few results:\n\n";
+              
+              // Show first 3 items
+              sqlResult.data.slice(0, 3).forEach((row, index) => {
+                formattedResponse += `- Item ${index + 1}:\n`;
+                Object.entries(row).forEach(([key, value]) => {
+                  const readableKey = key.replace(/_/g, ' ');
+                  formattedResponse += `  • ${readableKey}: ${value}\n`;
+                });
+                formattedResponse += '\n';
+              });
+            }
             
-            // Include additional information about the query
-            formattedResponse += `Query processed in ${sqlResult.processingTimes?.total || 0}ms.\n`;
+            // Include simplified processing info
+            formattedResponse += `Data retrieved in ${Math.round(sqlResult.processingTimes?.total / 100) / 10} seconds.\n`;
             
             // Return the formatted response directly
             return formattedResponse;
