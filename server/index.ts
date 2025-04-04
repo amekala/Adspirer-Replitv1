@@ -5,6 +5,11 @@ import { request, IncomingMessage, createServer } from "http";
 import { startScheduledTasks } from "./maintenance/scheduleTasks";
 import dotenv from "dotenv";
 import path from "path";
+import { fileURLToPath } from "url";
+
+// Get current directory in ES modules
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 // Load environment variables from .env file
 dotenv.config();
@@ -60,7 +65,10 @@ app.use((req, res, next) => {
   next();
 });
 
-// Register API routes first
+// Serve static files from public directory
+app.use(express.static(path.join(__dirname, '../public')));
+
+// Register API routes
 registerRoutes(app);
 
 // Add a health check endpoint that both Vercel and local dev can use
