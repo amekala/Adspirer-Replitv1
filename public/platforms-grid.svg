@@ -1,0 +1,69 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="600" height="300" viewBox="0 0 600 300">
+  <style>
+    .logo-bg { fill: rgba(30, 41, 59, 0.5); stroke: rgba(71, 85, 105, 0.3); stroke-width: 1; }
+    .amazon { fill: #FF9900; }
+    .google { fill: #4285F4; }
+    .meta { fill: #1877F2; }
+    .walmart { fill: #0071CE; }
+    .target { fill: #CC0000; }
+    .instacart { fill: #43B02A; }
+    .kroger { fill: #0457A7; }
+    .costco { fill: #005DAA; }
+    .cvs { fill: #CC0000; }
+    .walgreens { fill: #e31837; }
+    .text { fill: #F1F5F9; font-family: Arial, sans-serif; font-size: 14px; font-weight: bold; }
+  </style>
+  
+  <!-- Row 1 -->
+  <g transform="translate(20, 20)">
+    <rect width="80" height="80" rx="10" class="logo-bg" />
+    <text x="40" y="45" text-anchor="middle" class="text amazon">Amazon</text>
+  </g>
+  
+  <g transform="translate(120, 20)">
+    <rect width="80" height="80" rx="10" class="logo-bg" />
+    <text x="40" y="45" text-anchor="middle" class="text google">Google</text>
+  </g>
+  
+  <g transform="translate(220, 20)">
+    <rect width="80" height="80" rx="10" class="logo-bg" />
+    <text x="40" y="45" text-anchor="middle" class="text meta">Meta</text>
+  </g>
+  
+  <g transform="translate(320, 20)">
+    <rect width="80" height="80" rx="10" class="logo-bg" />
+    <text x="40" y="45" text-anchor="middle" class="text walmart">Walmart</text>
+  </g>
+  
+  <g transform="translate(420, 20)">
+    <rect width="80" height="80" rx="10" class="logo-bg" />
+    <text x="40" y="45" text-anchor="middle" class="text target">Target</text>
+  </g>
+  
+  <!-- Row 2 -->
+  <g transform="translate(20, 120)">
+    <rect width="80" height="80" rx="10" class="logo-bg" />
+    <text x="40" y="45" text-anchor="middle" class="text instacart">Instacart</text>
+  </g>
+  
+  <g transform="translate(120, 120)">
+    <rect width="80" height="80" rx="10" class="logo-bg" />
+    <text x="40" y="45" text-anchor="middle" class="text kroger">Kroger</text>
+  </g>
+  
+  <g transform="translate(220, 120)">
+    <rect width="80" height="80" rx="10" class="logo-bg" />
+    <text x="40" y="45" text-anchor="middle" class="text costco">Costco</text>
+  </g>
+  
+  <g transform="translate(320, 120)">
+    <rect width="80" height="80" rx="10" class="logo-bg" />
+    <text x="40" y="45" text-anchor="middle" class="text cvs">CVS</text>
+  </g>
+  
+  <g transform="translate(420, 120)">
+    <rect width="80" height="80" rx="10" class="logo-bg" />
+    <text x="40" y="45" text-anchor="middle" class="text walgreens">Walgreens</text>
+  </g>
+</svg>

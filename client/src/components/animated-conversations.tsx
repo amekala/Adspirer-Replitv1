@@ -1,170 +1,111 @@
 import React from "react";
 import { motion } from "framer-motion";
-import { MessageSquare, BarChart3, TrendingUp, User } from "lucide-react";
+import { MessageSquare, BarChart3, TrendingUp, User, ArrowRight } from "lucide-react";
 import { AnimatedCard, AnimatedCardHeader, AnimatedCardTitle, AnimatedCardContent } from "@/components/ui/animated-card";
-
-type Message = {
-  role: "user" | "assistant";
-  content: string;
-  chart?: string;
-};
-
-type Conversation = {
-  title: string;
-  icon: React.ReactNode;
-  iconBg: string;
-  delay: number;
-  messages: Message[];
-};
-
-const conversations: Conversation[] = [
-  {
-    title: "Campaign Performance",
-    icon: <MessageSquare className="h-5 w-5 text-indigo-400" />,
-    iconBg: "bg-indigo-500/10",
-    delay: 0.1,
-    messages: [
-      {
-        role: "user",
-        content: "How is my Summer Sale campaign performing?"
-      },
-      {
-        role: "assistant",
-        content: "Your Summer Sale campaign has seen a 28% increase in ROAS over the past 2 weeks. Top performing ad sets are 'Beach Essentials' and 'Outdoor Living'.",
-        chart: "https://placehold.co/600x200/3498DB/FFF?text=Summer+Campaign+Performance"
-      }
-    ]
-  },
-  {
-    title: "Opportunity Detection",
-    icon: <TrendingUp className="h-5 w-5 text-violet-400" />,
-    iconBg: "bg-violet-500/10",
-    delay: 0.3,
-    messages: [
-      {
-        role: "user",
-        content: "Where should I focus to improve performance on Walmart?"
-      },
-      {
-        role: "assistant",
-        content: "Based on your data, increasing investment in your 'Kitchen Appliances' category on Walmart could yield a 30% ROAS improvement. Your competitors are underinvesting in this category.",
-        chart: "https://placehold.co/600x200/9333EA/FFF?text=Retail+Opportunity+Analysis" 
-      }
-    ]
-  },
-  {
-    title: "Budget Optimization",
-    icon: <BarChart3 className="h-5 w-5 text-fuchsia-400" />,
-    iconBg: "bg-fuchsia-500/10",
-    delay: 0.5,
-    messages: [
-      {
-        role: "user",
-        content: "How should I reallocate my budget for better performance?"
-      },
-      {
-        role: "assistant",
-        content: "I recommend shifting 15% of your Amazon budget to Instacart and 10% to Walmart. This could increase your overall ROAS by 22% based on current channel performance.",
-        chart: "https://placehold.co/600x200/DB2777/FFF?text=Budget+Optimization"
-      }
-    ]
-  }
-];
+import { AnimatedButton } from "@/components/ui/animated-button";
 
 export function AnimatedConversations() {
   return (
     <div className="py-20">
-      <div className="text-center mb-16">
-        <motion.h2
-          className="text-3xl md:text-4xl font-bold mb-4 bg-clip-text text-transparent bg-gradient-to-r from-indigo-400 via-purple-400 to-pink-400"
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6 }}
-        >
-          Chat with Your Data
-        </motion.h2>
-        <motion.p
-          className="text-slate-400 max-w-2xl mx-auto"
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6, delay: 0.2 }}
-        >
-          Our conversational interface transforms complex advertising data into actionable insights
-        </motion.p>
-      </div>
-
-      <div className="max-w-6xl mx-auto grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-        {conversations.map((convo, index) => (
-          <ConversationCard key={index} conversation={convo} />
-        ))}
+      <div className="max-w-6xl mx-auto">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-16 items-center">
+          {/* Left column - Text content */}
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.6 }}
+            className="order-2 lg:order-1"
+          >
+            <h2 className="text-3xl md:text-4xl font-bold mb-6 bg-clip-text text-transparent bg-gradient-to-r from-indigo-400 via-purple-400 to-pink-400">
+              Chat with Your Data
+            </h2>
+            
+            <p className="text-slate-300 text-lg mb-6">
+              Our conversational interface transforms complex advertising data into actionable insights. 
+              Simply ask questions about your campaigns in natural language.
+            </p>
+            
+            <ul className="space-y-4 mb-8">
+              {[
+                "Get performance metrics across all platforms",
+                "Discover optimization opportunities in seconds",
+                "Understand complex trends through simple conversations",
+                "Receive data-driven recommendations"
+              ].map((item, index) => (
+                <motion.li 
+                  key={index}
+                  className="flex items-start gap-3"
+                  initial={{ opacity: 0, x: -10 }}
+                  whileInView={{ opacity: 1, x: 0 }}
+                  viewport={{ once: true }}
+                  transition={{ duration: 0.4, delay: 0.1 * index }}
+                >
+                  <div className="rounded-full bg-indigo-500/20 p-1 mt-1">
+                    <svg className="w-3 h-3 text-indigo-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                    </svg>
+                  </div>
+                  <span className="text-slate-300">{item}</span>
+                </motion.li>
+              ))}
+            </ul>
+            
+            <motion.div
+              initial={{ opacity: 0, y: 10 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              transition={{ duration: 0.4, delay: 0.6 }}
+            >
+              <AnimatedButton gradient="primary" size="lg">
+                Try Chat Analytics 
+                <ArrowRight className="ml-2 h-4 w-4" />
+              </AnimatedButton>
+            </motion.div>
+          </motion.div>
+          
+          {/* Right column - Chat visualization */}
+          <motion.div
+            className="order-1 lg:order-2"
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.7, delay: 0.2 }}
+          >
+            <div className="relative">
+              <div className="absolute -inset-4 bg-gradient-to-r from-indigo-500/20 via-purple-500/20 to-pink-500/20 rounded-3xl blur-xl opacity-70" />
+              <div className="relative">
+                <img 
+                  src="/chat-analytics.svg" 
+                  alt="AI Chat Interface" 
+                  className="w-full h-auto rounded-xl shadow-2xl"
+                />
+              </div>
+              
+              {/* Floating badges */}
+              <motion.div 
+                className="absolute -bottom-6 -left-6 bg-indigo-600/90 backdrop-blur-md px-4 py-2 rounded-full shadow-lg border border-indigo-500/30"
+                initial={{ opacity: 0, scale: 0.8 }}
+                whileInView={{ opacity: 1, scale: 1 }}
+                viewport={{ once: true }}
+                transition={{ duration: 0.5, delay: 0.7 }}
+              >
+                <p className="text-white text-sm font-medium">Real-time data</p>
+              </motion.div>
+              
+              <motion.div 
+                className="absolute -top-6 -right-6 bg-violet-600/90 backdrop-blur-md px-4 py-2 rounded-full shadow-lg border border-violet-500/30"
+                initial={{ opacity: 0, scale: 0.8 }}
+                whileInView={{ opacity: 1, scale: 1 }}
+                viewport={{ once: true }}
+                transition={{ duration: 0.5, delay: 0.8 }}
+              >
+                <p className="text-white text-sm font-medium">Natural language</p>
+              </motion.div>
+            </div>
+          </motion.div>
+        </div>
       </div>
     </div>
   );
 }
-
-interface ConversationCardProps {
-  conversation: Conversation;
-}
-
-function ConversationCard({ conversation }: ConversationCardProps) {
-  const { title, icon, iconBg, delay, messages } = conversation;
-
-  return (
-    <motion.div
-      initial={{ opacity: 0, y: 40 }}
-      whileInView={{ opacity: 1, y: 0 }}
-      viewport={{ once: true, margin: "-100px" }}
-      transition={{
-        duration: 0.7,
-        delay,
-        ease: [0.22, 1, 0.36, 1]
-      }}
-    >
-      <AnimatedCard
-        variant="gradient"
-        hoverEffect="lift"
-        className="overflow-hidden"
-      >
-        <AnimatedCardHeader className="flex flex-row items-center gap-2 pb-3 border-b border-slate-800/70">
-          <div className={`rounded-lg p-2 mr-2 ${iconBg}`}>
-            {icon}
-          </div>
-          <AnimatedCardTitle>{title}</AnimatedCardTitle>
-        </AnimatedCardHeader>
-        <AnimatedCardContent className="p-0">
-          <div className="p-4 space-y-4">
-            {messages.map((message, idx) => (
-              <div
-                key={idx}
-                className={`flex gap-3 ${message.role === "assistant" ? "justify-start" : "justify-end"}`}
-              >
-                {message.role === "assistant" && (
-                  <div className="h-8 w-8 rounded-full bg-indigo-500/10 border border-indigo-500/30 flex items-center justify-center text-xs font-bold text-indigo-400">
-                    AI
-                  </div>
-                )}
-                <div className={`max-w-[80%] ${message.role === "assistant" ? "bg-slate-800/50" : "bg-indigo-500/10"} p-3 rounded-lg`}>
-                  <p className="text-sm text-slate-300">{message.content}</p>
-                  {message.chart && (
-                    <div className="mt-3 bg-slate-900/50 p-2 rounded-md border border-slate-800/70">
-                      <img
-                        src={message.chart}
-                        alt="Chart visualization"
-                        className="rounded w-full h-auto max-h-32 object-contain"
-                      />
-                    </div>
-                  )}
-                </div>
-                {message.role === "user" && (
-                  <div className="h-8 w-8 rounded-full bg-violet-500/10 border border-violet-500/30 flex items-center justify-center">
-                    <User className="h-4 w-4 text-violet-400" />
-                  </div>
-                )}
-              </div>
-            ))}
-          </div>
-        </AnimatedCardContent>
-      </AnimatedCard>
-    </motion.div>
-  );
-} 

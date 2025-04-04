@@ -3,75 +3,61 @@ import {
   MessageSquare, 
   BarChart3, 
   Sparkles, 
-  Search, 
   LineChart, 
   PieChart,
   Wand2,
-  Zap
+  Zap,
+  ArrowRight
 } from "lucide-react";
 import { motion } from "framer-motion";
-import { 
-  AnimatedCard, 
-  AnimatedCardContent 
-} from "@/components/ui/animated-card";
+import { AnimatedButton } from "@/components/ui/animated-button";
 
-type FeatureType = {
+// Feature section with alternating layout
+type FeatureSection = {
   title: string;
   description: string;
-  icon: React.ReactNode;
-  gradient: string;
-  delay: number;
+  features: string[];
+  image: string;
+  alt: string;
+  buttonText: string;
+  imagePosition: "left" | "right";
 };
 
-const features: FeatureType[] = [
+const featureSections: FeatureSection[] = [
   {
-    title: "AI-Powered Analysis",
-    description: "Get intelligent insights and recommendations from our advanced AI analytics engine.",
-    icon: <Sparkles size={24} />,
-    gradient: "from-indigo-500 to-indigo-600",
-    delay: 0.1
+    title: "Campaign Analytics Dashboard",
+    description: "Gain deeper insights into your campaign performance across all connected platforms. Our interactive dashboards provide clear visualizations of the metrics that matter most to your business.",
+    features: [
+      "Real-time performance monitoring",
+      "Customizable dashboard widgets",
+      "Automated performance alerts",
+      "Cross-platform data integration"
+    ],
+    image: "/campaign-analytics.svg",
+    alt: "Campaign analytics dashboard",
+    buttonText: "Explore Analytics",
+    imagePosition: "right"
   },
   {
-    title: "Multi-Platform Optimization",
-    description: "Manage campaigns across Amazon, Walmart, Target, and more from one powerful interface.",
-    icon: <Zap size={24} />,
-    gradient: "from-violet-500 to-violet-600",
-    delay: 0.2
-  },
-  {
-    title: "Conversational Interface",
-    description: "Chat with your campaigns in natural language and get clear, actionable answers.",
-    icon: <MessageSquare size={24} />,
-    gradient: "from-indigo-500 to-purple-600",
-    delay: 0.3
-  },
-  {
-    title: "Smart Recommendations",
-    description: "Receive personalized recommendations based on your campaign performance data.",
-    icon: <Wand2 size={24} />,
-    gradient: "from-fuchsia-500 to-pink-600",
-    delay: 0.4
-  },
-  {
-    title: "Budget Optimization",
-    description: "Automatically allocate budgets across platforms for maximum return on ad spend.",
-    icon: <PieChart size={24} />,
-    gradient: "from-blue-500 to-indigo-600",
-    delay: 0.5
-  },
-  {
-    title: "Performance Tracking",
-    description: "Track your campaign metrics with beautiful, interactive visualizations in real-time.",
-    icon: <LineChart size={24} />,
-    gradient: "from-purple-500 to-fuchsia-600",
-    delay: 0.6
-  },
+    title: "Multi-Platform Integration",
+    description: "Connect all your retail media and advertising platforms in one place. No more switching between multiple dashboards or manually compiling reports from various sources.",
+    features: [
+      "One-click platform authentication",
+      "Automated data synchronization",
+      "Unified campaign management",
+      "Standardized cross-platform metrics"
+    ],
+    image: "/multi-platform.svg",
+    alt: "Multi-platform integration",
+    buttonText: "Connect Platforms",
+    imagePosition: "left"
+  }
 ];
 
 export function AnimatedFeatures() {
   return (
     <div className="py-20 relative">
-      <div className="text-center mb-16">
+      <div className="text-center mb-20">
         <motion.h2 
           className="text-3xl md:text-4xl font-bold mb-4 bg-clip-text text-transparent bg-gradient-to-r from-indigo-400 via-purple-400 to-pink-400"
           initial={{ opacity: 0, y: 20 }}
@@ -90,51 +76,99 @@ export function AnimatedFeatures() {
         </motion.p>
       </div>
 
-      <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8 max-w-6xl mx-auto">
-        {features.map((feature, index) => (
-          <FeatureCard key={index} feature={feature} />
+      <div className="max-w-6xl mx-auto space-y-32">
+        {featureSections.map((section, sectionIndex) => (
+          <FeatureBlock 
+            key={sectionIndex} 
+            section={section} 
+            index={sectionIndex} 
+          />
         ))}
       </div>
     </div>
   );
 }
 
-interface FeatureCardProps {
-  feature: FeatureType;
+interface FeatureBlockProps {
+  section: FeatureSection;
+  index: number;
 }
 
-function FeatureCard({ feature }: FeatureCardProps) {
+function FeatureBlock({ section, index }: FeatureBlockProps) {
+  const isEven = index % 2 === 0;
+  const imageOrder = section.imagePosition === "left" ? "order-1 lg:order-1" : "order-1 lg:order-2";
+  const contentOrder = section.imagePosition === "left" ? "order-2 lg:order-2" : "order-2 lg:order-1";
+
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 40 }}
-      whileInView={{ opacity: 1, y: 0 }}
-      viewport={{ once: true, margin: "-100px" }}
-      transition={{ 
-        duration: 0.7, 
-        delay: feature.delay,
-        ease: [0.22, 1, 0.36, 1]
-      }}
-    >
-      <AnimatedCard 
-        variant="gradient" 
-        hoverEffect="lift"
-        gradientBorder={true}
-        className="h-full"
+    <div className="grid grid-cols-1 lg:grid-cols-2 gap-16 items-center">
+      {/* Image Column */}
+      <motion.div
+        className={`${imageOrder}`}
+        initial={{ opacity: 0, x: section.imagePosition === "left" ? -20 : 20 }}
+        whileInView={{ opacity: 1, x: 0 }}
+        viewport={{ once: true }}
+        transition={{ duration: 0.7, delay: 0.2 }}
       >
-        <AnimatedCardContent className="p-8">
-          <div className={`h-12 w-12 rounded-lg bg-gradient-to-br ${feature.gradient} flex items-center justify-center mb-5 shadow-lg`}>
-            {feature.icon}
+        <div className="relative">
+          <div className="absolute -inset-4 bg-gradient-to-r from-indigo-500/20 via-purple-500/20 to-pink-500/20 rounded-3xl blur-xl opacity-70" />
+          <div className="relative rounded-xl overflow-hidden">
+            <img 
+              src={section.image} 
+              alt={section.alt} 
+              className="w-full h-auto shadow-2xl rounded-xl"
+            />
           </div>
-          
-          <h3 className="text-xl font-semibold mb-3 text-white">
-            {feature.title}
-          </h3>
-          
-          <p className="text-slate-300">
-            {feature.description}
-          </p>
-        </AnimatedCardContent>
-      </AnimatedCard>
-    </motion.div>
+        </div>
+      </motion.div>
+
+      {/* Content Column */}
+      <motion.div
+        className={`${contentOrder}`}
+        initial={{ opacity: 0, y: 20 }}
+        whileInView={{ opacity: 1, y: 0 }}
+        viewport={{ once: true }}
+        transition={{ duration: 0.6 }}
+      >
+        <h3 className="text-2xl md:text-3xl font-bold mb-6 bg-clip-text text-transparent bg-gradient-to-r from-indigo-400 to-purple-400">
+          {section.title}
+        </h3>
+        
+        <p className="text-slate-300 text-lg mb-6">
+          {section.description}
+        </p>
+        
+        <ul className="space-y-4 mb-8">
+          {section.features.map((feature, index) => (
+            <motion.li 
+              key={index}
+              className="flex items-start gap-3"
+              initial={{ opacity: 0, x: -10 }}
+              whileInView={{ opacity: 1, x: 0 }}
+              viewport={{ once: true }}
+              transition={{ duration: 0.4, delay: 0.1 * index }}
+            >
+              <div className="rounded-full bg-indigo-500/20 p-1 mt-1">
+                <svg className="w-3 h-3 text-indigo-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                </svg>
+              </div>
+              <span className="text-slate-300">{feature}</span>
+            </motion.li>
+          ))}
+        </ul>
+        
+        <motion.div
+          initial={{ opacity: 0, y: 10 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true }}
+          transition={{ duration: 0.4, delay: 0.6 }}
+        >
+          <AnimatedButton gradient="primary">
+            {section.buttonText}
+            <ArrowRight className="ml-2 h-4 w-4" />
+          </AnimatedButton>
+        </motion.div>
+      </motion.div>
+    </div>
   );
-} 
+}

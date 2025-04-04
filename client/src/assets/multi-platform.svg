@@ -1,0 +1,73 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="500" height="350" viewBox="0 0 500 350">
+  <style>
+    .bg { fill: rgba(15, 23, 42, 0.6); stroke: rgba(51, 65, 85, 0.5); stroke-width: 1; }
+    .panel-bg { fill: rgba(30, 41, 59, 0.7); stroke: rgba(51, 65, 85, 0.5); stroke-width: 1; }
+    .text-white { fill: #F1F5F9; font-family: Arial, sans-serif; }
+    .text-muted { fill: #94A3B8; font-family: Arial, sans-serif; }
+    .text-primary { fill: #818CF8; font-family: Arial, sans-serif; }
+    .text-amazon { fill: #FF9900; font-family: Arial, sans-serif; }
+    .text-google { fill: #4285F4; font-family: Arial, sans-serif; }
+    .text-meta { fill: #1877F2; font-family: Arial, sans-serif; }
+    .connection-line { stroke: #818CF8; stroke-width: 2; stroke-dasharray: 4,4; }
+    .platform-bg-amazon { fill: rgba(255, 153, 0, 0.1); stroke: rgba(255, 153, 0, 0.3); }
+    .platform-bg-google { fill: rgba(66, 133, 244, 0.1); stroke: rgba(66, 133, 244, 0.3); }
+    .platform-bg-meta { fill: rgba(24, 119, 242, 0.1); stroke: rgba(24, 119, 242, 0.3); }
+    .central-bg { fill: rgba(99, 102, 241, 0.2); stroke: rgba(99, 102, 241, 0.4); }
+  </style>
+  
+  <!-- Main background -->
+  <rect width="500" height="350" rx="15" class="bg" />
+  
+  <!-- Central platform -->
+  <g transform="translate(200, 125)">
+    <circle cx="50" cy="50" r="60" class="central-bg" />
+    <text x="50" y="45" text-anchor="middle" class="text-white" font-size="16" font-weight="bold">Adspirer</text>
+    <text x="50" y="65" text-anchor="middle" class="text-muted" font-size="12">Central Platform</text>
+  </g>
+  
+  <!-- Amazon platform -->
+  <g transform="translate(50, 50)">
+    <rect width="100" height="80" rx="10" class="platform-bg-amazon" />
+    <text x="50" y="35" text-anchor="middle" class="text-amazon" font-size="16" font-weight="bold">Amazon</text>
+    <text x="50" y="55" text-anchor="middle" class="text-muted" font-size="12">Ads Platform</text>
+  </g>
+  
+  <!-- Google platform -->
+  <g transform="translate(50, 220)">
+    <rect width="100" height="80" rx="10" class="platform-bg-google" />
+    <text x="50" y="35" text-anchor="middle" class="text-google" font-size="16" font-weight="bold">Google</text>
+    <text x="50" y="55" text-anchor="middle" class="text-muted" font-size="12">Ads Platform</text>
+  </g>
+  
+  <!-- Meta platform -->
+  <g transform="translate(350, 125)">
+    <rect width="100" height="80" rx="10" class="platform-bg-meta" />
+    <text x="50" y="35" text-anchor="middle" class="text-meta" font-size="16" font-weight="bold">Meta</text>
+    <text x="50" y="55" text-anchor="middle" class="text-muted" font-size="12">Ads Platform</text>
+  </g>
+  
+  <!-- Connection lines -->
+  <line x1="150" y1="90" x2="200" y2="150" class="connection-line" />
+  <line x1="150" y1="260" x2="200" y2="200" class="connection-line" />
+  <line x1="350" y1="165" x2="310" y2="165" class="connection-line" />
+  
+  <!-- Data flow indicators -->
+  <g transform="translate(160, 100)">
+    <text x="0" y="0" class="text-primary" font-size="10">Data Flow</text>
+    <text x="0" y="15" class="text-muted" font-size="10">Campaigns</text>
+  </g>
+  
+  <g transform="translate(160, 220)">
+    <text x="0" y="0" class="text-primary" font-size="10">Data Flow</text>
+    <text x="0" y="15" class="text-muted" font-size="10">Analytics</text>
+  </g>
+  
+  <g transform="translate(320, 140)">
+    <text x="0" y="0" class="text-primary" font-size="10">Data Flow</text>
+    <text x="0" y="15" class="text-muted" font-size="10">Performance</text>
+  </g>
+  
+  <!-- Title -->
+  <text x="250" y="30" text-anchor="middle" class="text-white" font-size="20" font-weight="bold">Multi-Platform Integration</text>
+</svg>
