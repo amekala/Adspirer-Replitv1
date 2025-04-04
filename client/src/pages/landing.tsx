@@ -140,7 +140,7 @@ export default function LandingPage() {
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.6 }}
               >
-                Your Marketing Intelligence Partner
+                Meet Your Marketing Copilot
               </motion.h2>
               <motion.p
                 className="text-lg md:text-xl text-slate-600 dark:text-slate-400 max-w-2xl mx-auto"
@@ -148,7 +148,7 @@ export default function LandingPage() {
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.6, delay: 0.1 }}
               >
-                Supercharge your advertising strategy with AI-powered insights and automation
+                Your trusted companion for smarter marketing decisions, always by your side
               </motion.p>
             </div>
             
@@ -156,26 +156,26 @@ export default function LandingPage() {
               {[
                 {
                   step: 1,
-                  title: "Connect Platforms",
-                  description: "Integrate Amazon, Google, Facebook, and more with a single click",
+                  title: "Connect Your Platforms",
+                  description: "Your copilot seamlessly integrates with all your advertising accounts",
                   delay: 0.1
                 },
                 {
                   step: 2,
-                  title: "Create Campaigns",
-                  description: "Let AI help you build optimized campaigns using natural language",
+                  title: "Chat with Your Copilot",
+                  description: "Simply ask for what you need in everyday language - no jargon required",
                   delay: 0.2
                 },
                 {
                   step: 3,
-                  title: "Analyze Performance",
-                  description: "Ask questions about your data and get instant visual insights",
+                  title: "Get Instant Insights",
+                  description: "Your copilot analyzes your data and presents meaningful visualizations",
                   delay: 0.3
                 },
                 {
                   step: 4,
-                  title: "Optimize & Scale",
-                  description: "Receive actionable recommendations to improve ROAS across channels",
+                  title: "Grow with Guidance",
+                  description: "Your copilot suggests personalized improvements to boost your results",
                   delay: 0.4
                 }
               ].map((item) => (
@@ -207,7 +207,7 @@ export default function LandingPage() {
                 viewport={{ once: true }}
                 transition={{ duration: 0.6 }}
               >
-                Ready to Transform Your Ad Strategy?
+                Ready to Meet Your Marketing Copilot?
               </motion.h2>
               <motion.p
                 className="text-lg md:text-xl text-slate-600 dark:text-slate-400"
@@ -246,19 +246,19 @@ export default function LandingPage() {
                       <ul className="space-y-3 text-slate-700 dark:text-slate-300">
                         <li className="flex items-start gap-2">
                           <span className="text-indigo-400">•</span>
-                          <span>See our AI-powered platform in action with your campaigns</span>
+                          <span>Experience how your marketing copilot works with your actual data</span>
                         </li>
                         <li className="flex items-start gap-2">
                           <span className="text-indigo-400">•</span>
-                          <span>Learn how to increase your ROAS by up to 30%</span>
+                          <span>See how you can boost your ROAS by up to 30% with copilot guidance</span>
                         </li>
                         <li className="flex items-start gap-2">
                           <span className="text-indigo-400">•</span>
-                          <span>Discover optimization opportunities for your channels</span>
+                          <span>Find opportunities your marketing copilot can uncover in minutes</span>
                         </li>
                         <li className="flex items-start gap-2">
                           <span className="text-indigo-400">•</span>
-                          <span>Get expert insights from our specialists</span>
+                          <span>Learn how to get the most from your new marketing assistant</span>
                         </li>
                       </ul>
                     </AnimatedCardContent>
@@ -275,7 +275,7 @@ export default function LandingPage() {
                     <AnimatedCardContent className="p-6">
                       <h3 className="text-xl font-semibold mb-4 text-slate-900 dark:text-white">Already a Customer?</h3>
                       <p className="text-slate-700 dark:text-slate-300 mb-4">
-                        If you're an existing customer and need assistance, our customer success team is here to help.
+                        Already working with your copilot? Our team is ready to help you get even more from your marketing assistant.
                       </p>
                       <AnimatedButton variant="outline" gradient="accent" className="w-full">
                         <Headset className="mr-2 h-4 w-4" />
