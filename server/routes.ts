@@ -4,6 +4,7 @@ import { setupAuth, authenticate } from "./auth";
 import { storage } from "./storage";
 import { openai } from "./services/openai-client";
 import { streamText } from "ai";
+import * as sqlBuilder from "./services/sqlBuilder";
 import { 
   insertApiKeySchema, 
   insertAdvertiserSchema,
@@ -797,6 +798,48 @@ export async function registerRoutes(app: Express): Promise<void> {
       
       if (!userId) {
         throw new Error("Unable to determine user ID for this conversation");
+      }
+      
+      // Check if the message is a data query about campaigns or metrics
+      const isDataQuery = /campaign|metrics|sales|performance|clicks|impressions|cost|data|report|analytics|acos|roas|conversion/i.test(userMessage);
+      
+      // Try to process the message with SQL Builder if it appears to be a data query
+      if (isDataQuery) {
+        try {
+          console.log("Detected data query, processing with SQL Builder:", userMessage);
+          // Get conversation context (last few messages) to provide more context to the SQL Builder
+          const conversationContext = messages
+            .slice(-5) // Take the last 5 messages for context
+            .map(m => `${m.role}: ${m.content}`)
+            .join("\n");
+          
+          const sqlResult = await sqlBuilder.processSQLQuery(userId, userMessage, conversationContext);
+          
+          if (sqlResult && sqlResult.data && sqlResult.data.length > 0) {
+            console.log("SQL Builder processed the query successfully with data:", sqlResult.data.length);
+            
+            // Format the SQL Builder result for display
+            let formattedResponse = "Here are the results from your campaign data:\n\n";
+            
+            // Add the selection criteria if available
+            if (sqlResult.selectionMetadata?.selectionCriteria) {
+              formattedResponse += `*${sqlResult.selectionMetadata.selectionCriteria}*\n\n`;
+            }
+            
+            // Include the data in the response
+            formattedResponse += "```json\n" + JSON.stringify(sqlResult.data, null, 2) + "\n```\n\n";
+            
+            // Include additional information about the query
+            formattedResponse += `Query processed in ${sqlResult.processingTimes?.total || 0}ms.\n`;
+            
+            // Return the formatted response directly
+            return formattedResponse;
+          } else {
+            console.log("SQL Builder did not return data, falling back to OpenAI:", sqlResult?.error || "No error provided");
+          }
+        } catch (sqlError) {
+          console.error("Error processing with SQL Builder, falling back to OpenAI:", sqlError);
+        }
       }
       
       // Import function tools and handler

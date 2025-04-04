@@ -490,18 +490,6 @@ export default function ChatPage() {
         {/* Sidebar */}
         <div className="w-64 flex-shrink-0 hidden md:flex flex-col mr-6 h-full">
           <div className="bg-white/10 backdrop-blur-xl border border-white/20 rounded-xl overflow-hidden shadow-lg flex flex-col h-full">
-            <div className="p-4 border-b border-white/10">
-              <Button
-                onClick={handleNewConversation}
-                className="w-full justify-start text-slate-200"
-                variant="outline"
-                aria-label="New Chat"
-              >
-                <PlusCircle className="mr-2 h-4 w-4" />
-                New Chat
-              </Button>
-            </div>
-            
             {/* Conversation list with scroll */}
             <div className="flex-1 overflow-y-auto">
               <ChatSidebar
