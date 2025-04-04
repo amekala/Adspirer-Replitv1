@@ -31,25 +31,25 @@ export function EnhancedVisualizationBubble({ message, isStreaming = false }: En
       // Show a loading indicator if we're streaming
       if (isStreaming) {
         return (
-          <div className="flex justify-end group py-2 chat-message user">
-            <div className="flex flex-row-reverse gap-3 max-w-[85%] md:max-w-[75%]">
-              <div className="flex-shrink-0">
-                <Avatar className="h-9 w-9 bg-gradient-to-r from-indigo-500 to-purple-500 overflow-hidden ring-2 ring-white/10">
+          <div className="flex justify-end group py-1.5 sm:py-2 chat-message user">
+            <div className="flex flex-row-reverse gap-2 sm:gap-3 max-w-[90%] sm:max-w-[85%] md:max-w-[75%]">
+              <div className="flex-shrink-0 hidden xs:block">
+                <Avatar className="h-7 w-7 sm:h-8 sm:w-8 md:h-9 md:w-9 bg-gradient-to-r from-indigo-500 to-purple-500 overflow-hidden ring-1 sm:ring-2 ring-white/10">
                   <div className="flex items-center justify-center h-full w-full">
-                    <User className="h-5 w-5 text-white" />
+                    <User className="h-4 w-4 sm:h-5 sm:w-5 text-white" />
                   </div>
                 </Avatar>
               </div>
               
               <div className="flex flex-col gap-1 items-end">
-                <div className="p-3 rounded-2xl bg-gradient-to-r from-indigo-500/80 to-purple-500/80 text-white rounded-tr-sm backdrop-blur-sm">
+                <div className="p-2 sm:p-3 rounded-2xl bg-gradient-to-r from-indigo-500/80 to-purple-500/80 text-white rounded-tr-sm backdrop-blur-sm transition-all duration-300 hover:shadow-lg hover:brightness-110">
                   <div className="whitespace-pre-wrap text-sm md:text-base">
                     {message.content}
                     <span className="inline-block animate-pulse ml-0.5">▌</span>
                   </div>
                 </div>
-                <div className="px-2 text-xs text-slate-400 text-right">
-                  {new Date(message.createdAt).toLocaleTimeString()}
+                <div className="px-2 text-[10px] sm:text-xs text-slate-400 text-right">
+                  {new Date(message.createdAt).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})} · Preparing visualization...
                 </div>
               </div>
             </div>
@@ -58,24 +58,24 @@ export function EnhancedVisualizationBubble({ message, isStreaming = false }: En
       }
       
       return (
-        <div className="flex justify-end group py-2 chat-message user">
-          <div className="flex flex-row-reverse gap-3 max-w-[85%] md:max-w-[75%]">
-            <div className="flex-shrink-0">
-              <Avatar className="h-9 w-9 bg-gradient-to-r from-indigo-500 to-purple-500 overflow-hidden ring-2 ring-white/10">
+        <div className="flex justify-end group py-1.5 sm:py-2 chat-message user">
+          <div className="flex flex-row-reverse gap-2 sm:gap-3 max-w-[90%] sm:max-w-[85%] md:max-w-[75%]">
+            <div className="flex-shrink-0 hidden xs:block">
+              <Avatar className="h-7 w-7 sm:h-8 sm:w-8 md:h-9 md:w-9 bg-gradient-to-r from-indigo-500 to-purple-500 overflow-hidden ring-1 sm:ring-2 ring-white/10">
                 <div className="flex items-center justify-center h-full w-full">
-                  <User className="h-5 w-5 text-white" />
+                  <User className="h-4 w-4 sm:h-5 sm:w-5 text-white" />
                 </div>
               </Avatar>
             </div>
             
             <div className="flex flex-col gap-1 items-end">
-              <div className="p-3 rounded-2xl bg-gradient-to-r from-indigo-500/80 to-purple-500/80 text-white rounded-tr-sm backdrop-blur-sm">
+              <div className="p-2 sm:p-3 rounded-2xl bg-gradient-to-r from-indigo-500/80 to-purple-500/80 text-white rounded-tr-sm backdrop-blur-sm transition-all duration-300 hover:shadow-lg hover:brightness-110">
                 <div className="whitespace-pre-wrap text-sm md:text-base">
                   {message.content}
                 </div>
               </div>
-              <div className="px-2 text-xs text-slate-400 text-right">
-                {new Date(message.createdAt).toLocaleTimeString()}
+              <div className="px-2 text-[10px] sm:text-xs text-slate-400 text-right">
+                {new Date(message.createdAt).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
               </div>
             </div>
           </div>
@@ -85,25 +85,25 @@ export function EnhancedVisualizationBubble({ message, isStreaming = false }: En
     
     // Standard user message display
     return (
-      <div className="flex justify-end group py-2 chat-message user">
-        <div className="flex flex-row-reverse gap-3 max-w-[85%] md:max-w-[75%]">
-          <div className="flex-shrink-0">
-            <Avatar className="h-9 w-9 bg-gradient-to-r from-indigo-500 to-purple-500 overflow-hidden ring-2 ring-white/10">
+      <div className="flex justify-end group py-1.5 sm:py-2 chat-message user">
+        <div className="flex flex-row-reverse gap-2 sm:gap-3 max-w-[90%] sm:max-w-[85%] md:max-w-[75%]">
+          <div className="flex-shrink-0 hidden xs:block">
+            <Avatar className="h-7 w-7 sm:h-8 sm:w-8 md:h-9 md:w-9 bg-gradient-to-r from-indigo-500 to-purple-500 overflow-hidden ring-1 sm:ring-2 ring-white/10">
               <div className="flex items-center justify-center h-full w-full">
-                <User className="h-5 w-5 text-white" />
+                <User className="h-4 w-4 sm:h-5 sm:w-5 text-white" />
               </div>
             </Avatar>
           </div>
           
           <div className="flex flex-col gap-1 items-end">
-            <div className="p-3 rounded-2xl bg-gradient-to-r from-indigo-500/80 to-purple-500/80 text-white rounded-tr-sm backdrop-blur-sm">
+            <div className="p-2 sm:p-3 rounded-2xl bg-gradient-to-r from-indigo-500/80 to-purple-500/80 text-white rounded-tr-sm backdrop-blur-sm transition-all duration-300 hover:shadow-lg hover:brightness-110">
               <div className="whitespace-pre-wrap text-sm md:text-base">
                 {message.content}
                 {isStreaming && <span className="inline-block animate-pulse ml-0.5">▌</span>}
               </div>
             </div>
-            <div className="px-2 text-xs text-slate-400 text-right">
-              {new Date(message.createdAt).toLocaleTimeString()}
+            <div className="px-2 text-[10px] sm:text-xs text-slate-400 text-right">
+              {new Date(message.createdAt).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
             </div>
           </div>
         </div>
@@ -113,31 +113,31 @@ export function EnhancedVisualizationBubble({ message, isStreaming = false }: En
 
   // For AI messages, use the AdvancedDataParser to extract structured data for visualization
   return (
-    <div className="flex justify-start group py-2 chat-message assistant">
-      <div className="flex flex-row gap-3 max-w-[85%] md:max-w-[75%]">
-        <div className="flex-shrink-0">
-          <Avatar className="h-9 w-9 bg-gradient-to-r from-blue-500 to-cyan-400 overflow-hidden ring-2 ring-white/10">
+    <div className="flex justify-start group py-1.5 sm:py-2 chat-message assistant">
+      <div className="flex flex-row gap-2 sm:gap-3 max-w-[90%] sm:max-w-[85%] md:max-w-[75%]">
+        <div className="flex-shrink-0 hidden xs:block">
+          <Avatar className="h-7 w-7 sm:h-8 sm:w-8 md:h-9 md:w-9 bg-gradient-to-r from-blue-500 to-cyan-400 overflow-hidden ring-1 sm:ring-2 ring-white/10">
             <div className="flex items-center justify-center h-full w-full">
-              <Bot className="h-5 w-5 text-white" />
+              <Bot className="h-4 w-4 sm:h-5 sm:w-5 text-white" />
             </div>
           </Avatar>
         </div>
         
         <div className="flex flex-col gap-1">
-          <div className="bg-white/10 backdrop-blur-sm border border-white/20 text-white rounded-2xl rounded-tl-sm shadow-md overflow-hidden">
+          <div className="bg-white/10 backdrop-blur-sm border border-white/20 text-white rounded-2xl rounded-tl-sm shadow-md overflow-hidden transition-all duration-300 hover:shadow-lg hover:bg-white/15">
             <AdvancedDataParser message={message}>
               {(visualizations) => (
                 <div className="divide-y divide-white/10">
                   {/* If visualizations are found, render them */}
                   {visualizations.length > 0 ? (
                     visualizations.map((viz, index) => (
-                      <div key={`viz-${index}`} className="p-4">
+                      <div key={`viz-${index}`} className="p-3 sm:p-4">
                         {renderVisualization(viz, isStreaming)}
                       </div>
                     ))
                   ) : (
                     // If no structured data, try to extract campaign data directly
-                    <div className="p-4">
+                    <div className="p-3 sm:p-4">
                       {tryExtractAndRenderCampaignData(message.content, isStreaming)}
                     </div>
                   )}
@@ -145,8 +145,8 @@ export function EnhancedVisualizationBubble({ message, isStreaming = false }: En
               )}
             </AdvancedDataParser>
           </div>
-          <div className="px-2 text-xs text-slate-400">
-            {new Date(message.createdAt).toLocaleTimeString()}
+          <div className="px-2 text-[10px] sm:text-xs text-slate-400">
+            {new Date(message.createdAt).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
           </div>
         </div>
       </div>

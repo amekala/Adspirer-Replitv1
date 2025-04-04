@@ -25,21 +25,21 @@ export function EnhancedMessageBubble({ message, isStreaming = false }: Enhanced
   // If it's a user message, render a simpler bubble
   if (isUser) {
     return (
-      <div className="flex justify-end group py-2">
-        <div className="flex flex-row-reverse gap-3 max-w-[85%] md:max-w-[75%]">
-          <div className="flex-shrink-0">
-            <Avatar className="h-9 w-9 bg-gradient-to-r from-indigo-500 to-purple-500 overflow-hidden ring-2 ring-white/10">
+      <div className="flex justify-end group py-1.5 sm:py-2">
+        <div className="flex flex-row-reverse gap-2 sm:gap-3 max-w-[90%] sm:max-w-[85%] md:max-w-[75%]">
+          <div className="flex-shrink-0 hidden xs:block">
+            <Avatar className="h-7 w-7 sm:h-8 sm:w-8 md:h-9 md:w-9 bg-gradient-to-r from-indigo-500 to-purple-500 overflow-hidden ring-1 sm:ring-2 ring-white/10">
               <div className="flex items-center justify-center h-full w-full">
-                <User className="h-5 w-5 text-white" />
+                <User className="h-4 w-4 sm:h-5 sm:w-5 text-white" />
               </div>
             </Avatar>
           </div>
           <div className="flex flex-col gap-1 items-end">
-            <div className="p-3 rounded-2xl bg-gradient-to-r from-indigo-500/80 to-purple-500/80 text-white rounded-tr-sm backdrop-blur-sm">
-              <div className="whitespace-pre-wrap">{message.content}</div>
+            <div className="p-2 sm:p-3 rounded-2xl bg-gradient-to-r from-indigo-500/80 to-purple-500/80 text-white rounded-tr-sm backdrop-blur-sm shadow-md transition-all duration-300 hover:shadow-lg hover:brightness-110">
+              <div className="whitespace-pre-wrap text-sm sm:text-base">{message.content}</div>
             </div>
-            <div className="px-2 text-xs text-slate-400 text-right">
-              {new Date(message.createdAt).toLocaleTimeString()}
+            <div className="px-2 text-[10px] sm:text-xs text-slate-400 text-right">
+              {new Date(message.createdAt).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
             </div>
           </div>
         </div>
@@ -193,15 +193,15 @@ export function EnhancedMessageBubble({ message, isStreaming = false }: Enhanced
 
   // For AI messages, parse the content
   return (
-    <div className={`flex ${isUser ? 'justify-end' : 'justify-start'} group py-2`}>
-      <div className={`flex ${isUser ? 'flex-row-reverse' : 'flex-row'} gap-3 max-w-[85%] md:max-w-[75%]`}>
-        <div className="flex-shrink-0">
-          <Avatar className={`h-9 w-9 ${isUser ? 'bg-gradient-to-r from-indigo-500 to-purple-500' : 'bg-gradient-to-r from-blue-500 to-cyan-400'} overflow-hidden ring-2 ring-white/10`}>
+    <div className={`flex ${isUser ? 'justify-end' : 'justify-start'} group py-1.5 sm:py-2`}>
+      <div className={`flex ${isUser ? 'flex-row-reverse' : 'flex-row'} gap-2 sm:gap-3 max-w-[90%] sm:max-w-[85%] md:max-w-[75%]`}>
+        <div className="flex-shrink-0 hidden xs:block">
+          <Avatar className={`h-7 w-7 sm:h-8 sm:w-8 md:h-9 md:w-9 ${isUser ? 'bg-gradient-to-r from-indigo-500 to-purple-500' : 'bg-gradient-to-r from-blue-500 to-cyan-400'} overflow-hidden ring-1 sm:ring-2 ring-white/10`}>
             <div className="flex items-center justify-center h-full w-full">
               {isUser ? (
-                <User className="h-5 w-5 text-white" />
+                <User className="h-4 w-4 sm:h-5 sm:w-5 text-white" />
               ) : (
-                <Bot className="h-5 w-5 text-white" />
+                <Bot className="h-4 w-4 sm:h-5 sm:w-5 text-white" />
               )}
             </div>
           </Avatar>
@@ -215,21 +215,23 @@ export function EnhancedMessageBubble({ message, isStreaming = false }: Enhanced
           
           {/* For all messages, still show the message bubble */}
           <div 
-            className={`p-3 rounded-2xl ${
+            className={`p-2 sm:p-3 rounded-2xl ${
               isUser 
                 ? 'bg-gradient-to-r from-indigo-500/80 to-purple-500/80 text-white rounded-tr-sm backdrop-blur-sm' 
                 : 'bg-white/10 backdrop-blur-sm border border-white/20 text-white rounded-tl-sm shadow-md'
-            } ${isStreaming ? 'border-l-4 border-l-cyan-400' : ''}`}
+            } ${isStreaming ? 'border-l-4 border-l-cyan-400' : ''} transition-all duration-300 hover:shadow-lg ${isUser ? 'hover:brightness-110' : 'hover:bg-white/15'}`}
           >
             {isUser ? (
-              <div className="whitespace-pre-wrap">{message.content}</div>
+              <div className="whitespace-pre-wrap text-sm sm:text-base">{message.content}</div>
             ) : (
-              <MessageParser messageContent={message.content} />
+              <div className="text-sm sm:text-base">
+                <MessageParser messageContent={message.content} />
+              </div>
             )}
           </div>
           
-          <div className={`px-2 text-xs text-slate-400 ${isUser ? 'text-right' : 'text-left'}`}>
-            {new Date(message.createdAt).toLocaleTimeString()}
+          <div className={`px-2 text-[10px] sm:text-xs text-slate-400 ${isUser ? 'text-right' : 'text-left'}`}>
+            {new Date(message.createdAt).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
           </div>
         </div>
       </div>

@@ -486,8 +486,8 @@ export default function ChatPage() {
 
   return (
     <Layout>
-      <div className="flex flex-row h-[calc(100vh-4rem)] mx-auto container p-4 sm:p-6 relative z-10 overflow-hidden">
-        {/* Sidebar */}
+      <div className="flex flex-row h-[calc(100vh-4rem)] mx-auto container p-2 sm:p-4 md:p-6 relative z-10 overflow-hidden">
+        {/* Sidebar - Hidden on mobile, visible on larger screens */}
         <div className="w-64 flex-shrink-0 hidden md:flex flex-col mr-6 h-full">
           <div className="bg-white/10 backdrop-blur-xl border border-white/20 rounded-xl overflow-hidden shadow-lg flex flex-col h-full">
             {/* Conversation list with scroll */}
@@ -510,48 +510,57 @@ export default function ChatPage() {
           </div>
         </div>
 
+        {/* Mobile sidebar - only shown when active */}
+        <AnimatePresence>
+          {/* Add a mobile sidebar implementation here in the future */}
+        </AnimatePresence>
+
         {/* Main content area - conditionally show either chat or settings */}
         <div className="flex-1 flex flex-col bg-white/10 backdrop-blur-xl border border-white/20 rounded-xl overflow-hidden shadow-lg h-full">
           {showSettings ? (
-            <div className="h-full p-6 overflow-y-auto">
+            <div className="h-full p-3 sm:p-4 md:p-6 overflow-y-auto">
               <ChatSettings onBack={() => setShowSettings(false)} />
             </div>
           ) : (
             <div className="flex flex-col h-full">
-              {/* Mobile header */}
-              <div className="md:hidden border-b border-white/10 p-3 flex items-center justify-between gap-2">
+              {/* Mobile header with improved styling */}
+              <div className="md:hidden border-b border-white/10 p-2 sm:p-3 flex items-center justify-between gap-2">
                 <Button
                   variant="outline"
                   size="icon"
                   onClick={() => {
-                    // Open sidebar for mobile
+                    // Open sidebar for mobile (future implementation)
+                    // For now, show a settings dialog
+                    handleToggleSettings();
                   }}
-                  className="bg-white/10 border-white/20 hover:bg-white/20"
+                  className="bg-white/10 border-white/20 hover:bg-white/20 h-8 w-8 sm:h-9 sm:w-9"
                 >
-                  <MenuIcon className="h-4 w-4" />
+                  <MenuIcon className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
                 </Button>
-                <h1 className="text-lg font-semibold truncate flex-1 text-center bg-clip-text text-transparent bg-gradient-to-r from-indigo-400 via-purple-400 to-pink-400">
+                
+                <h1 className="text-sm sm:text-base md:text-lg font-semibold truncate flex-1 text-center bg-clip-text text-transparent bg-gradient-to-r from-indigo-400 via-purple-400 to-pink-400">
                   {currentConversation?.title || "New Chat"}
                 </h1>
+                
                 <div className="flex items-center gap-2">
                   <Button
                     variant="outline"
                     size="icon"
                     onClick={handleNewConversation}
                     title="New Chat"
-                    className="bg-white/10 border-white/20 hover:bg-white/20"
+                    className="bg-white/10 border-white/20 hover:bg-white/20 h-8 w-8 sm:h-9 sm:w-9"
                   >
-                    <PlusCircle className="h-4 w-4" />
+                    <PlusCircle className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
                   </Button>
                 </div>
               </div>
 
-              {/* Chat messages container - takes available space and scrolls */}
+              {/* Chat messages container with improved responsiveness */}
               <div 
                 className="flex-1 overflow-y-auto" 
                 ref={chatContainerRef}
               >
-                <div className="p-4 md:p-6 space-y-6">
+                <div className="p-2 sm:p-4 md:p-6 space-y-4 sm:space-y-6">
                   <Chat 
                     conversation={conversationMessages} 
                     isLoading={isLoadingMessages || messageSending} 
@@ -560,20 +569,20 @@ export default function ChatPage() {
                 </div>
               </div>
 
-              {/* Input area - fixed at bottom */}
-              <div className="border-t border-white/10 p-4 bg-white/5 backdrop-blur-md">
+              {/* Input area with improved mobile styling */}
+              <div className="border-t border-white/10 p-2 sm:p-3 md:p-4 bg-white/5 backdrop-blur-md">
                 <form onSubmit={handleSubmitMessage}>
                   <div className="relative">
                     <Textarea
                       ref={textareaRef}
                       placeholder="Ask me anything..."
-                      className="min-h-20 pr-20 resize-none overflow-hidden bg-background/40 backdrop-blur-sm border-white/20 focus:border-white/40 focus:ring-2 focus:ring-indigo-500/40"
+                      className="text-sm sm:text-base min-h-16 sm:min-h-20 pr-16 sm:pr-20 resize-none overflow-hidden bg-background/40 backdrop-blur-sm border-white/20 focus:border-white/40 focus:ring-2 focus:ring-indigo-500/40"
                       value={message}
                       onChange={handleMessageChange}
                       onKeyDown={handleKeyDown}
                       disabled={messageSending}
                     />
-                    <div className="absolute right-2 bottom-2 flex items-center gap-2">
+                    <div className="absolute right-2 bottom-2 flex items-center gap-1 sm:gap-2">
                       <Toggle
                         variant="outline"
                         size="sm"
@@ -581,17 +590,17 @@ export default function ChatPage() {
                         onPressedChange={setUseRichVisualizations}
                         title="Toggle rich visualizations"
                         aria-label="Toggle rich visualizations"
-                        className="bg-white/10 border-white/20 data-[state=on]:bg-gradient-to-r data-[state=on]:from-indigo-500/20 data-[state=on]:to-purple-500/20 data-[state=on]:text-white"
+                        className="h-7 w-7 sm:h-8 sm:w-8 bg-white/10 border-white/20 data-[state=on]:bg-gradient-to-r data-[state=on]:from-indigo-500/20 data-[state=on]:to-purple-500/20 data-[state=on]:text-white"
                       >
-                        <BarChart3 className="h-4 w-4" />
+                        <BarChart3 className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
                       </Toggle>
                       <Button
                         type="submit"
                         size="sm"
                         disabled={!message.trim() || messageSending}
-                        className="h-8 w-8 p-0 bg-gradient-to-r from-indigo-500 to-purple-500 hover:from-indigo-600 hover:to-purple-600 text-white border-0"
+                        className="h-7 w-7 sm:h-8 sm:w-8 p-0 bg-gradient-to-r from-indigo-500 to-purple-500 hover:from-indigo-600 hover:to-purple-600 text-white border-0"
                       >
-                        <Send className="h-4 w-4" />
+                        <Send className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
                       </Button>
                     </div>
                   </div>

@@ -179,15 +179,15 @@ export default function AuthPage() {
       {/* Visual separator between columns */}
       <div className="absolute top-0 bottom-0 left-1/2 w-px bg-gradient-to-b from-indigo-500/0 via-indigo-500/20 to-indigo-500/0 hidden md:block transform -translate-x-1/2 z-10"></div>
       
-      <div className="flex flex-col items-center justify-center p-8 relative">
-        <div className="w-full max-w-md space-y-6">
-          <div className="text-center mb-8">
+      <div className="flex flex-col items-center justify-center p-4 sm:p-6 md:p-8 relative">
+        <div className="w-full max-w-md space-y-4 md:space-y-6">
+          <div className="text-center mb-6 md:mb-8">
             <Link href="/" className="inline-block">
-              <h1 className="text-3xl font-bold bg-gradient-to-r from-indigo-400 via-purple-400 to-pink-400 bg-clip-text text-transparent">
+              <h1 className="text-2xl md:text-3xl font-bold bg-gradient-to-r from-indigo-400 via-purple-400 to-pink-400 bg-clip-text text-transparent">
                 Adspirer
               </h1>
             </Link>
-            <p className="mt-2 text-sm text-muted-foreground">
+            <p className="mt-2 text-xs sm:text-sm text-muted-foreground">
               Sign in to your account to manage your retail media campaigns
             </p>
           </div>
@@ -196,8 +196,8 @@ export default function AuthPage() {
           <div className="md:hidden mb-6 relative">
             <div 
               ref={mobileCarouselRef}
-              className="overflow-x-scroll whitespace-nowrap scrollbar-hide"
-              style={{ scrollSnapType: 'x mandatory' }}
+              className="overflow-x-scroll whitespace-nowrap scrollbar-hide pb-2"
+              style={{ scrollSnapType: 'x mandatory', WebkitOverflowScrolling: 'touch' }}
             >
               {valuePropositions.map((prop, index) => {
                 // Dynamically select the icon component
@@ -214,16 +214,16 @@ export default function AuthPage() {
                 return (
                   <div 
                     key={index} 
-                    className="inline-block w-[85vw] mr-4 whitespace-normal"
+                    className="inline-block w-[80vw] sm:w-[85vw] mr-4 whitespace-normal"
                     style={{ scrollSnapAlign: 'center' }}
                   >
-                    <div className="bg-background shadow rounded-xl p-4 flex items-start gap-3">
-                      <div className="bg-primary/10 rounded-lg p-2">
-                        <IconComponent className="h-5 w-5 text-primary" />
+                    <div className="bg-background shadow rounded-xl p-4 flex items-start gap-3 transition-all duration-300 hover:shadow-lg hover:bg-background/80">
+                      <div className="bg-primary/10 rounded-lg p-2 flex-shrink-0">
+                        <IconComponent className="h-4 w-4 sm:h-5 sm:w-5 text-primary" />
                       </div>
                       <div>
-                        <h3 className="font-semibold text-sm mb-1">{prop.title}</h3>
-                        <p className="text-xs text-muted-foreground">{prop.description}</p>
+                        <h3 className="font-semibold text-xs sm:text-sm mb-1">{prop.title}</h3>
+                        <p className="text-[10px] sm:text-xs text-muted-foreground">{prop.description}</p>
                       </div>
                     </div>
                   </div>
@@ -237,7 +237,7 @@ export default function AuthPage() {
                 <button
                   key={index}
                   onClick={() => handleDotClick(index)}
-                  className={`w-2 h-2 rounded-full transition-colors ${
+                  className={`w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full transition-colors ${
                     currentSlide === index ? 'bg-primary' : 'bg-muted-foreground/30'
                   }`}
                   aria-label={`Go to slide ${index + 1}`}
@@ -246,7 +246,7 @@ export default function AuthPage() {
             </div>
           </div>
 
-          <div className="bg-white/10 backdrop-blur-xl border border-white/20 rounded-xl p-8 shadow-xl">
+          <div className="bg-white/10 backdrop-blur-xl border border-white/20 rounded-xl p-4 sm:p-6 md:p-8 shadow-xl">
             <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as "login" | "register")}>
               <TabsList className="grid w-full grid-cols-2 mb-8 bg-background/40 backdrop-blur-sm">
                 <TabsTrigger value="login" className="data-[state=active]:bg-gradient-to-r data-[state=active]:from-indigo-500/20 data-[state=active]:to-purple-500/20 data-[state=active]:text-white">Login</TabsTrigger>
