@@ -70,19 +70,42 @@ export function AnimatedHero({ scrollToDemo }: AnimatedHeroProps) {
             </motion.div>
             
             <motion.div
-              className="flex items-center gap-4 mt-10"
+              className="flex flex-col gap-3 mt-10"
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               transition={{ duration: 0.8, delay: 0.4 }}
             >
-              <div className="flex -space-x-3">
-                <div className="w-8 h-8 rounded-full bg-blue-600 flex items-center justify-center text-sm font-semibold border-2 border-slate-900">A</div>
-                <div className="w-8 h-8 rounded-full bg-red-500 flex items-center justify-center text-sm font-semibold border-2 border-slate-900">G</div>
-                <div className="w-8 h-8 rounded-full bg-blue-500 flex items-center justify-center text-sm font-semibold border-2 border-slate-900">M</div>
-              </div>
-              <span className="text-sm text-slate-400">
-                Works with Amazon, Google, and Meta ad platforms
+              <span className="text-sm text-slate-400 mb-1">
+                Works with top retail and ad platforms
               </span>
+              
+              <div className="flex flex-wrap gap-4 items-center">
+                {/* Platform logos */}
+                <div className="flex items-center gap-3 p-2 rounded-lg bg-slate-900/50 backdrop-blur-sm border border-slate-800/50">
+                  <div className="w-6 h-6 rounded-full bg-amber-500/90 flex items-center justify-center text-xs font-semibold">A</div>
+                  <span className="text-xs font-medium text-amber-300">Amazon</span>
+                </div>
+                
+                <div className="flex items-center gap-3 p-2 rounded-lg bg-slate-900/50 backdrop-blur-sm border border-slate-800/50">
+                  <div className="w-6 h-6 rounded-full bg-blue-500/90 flex items-center justify-center text-xs font-semibold">G</div>
+                  <span className="text-xs font-medium text-blue-300">Google</span>
+                </div>
+                
+                <div className="flex items-center gap-3 p-2 rounded-lg bg-slate-900/50 backdrop-blur-sm border border-slate-800/50">
+                  <div className="w-6 h-6 rounded-full bg-facebook-500/90 flex items-center justify-center text-xs font-semibold">M</div>
+                  <span className="text-xs font-medium text-facebook-300">Meta</span>
+                </div>
+                
+                <div className="flex items-center gap-3 p-2 rounded-lg bg-slate-900/50 backdrop-blur-sm border border-slate-800/50">
+                  <div className="w-6 h-6 rounded-full bg-blue-700/90 flex items-center justify-center text-xs font-semibold">W</div>
+                  <span className="text-xs font-medium text-blue-300">Walmart</span>
+                </div>
+                
+                <div className="flex items-center gap-3 p-2 rounded-lg bg-slate-900/50 backdrop-blur-sm border border-slate-800/50">
+                  <div className="w-6 h-6 rounded-full bg-red-600/90 flex items-center justify-center text-xs font-semibold">T</div>
+                  <span className="text-xs font-medium text-red-300">Target</span>
+                </div>
+              </div>
             </motion.div>
           </div>
           

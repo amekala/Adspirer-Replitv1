@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 import { motion } from "framer-motion";
 import { AnimatedButton } from "@/components/ui/animated-button";
+import { Link } from "wouter";
 
 // Feature section with alternating layout
 type FeatureSection = {
@@ -163,9 +164,11 @@ function FeatureBlock({ section, index }: FeatureBlockProps) {
           viewport={{ once: true }}
           transition={{ duration: 0.4, delay: 0.6 }}
         >
-          <AnimatedButton gradient="primary">
-            {section.buttonText}
-            <ArrowRight className="ml-2 h-4 w-4" />
+          <AnimatedButton asChild gradient="primary">
+            <Link href="/auth">
+              {section.buttonText}
+              <ArrowRight className="ml-2 h-4 w-4" />
+            </Link>
           </AnimatedButton>
         </motion.div>
       </motion.div>

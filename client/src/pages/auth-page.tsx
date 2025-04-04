@@ -335,7 +335,10 @@ export default function AuthPage() {
           </p>
           
           {/* Carousel Container */}
-          <div className="mb-8 relative">
+          <div className="mb-8 relative bg-slate-900/50 backdrop-blur-md rounded-xl p-6 border border-slate-800/50 shadow-xl">
+            <div className="mb-4">
+              <div className="w-12 h-1.5 bg-indigo-500/50 rounded-full mx-auto"></div>
+            </div>
             <div 
               ref={carouselRef}
               className="overflow-x-hidden whitespace-nowrap scrollbar-hide"
