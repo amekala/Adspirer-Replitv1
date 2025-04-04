@@ -1,5 +1,6 @@
 import React from "react";
 import { motion } from "framer-motion";
+import { Link } from "wouter";
 import { MessageSquare, BarChart3, TrendingUp, User, ArrowRight } from "lucide-react";
 import { AnimatedCard, AnimatedCardHeader, AnimatedCardTitle, AnimatedCardContent } from "@/components/ui/animated-card";
 import { AnimatedButton } from "@/components/ui/animated-button";
@@ -57,9 +58,11 @@ export function AnimatedConversations() {
               viewport={{ once: true }}
               transition={{ duration: 0.4, delay: 0.6 }}
             >
-              <AnimatedButton gradient="primary" size="lg">
-                Try Chat Analytics 
-                <ArrowRight className="ml-2 h-4 w-4" />
+              <AnimatedButton asChild gradient="primary" size="lg">
+                <Link href="/auth">
+                  Try Chat Analytics 
+                  <ArrowRight className="ml-2 h-4 w-4" />
+                </Link>
               </AnimatedButton>
             </motion.div>
           </motion.div>

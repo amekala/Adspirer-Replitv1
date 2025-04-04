@@ -30,9 +30,9 @@ export function AnimatedHero({ scrollToDemo }: AnimatedHeroProps) {
               transition={{ duration: 0.8, ease: "easeOut" }}
             >
               <h1 className="text-5xl md:text-6xl lg:text-7xl font-bold mb-6 tracking-tight leading-tight">
-                Chat With Your{" "}
+                Your Personal{" "}
                 <span className="bg-clip-text text-transparent bg-gradient-to-r from-indigo-500 via-violet-500 to-purple-500">
-                  Ad Campaigns
+                  Marketing Copilot
                 </span>
               </h1>
             </motion.div>

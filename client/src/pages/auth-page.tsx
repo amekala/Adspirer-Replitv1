@@ -334,11 +334,12 @@ export default function AuthPage() {
             Connect your advertising accounts securely and start optimizing your campaigns with AI-powered insights.
           </p>
           
-          {/* Carousel Container */}
+          {/* Value Proposition Container - Applying styling to the whole thing */}
           <div className="mb-8 relative bg-slate-900/50 backdrop-blur-md rounded-xl p-6 border border-slate-800/50 shadow-xl">
             <div className="mb-4">
               <div className="w-12 h-1.5 bg-indigo-500/50 rounded-full mx-auto"></div>
             </div>
+            {/* Carousel inside the container */}
             <div 
               ref={carouselRef}
               className="overflow-x-hidden whitespace-nowrap scrollbar-hide"
