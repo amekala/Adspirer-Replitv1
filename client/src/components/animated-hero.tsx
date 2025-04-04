@@ -75,56 +75,36 @@ Create campaigns, analyze performance, and get recommendations - just ask your m
               animate={{ opacity: 1 }}
               transition={{ duration: 0.8, delay: 0.4 }}
             >
-              <span className="text-sm text-slate-400 mb-2">
-                Ask your marketing copilot anything:
+              <span className="text-sm text-slate-400 mb-1">
+                Works with top retail and ad platforms
               </span>
               
-              <div className="flex flex-wrap gap-3 items-start">
-                {/* Chat bubbles with questions users can ask */}
-                <motion.div 
-                  className="bg-indigo-600/20 backdrop-blur-sm px-4 py-2 rounded-2xl border border-indigo-500/30"
-                  initial={{ opacity: 0, scale: 0.9 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  transition={{ duration: 0.5, delay: 0.5 }}
-                >
-                  <p className="text-sm text-white">"Create a Google PMax campaign for my summer collection"</p>
-                </motion.div>
+              <div className="flex flex-wrap gap-4 items-center">
+                {/* Platform logos */}
+                <div className="flex items-center gap-3 p-2 rounded-lg bg-slate-900/50 backdrop-blur-sm border border-slate-800/50">
+                  <div className="w-6 h-6 rounded-full bg-amber-500/90 flex items-center justify-center text-xs font-semibold">A</div>
+                  <span className="text-xs font-medium text-amber-300">Amazon</span>
+                </div>
                 
-                <motion.div 
-                  className="bg-purple-600/20 backdrop-blur-sm px-4 py-2 rounded-2xl border border-purple-500/30"
-                  initial={{ opacity: 0, scale: 0.9 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  transition={{ duration: 0.5, delay: 0.6 }}
-                >
-                  <p className="text-sm text-white">"Set up an Amazon Sponsored Products campaign with $1000 budget"</p>
-                </motion.div>
+                <div className="flex items-center gap-3 p-2 rounded-lg bg-slate-900/50 backdrop-blur-sm border border-slate-800/50">
+                  <div className="w-6 h-6 rounded-full bg-blue-500/90 flex items-center justify-center text-xs font-semibold">G</div>
+                  <span className="text-xs font-medium text-blue-300">Google</span>
+                </div>
                 
-                <motion.div 
-                  className="bg-pink-600/20 backdrop-blur-sm px-4 py-2 rounded-2xl border border-pink-500/30"
-                  initial={{ opacity: 0, scale: 0.9 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  transition={{ duration: 0.5, delay: 0.7 }}
-                >
-                  <p className="text-sm text-white">"Run Meta Advantage+ Shopping campaign for my store"</p>
-                </motion.div>
+                <div className="flex items-center gap-3 p-2 rounded-lg bg-slate-900/50 backdrop-blur-sm border border-slate-800/50">
+                  <div className="w-6 h-6 rounded-full bg-facebook-500/90 flex items-center justify-center text-xs font-semibold">M</div>
+                  <span className="text-xs font-medium text-facebook-300">Meta</span>
+                </div>
                 
-                <motion.div 
-                  className="bg-blue-600/20 backdrop-blur-sm px-4 py-2 rounded-2xl border border-blue-500/30"
-                  initial={{ opacity: 0, scale: 0.9 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  transition={{ duration: 0.5, delay: 0.8 }}
-                >
-                  <p className="text-sm text-white">"Which campaigns have the highest ROAS this month?"</p>
-                </motion.div>
+                <div className="flex items-center gap-3 p-2 rounded-lg bg-slate-900/50 backdrop-blur-sm border border-slate-800/50">
+                  <div className="w-6 h-6 rounded-full bg-blue-700/90 flex items-center justify-center text-xs font-semibold">W</div>
+                  <span className="text-xs font-medium text-blue-300">Walmart</span>
+                </div>
                 
-                <motion.div 
-                  className="bg-teal-600/20 backdrop-blur-sm px-4 py-2 rounded-2xl border border-teal-500/30"
-                  initial={{ opacity: 0, scale: 0.9 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  transition={{ duration: 0.5, delay: 0.9 }}
-                >
-                  <p className="text-sm text-white">"Launch ads across Walmart and Amazon for my new product"</p>
-                </motion.div>
+                <div className="flex items-center gap-3 p-2 rounded-lg bg-slate-900/50 backdrop-blur-sm border border-slate-800/50">
+                  <div className="w-6 h-6 rounded-full bg-red-600/90 flex items-center justify-center text-xs font-semibold">T</div>
+                  <span className="text-xs font-medium text-red-300">Target</span>
+                </div>
               </div>
             </motion.div>
           </div>
