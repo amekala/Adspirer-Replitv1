@@ -8,6 +8,13 @@ import { GoogleConnect } from "@/components/google-connect";
 import { SiAmazon, SiGoogleads, SiMeta, SiWalmart } from "react-icons/si";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 
+// Define types for status responses
+interface PlatformStatus {
+  connected: boolean;
+  accountName?: string;
+  tokenStatus?: string;
+}
+
 interface ConnectPlatformsFormProps {
   onNext: () => void;
   onPrevious?: () => void;
@@ -19,12 +26,12 @@ export function ConnectPlatformsForm({ onNext, onPrevious, onSkip }: ConnectPlat
   const [platformsChecked, setPlatformsChecked] = useState(false);
   
   // Check if at least one platform is connected
-  const { data: amazonStatus } = useQuery({
+  const { data: amazonStatus } = useQuery<PlatformStatus>({
     queryKey: ["/api/amazon/status"],
     retry: false,
   });
 
-  const { data: googleStatus } = useQuery({
+  const { data: googleStatus } = useQuery<PlatformStatus>({
     queryKey: ["/api/google/status"],
     retry: false,
   });
@@ -35,7 +42,7 @@ export function ConnectPlatformsForm({ onNext, onPrevious, onSkip }: ConnectPlat
       (amazonStatus && amazonStatus.connected) || 
       (googleStatus && googleStatus.connected);
     
-    setPlatformsChecked(isAnyConnected);
+    setPlatformsChecked(!!isAnyConnected); // Convert to boolean to avoid undefined
   }, [amazonStatus, googleStatus]);
 
   // Handler for Next button click
@@ -45,12 +52,13 @@ export function ConnectPlatformsForm({ onNext, onPrevious, onSkip }: ConnectPlat
       (amazonStatus && amazonStatus.connected) || 
       (googleStatus && googleStatus.connected);
     
+    // Convert to boolean to avoid undefined issues
     if (!isAnyConnected && !platformsChecked) {
       // Inform user but allow them to proceed
       toast({
         title: "No platforms connected",
         description: "You haven't connected any advertising platforms. Some features may be limited.",
-        variant: "warning",
+        variant: "destructive",
       });
       
       // Mark as checked so we don't warn again

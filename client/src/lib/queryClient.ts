@@ -8,7 +8,7 @@ async function throwIfResNotOk(res: Response) {
 }
 
 // Get the base URL depending on the environment
-function getBaseUrl() {
+export function getBaseUrl() {
   // Check if we're in a browser environment
   if (typeof window !== 'undefined') {
     // Check if there's an API URL in the environment

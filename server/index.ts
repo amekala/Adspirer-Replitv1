@@ -107,7 +107,7 @@ if (!isVercel) {
     setInterval(() => {
       try {
         const req = request({
-          host: 'localhost',
+          host: '0.0.0.0',
           port: port,
           path: '/health',
           method: 'GET'
@@ -128,13 +128,13 @@ if (!isVercel) {
   }
 
   // Start the server for local development
-  server.listen(port, "localhost", () => {
+  server.listen(port, "0.0.0.0", () => {
     log(`Server is running on port ${port}`);
     
     // More descriptive logs for local development
-    console.log(`🚀 Server ready at http://localhost:${port}`);
-    console.log(`API available at http://localhost:${port}/api`);
-    console.log(`Health check at http://localhost:${port}/health`);
+    console.log(`🚀 Server ready at http://0.0.0.0:${port}`);
+    console.log(`API available at http://0.0.0.0:${port}/api`);
+    console.log(`Health check at http://0.0.0.0:${port}/health`);
     
     // Start scheduled maintenance tasks
     if (isProduction) {
