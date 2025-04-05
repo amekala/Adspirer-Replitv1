@@ -418,7 +418,7 @@ export const insertBusinessCoreSchema = createInsertSchema(businessCore, {
   mainGoals: z.array(z.string()).min(1, "At least one main goal is required"),
   monthlyAdSpend: z.string().optional(),
   website: z.string().url("Please enter a valid URL").optional(),
-}).omit({ id: true, createdAt: true, updatedAt: true });
+}).omit({ id: true, userId: true, createdAt: true, updatedAt: true });
 
 export const insertBrandIdentitySchema = createInsertSchema(brandIdentity, {
   brandName: z.string().min(1, "Brand name is required"),
@@ -429,7 +429,7 @@ export const insertBrandIdentitySchema = createInsertSchema(brandIdentity, {
   primaryColor: z.string().optional(),
   secondaryColor: z.string().optional(),
   logoUrl: z.string().url("Please enter a valid URL").optional(),
-}).omit({ id: true, createdAt: true, updatedAt: true });
+}).omit({ id: true, userId: true, createdAt: true, updatedAt: true });
 
 export const insertProductsServicesSchema = createInsertSchema(productsServices, {
   productTypes: z.array(z.string()).min(1, "At least one product type is required"),
@@ -442,7 +442,7 @@ export const insertProductsServicesSchema = createInsertSchema(productsServices,
   pricingStrategy: z.string().optional(),
   competitiveAdvantage: z.array(z.string()).optional(),
   targetMarkets: z.array(z.string()).optional(),
-}).omit({ id: true, createdAt: true, updatedAt: true });
+}).omit({ id: true, userId: true, createdAt: true, updatedAt: true });
 
 export const insertCreativeExamplesSchema = createInsertSchema(creativeExamples, {
   adExamples: z.array(z.object({
@@ -453,7 +453,7 @@ export const insertCreativeExamplesSchema = createInsertSchema(creativeExamples,
   })).optional(),
   preferredAdFormats: z.array(z.string()).optional(),
   brandGuidelines: z.record(z.any()).optional(),
-}).omit({ id: true, createdAt: true, updatedAt: true });
+}).omit({ id: true, userId: true, createdAt: true, updatedAt: true });
 
 export const insertPerformanceContextSchema = createInsertSchema(performanceContext, {
   currentPerformance: z.record(z.any()).optional(),
@@ -465,7 +465,7 @@ export const insertPerformanceContextSchema = createInsertSchema(performanceCont
     notes: z.string().optional(),
   })).optional(),
   benchmarks: z.record(z.any()).optional(),
-}).omit({ id: true, createdAt: true, updatedAt: true });
+}).omit({ id: true, userId: true, createdAt: true, updatedAt: true });
 
 // Export onboarding types
 export type OnboardingProgress = typeof onboardingProgress.$inferSelect;

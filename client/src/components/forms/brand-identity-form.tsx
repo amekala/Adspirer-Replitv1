@@ -18,7 +18,7 @@ const brandIdentitySchema = z.object({
   brandValues: z.array(z.string()).min(1, "Select at least one brand value"),
   primaryColor: z.string().optional(),
   secondaryColor: z.string().optional(),
-  logoUrl: z.string().url("Please enter a valid URL").optional().or(z.literal("")),
+  logoUrl: z.string().url("Please enter a valid URL").optional().or(z.literal("")).or(z.null()),
 });
 
 // Form data type based on schema

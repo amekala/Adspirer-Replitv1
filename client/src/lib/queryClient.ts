@@ -23,15 +23,17 @@ export function getBaseUrl() {
 }
 
 export async function apiRequest(
-  method: string,
   url: string,
-  data?: unknown | undefined,
+  options: {
+    method: string;
+    data?: unknown;
+  } = { method: 'GET' }
 ): Promise<Response> {
   // Get JWT token from localStorage
   const token = localStorage.getItem('token');
   
   const headers: Record<string, string> = {};
-  if (data) {
+  if (options.data) {
     headers["Content-Type"] = "application/json";
   }
   
@@ -46,9 +48,9 @@ export async function apiRequest(
   console.log(`API Request to: ${fullUrl}`);
   
   const res = await fetch(fullUrl, {
-    method,
+    method: options.method,
     headers,
-    body: data ? JSON.stringify(data) : undefined,
+    body: options.data ? JSON.stringify(options.data) : undefined,
   });
 
   await throwIfResNotOk(res);

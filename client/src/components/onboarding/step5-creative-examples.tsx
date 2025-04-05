@@ -78,7 +78,10 @@ export function CreativeExamplesStep({ onNext, onPrevious, onSkip }: CreativeExa
       };
 
       console.log("Submitting creative examples data:", submissionData);
-      return apiRequest("POST", "/api/onboarding/creative-examples", submissionData);
+      return apiRequest("/api/onboarding/creative-examples", {
+        method: "POST",
+        data: submissionData
+      });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/onboarding/progress"] });

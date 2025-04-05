@@ -14,7 +14,16 @@ export const authenticate = (req: Request, res: Response, next: NextFunction) =>
   passport.authenticate('jwt', { session: false }, (err: Error | null, user: Express.User | false | null, info: any) => {
     if (err) return next(err);
     if (!user) return res.status(401).json({ message: 'Unauthorized' });
+    
+    // Add the user to the request object
     req.user = user;
+    
+    // Type assertion to access id property safely
+    const typedUser = user as { id: string, email: string };
+    
+    // Log authentication success for debugging
+    console.log(`User authenticated: ${typedUser.id} (${typedUser.email})`);
+    
     next();
   })(req, res, next);
 };

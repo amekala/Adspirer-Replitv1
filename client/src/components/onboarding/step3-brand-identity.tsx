@@ -23,7 +23,10 @@ export function BrandIdentityStep({ onNext, onPrevious, onSkip }: BrandIdentityS
   // Submit mutation
   const mutation = useMutation({
     mutationFn: (data: BrandIdentityFormData) => {
-      return apiRequest("POST", "/api/onboarding/brand-identity", data);
+      return apiRequest("/api/onboarding/brand-identity", {
+        method: "POST",
+        data
+      });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/onboarding/progress"] });

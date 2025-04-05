@@ -18,7 +18,10 @@ export function PerformanceContextStep({ onNext, onPrevious, onSkip, onComplete 
   // Submit mutation
   const mutation = useMutation({
     mutationFn: (data: PerformanceContextFormData) => {
-      return apiRequest("POST", "/api/onboarding/performance-context", data);
+      return apiRequest("/api/onboarding/performance-context", {
+        method: "POST",
+        data
+      });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/onboarding/progress"] });

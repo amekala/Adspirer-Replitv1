@@ -23,7 +23,10 @@ export function ConnectPlatformsStep({ onNext, onPrevious, onSkip }: ConnectPlat
   // Submit mutation
   const mutation = useMutation({
     mutationFn: (data: ConnectPlatformsFormData) => {
-      return apiRequest("POST", "/api/onboarding/connect-platforms", data);
+      return apiRequest("/api/onboarding/connect-platforms", {
+        method: "POST",
+        data
+      });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/onboarding/progress"] });

@@ -22,8 +22,15 @@ import { z } from "zod";
 
 // Helper function to get the user ID from the request
 function getUserId(req: Request): string {
-  // @ts-ignore: Property 'user' does exist on type 'Request'
-  return req.user?.id || '';
+  // Type assertion to safely extract the ID
+  const user = req.user as { id: string } | undefined;
+  
+  if (!user || !user.id) {
+    console.error('User ID not found in request:', req.user);
+    return '';
+  }
+  
+  return user.id;
 }
 
 export async function registerOnboardingRoutes(app: any) {
@@ -390,8 +397,8 @@ export async function registerOnboardingRoutes(app: any) {
         } else {
           // Create new record
           await db.insert(performanceContext).values({
-            ...validatedData
-            // userId is already included in validatedData
+            ...validatedData,
+            userId // Explicitly add userId
           });
         }
 

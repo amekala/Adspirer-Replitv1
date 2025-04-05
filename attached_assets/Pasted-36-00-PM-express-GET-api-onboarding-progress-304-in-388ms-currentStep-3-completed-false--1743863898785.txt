@@ -1,0 +1,215 @@
+36:00 PM [express] GET /api/onboarding/progress 304 in 388ms :: {"currentStep":3,"completed":false…
+Error saving business core data: ZodError: [
+  {
+    "code": "invalid_type",
+    "expected": "string",
+    "received": "undefined",
+    "path": [
+      "userId"
+    ],
+    "message": "Required"
+  }
+]
+    at get error [as error] (file:///home/runner/workspace/node_modules/zod/lib/index.mjs:587:31)
+    at ZodObject.parse (file:///home/runner/workspace/node_modules/zod/lib/index.mjs:663:22)
+    at <anonymous> (/home/runner/workspace/server/routes/onboarding.ts:168:54)
+    at Layer.handle [as handle_request] (/home/runner/workspace/node_modules/express/lib/router/layer.js:95:5)
+    at next (/home/runner/workspace/node_modules/express/lib/router/route.js:149:13)
+    at <anonymous> (/home/runner/workspace/server/auth.ts:18:5)
+    at strategy.success (/home/runner/workspace/node_modules/passport/lib/middleware/authenticate.js:222:18)
+    at verified (/home/runner/workspace/node_modules/passport-jwt/lib/strategy.js:115:41)
+    at JwtStrategy._verify (/home/runner/workspace/server/auth.ts:100:16)
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5) {
+  issues: [
+    {
+      code: 'invalid_type',
+      expected: 'string',
+      received: 'undefined',
+      path: [Array],
+      message: 'Required'
+    }
+  ],
+  addIssue: [Function (anonymous)],
+  addIssues: [Function (anonymous)],
+  errors: [
+    {
+      code: 'invalid_type',
+      expected: 'string',
+      received: 'undefined',
+      path: [Array],
+      message: 'Required'
+    }
+  ]
+}
+2:36:03 PM [express] POST /api/onboarding/business-core 400 in 56ms :: {"message":"Validation error"…
+Error saving business core data: ZodError: [
+  {
+    "code": "invalid_type",
+    "expected": "string",
+    "received": "undefined",
+    "path": [
+      "userId"
+    ],
+    "message": "Required"
+  },
+  {
+    "validation": "url",
+    "code": "invalid_string",
+    "message": "Please enter a valid URL",
+    "path": [
+      "website"
+    ]
+  }
+]
+    at get error [as error] (file:///home/runner/workspace/node_modules/zod/lib/index.mjs:587:31)
+    at ZodObject.parse (file:///home/runner/workspace/node_modules/zod/lib/index.mjs:663:22)
+    at <anonymous> (/home/runner/workspace/server/routes/onboarding.ts:168:54)
+    at Layer.handle [as handle_request] (/home/runner/workspace/node_modules/express/lib/router/layer.js:95:5)
+    at next (/home/runner/workspace/node_modules/express/lib/router/route.js:149:13)
+    at <anonymous> (/home/runner/workspace/server/auth.ts:18:5)
+    at strategy.success (/home/runner/workspace/node_modules/passport/lib/middleware/authenticate.js:222:18)
+    at verified (/home/runner/workspace/node_modules/passport-jwt/lib/strategy.js:115:41)
+    at JwtStrategy._verify (/home/runner/workspace/server/auth.ts:100:16)
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5) {
+  issues: [
+    {
+      code: 'invalid_type',
+      expected: 'string',
+      received: 'undefined',
+      path: [Array],
+      message: 'Required'
+    },
+    {
+      validation: 'url',
+      code: 'invalid_string',
+      message: 'Please enter a valid URL',
+      path: [Array]
+    }
+  ],
+  addIssue: [Function (anonymous)],
+  addIssues: [Function (anonymous)],
+  errors: [
+    {
+      code: 'invalid_type',
+      expected: 'string',
+      received: 'undefined',
+      path: [Array],
+      message: 'Required'
+    },
+    {
+      validation: 'url',
+      code: 'invalid_string',
+      message: 'Please enter a valid URL',
+      path: [Array]
+    }
+  ]
+}
+2:36:23 PM [express] POST /api/onboarding/business-core 400 in 59ms :: {"message":"Validation error"…
+Error saving business core data: ZodError: [
+  {
+    "code": "invalid_type",
+    "expected": "string",
+    "received": "undefined",
+    "path": [
+      "userId"
+    ],
+    "message": "Required"
+  }
+]
+    at get error [as error] (file:///home/runner/workspace/node_modules/zod/lib/index.mjs:587:31)
+    at ZodObject.parse (file:///home/runner/workspace/node_modules/zod/lib/index.mjs:663:22)
+    at <anonymous> (/home/runner/workspace/server/routes/onboarding.ts:168:54)
+    at Layer.handle [as handle_request] (/home/runner/workspace/node_modules/express/lib/router/layer.js:95:5)
+    at next (/home/runner/workspace/node_modules/express/lib/router/route.js:149:13)
+    at <anonymous> (/home/runner/workspace/server/auth.ts:18:5)
+    at strategy.success (/home/runner/workspace/node_modules/passport/lib/middleware/authenticate.js:222:18)
+    at verified (/home/runner/workspace/node_modules/passport-jwt/lib/strategy.js:115:41)
+    at JwtStrategy._verify (/home/runner/workspace/server/auth.ts:100:16)
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5) {
+  issues: [
+    {
+      code: 'invalid_type',
+      expected: 'string',
+      received: 'undefined',
+      path: [Array],
+      message: 'Required'
+    }
+  ],
+  addIssue: [Function (anonymous)],
+  addIssues: [Function (anonymous)],
+  errors: [
+    {
+      code: 'invalid_type',
+      expected: 'string',
+      received: 'undefined',
+      path: [Array],
+      message: 'Required'
+    }
+  ]
+}
+2:36:42 PM [express] POST /api/onboarding/business-core 400 in 56ms :: {"message":"Validation error"…
+2:37:17 PM [express] GET /api/user/connected-platforms 304 in 175ms :: {"amazon":true,"google":true,…
+2:37:19 PM [express] GET /api/user/brand-identity 200 in 112ms
+Error saving brand identity data: ZodError: [
+  {
+    "code": "invalid_type",
+    "expected": "string",
+    "received": "undefined",
+    "path": [
+      "userId"
+    ],
+    "message": "Required"
+  },
+  {
+    "validation": "url",
+    "code": "invalid_string",
+    "message": "Please enter a valid URL",
+    "path": [
+      "logoUrl"
+    ]
+  }
+]
+    at get error [as error] (file:///home/runner/workspace/node_modules/zod/lib/index.mjs:587:31)
+    at ZodObject.parse (file:///home/runner/workspace/node_modules/zod/lib/index.mjs:663:22)
+    at <anonymous> (/home/runner/workspace/server/routes/onboarding.ts:232:55)
+    at Layer.handle [as handle_request] (/home/runner/workspace/node_modules/express/lib/router/layer.js:95:5)
+    at next (/home/runner/workspace/node_modules/express/lib/router/route.js:149:13)
+    at <anonymous> (/home/runner/workspace/server/auth.ts:18:5)
+    at strategy.success (/home/runner/workspace/node_modules/passport/lib/middleware/authenticate.js:222:18)
+    at verified (/home/runner/workspace/node_modules/passport-jwt/lib/strategy.js:115:41)
+    at JwtStrategy._verify (/home/runner/workspace/server/auth.ts:100:16)
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5) {
+  issues: [
+    {
+      code: 'invalid_type',
+      expected: 'string',
+      received: 'undefined',
+      path: [Array],
+      message: 'Required'
+    },
+    {
+      validation: 'url',
+      code: 'invalid_string',
+      message: 'Please enter a valid URL',
+      path: [Array]
+    }
+  ],
+  addIssue: [Function (anonymous)],
+  addIssues: [Function (anonymous)],
+  errors: [
+    {
+      code: 'invalid_type',
+      expected: 'string',
+      received: 'undefined',
+      path: [Array],
+      message: 'Required'
+    },
+    {
+      validation: 'url',
+      code: 'invalid_string',
+      message: 'Please enter a valid URL',
+      path: [Array]
+    }
+  ]
+}
+2:37:38 PM [express] POST /api/onboarding/brand-identity 400 in 57ms :: {"message":"Validation error…

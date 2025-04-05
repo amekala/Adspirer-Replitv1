@@ -16,7 +16,7 @@ const businessCoreSchema = z.object({
   marketplaces: z.array(z.string()).min(1, "At least one marketplace is required"),
   mainGoals: z.array(z.string()).min(1, "At least one main goal is required"),
   monthlyAdSpend: z.string().optional(),
-  website: z.string().url("Please enter a valid URL").optional().or(z.literal("")),
+  website: z.string().url("Please enter a valid URL").optional().or(z.literal("")).or(z.null()),
   // Additional fields for UI purposes only (won't be sent to backend)
   businessDescription: z.string().min(20, "Please provide at least 20 characters").optional(),
 });

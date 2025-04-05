@@ -23,7 +23,10 @@ export function ProductsServicesStep({ onNext, onPrevious, onSkip }: ProductsSer
   // Submit mutation
   const mutation = useMutation({
     mutationFn: (data: ProductsServicesFormData) => {
-      return apiRequest("POST", "/api/onboarding/products-services", data);
+      return apiRequest("/api/onboarding/products-services", {
+        method: "POST",
+        data
+      });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/onboarding/progress"] });

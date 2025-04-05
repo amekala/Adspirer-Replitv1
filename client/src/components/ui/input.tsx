@@ -3,10 +3,15 @@ import * as React from "react"
 import { cn } from "@/lib/utils"
 
 export interface InputProps
-  extends React.InputHTMLAttributes<HTMLInputElement> {}
+  extends Omit<React.InputHTMLAttributes<HTMLInputElement>, 'value'> {
+    value?: string | number | readonly string[] | null | undefined;
+  }
 
 const Input = React.forwardRef<HTMLInputElement, InputProps>(
-  ({ className, type, ...props }, ref) => {
+  ({ className, type, value, ...props }, ref) => {
+    // Convert null to empty string for input element
+    const sanitizedValue = value === null ? "" : value;
+    
     return (
       <input
         type={type}
@@ -15,6 +20,7 @@ const Input = React.forwardRef<HTMLInputElement, InputProps>(
           className
         )}
         ref={ref}
+        value={sanitizedValue}
         {...props}
       />
     )

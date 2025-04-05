@@ -27,7 +27,10 @@ export function BusinessCoreStep({ onNext, onSkip }: BusinessCoreStepProps) {
         website: data.website,
       };
       
-      return apiRequest("POST", "/api/onboarding/business-core", submissionData);
+      return apiRequest("/api/onboarding/business-core", {
+        method: "POST",
+        data: submissionData
+      });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/onboarding/progress"] });
