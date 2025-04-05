@@ -324,6 +324,164 @@ export type InsertCampaignMetricsSummary = z.infer<typeof insertCampaignMetricsS
 export type InsertGoogleCampaignMetricsSummary = z.infer<typeof insertGoogleCampaignMetricsSummarySchema>;
 export type InsertQueryCache = z.infer<typeof insertQueryCacheSchema>;
 
+// Onboarding tables
+
+// Table to track onboarding progress
+export const onboardingProgress = pgTable("onboarding_progress", {
+  id: serial("id").primaryKey(),
+  userId: uuid("user_id").notNull().references(() => users.id),
+  currentStep: integer("current_step").notNull().default(1),
+  isComplete: boolean("is_complete").notNull().default(false),
+  lastUpdated: timestamp("last_updated").notNull().defaultNow(),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+// Step 1: Business Core
+export const businessCore = pgTable("business_core", {
+  id: serial("id").primaryKey(),
+  userId: uuid("user_id").notNull().references(() => users.id),
+  businessName: text("business_name").notNull(),
+  industry: text("industry").notNull(),
+  companySize: text("company_size").notNull(),
+  marketplaces: text("marketplaces").array(),
+  mainGoals: text("main_goals").array(),
+  monthlyAdSpend: text("monthly_ad_spend"),
+  website: text("website"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
+// Step 3: Brand Identity
+export const brandIdentity = pgTable("brand_identity", {
+  id: serial("id").primaryKey(),
+  userId: uuid("user_id").notNull().references(() => users.id),
+  brandName: text("brand_name").notNull(),
+  brandDescription: text("brand_description").notNull(),
+  brandVoice: text("brand_voice").array(),
+  targetAudience: text("target_audience").array(),
+  brandValues: text("brand_values").array(),
+  primaryColor: text("primary_color"),
+  secondaryColor: text("secondary_color"),
+  logoUrl: text("logo_url"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
+// Step 4: Products or Services
+export const productsServices = pgTable("products_services", {
+  id: serial("id").primaryKey(),
+  userId: uuid("user_id").notNull().references(() => users.id),
+  productTypes: text("product_types").array(),
+  topSellingProducts: json("top_selling_products").default([]).notNull(),
+  pricingStrategy: text("pricing_strategy"),
+  competitiveAdvantage: text("competitive_advantage").array(),
+  targetMarkets: text("target_markets").array(),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
+// Step 5: Creative Examples
+export const creativeExamples = pgTable("creative_examples", {
+  id: serial("id").primaryKey(),
+  userId: uuid("user_id").notNull().references(() => users.id),
+  adExamples: json("ad_examples").default([]).notNull(),
+  preferredAdFormats: text("preferred_ad_formats").array(),
+  brandGuidelines: json("brand_guidelines").default({}).notNull(),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
+// Step 6: Performance Context
+export const performanceContext = pgTable("performance_context", {
+  id: serial("id").primaryKey(),
+  userId: uuid("user_id").notNull().references(() => users.id),
+  currentPerformance: json("current_performance").default({}).notNull(),
+  keyMetrics: text("key_metrics").array(),
+  performanceGoals: json("performance_goals").default({}).notNull(),
+  seasonalTrends: json("seasonal_trends").default([]).notNull(),
+  benchmarks: json("benchmarks").default({}).notNull(),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
+// Insert schemas for onboarding
+export const insertOnboardingProgressSchema = createInsertSchema(onboardingProgress, {
+  currentStep: z.number().int().min(1).max(6),
+  isComplete: z.boolean(),
+}).omit({ id: true, createdAt: true, lastUpdated: true });
+
+export const insertBusinessCoreSchema = createInsertSchema(businessCore, {
+  businessName: z.string().min(1, "Business name is required"),
+  industry: z.string().min(1, "Industry is required"),
+  companySize: z.string().min(1, "Company size is required"),
+  marketplaces: z.array(z.string()).min(1, "At least one marketplace is required"),
+  mainGoals: z.array(z.string()).min(1, "At least one main goal is required"),
+  monthlyAdSpend: z.string().optional(),
+  website: z.string().url("Please enter a valid URL").optional(),
+}).omit({ id: true, createdAt: true, updatedAt: true });
+
+export const insertBrandIdentitySchema = createInsertSchema(brandIdentity, {
+  brandName: z.string().min(1, "Brand name is required"),
+  brandDescription: z.string().min(10, "Please provide a more detailed brand description"),
+  brandVoice: z.array(z.string()).min(1, "At least one brand voice characteristic is required"),
+  targetAudience: z.array(z.string()).min(1, "At least one target audience is required"),
+  brandValues: z.array(z.string()).min(1, "At least one brand value is required"),
+  primaryColor: z.string().optional(),
+  secondaryColor: z.string().optional(),
+  logoUrl: z.string().url("Please enter a valid URL").optional(),
+}).omit({ id: true, createdAt: true, updatedAt: true });
+
+export const insertProductsServicesSchema = createInsertSchema(productsServices, {
+  productTypes: z.array(z.string()).min(1, "At least one product type is required"),
+  topSellingProducts: z.array(z.object({
+    name: z.string(),
+    description: z.string(),
+    price: z.string().optional(),
+    imageUrl: z.string().optional(),
+  })).optional(),
+  pricingStrategy: z.string().optional(),
+  competitiveAdvantage: z.array(z.string()).optional(),
+  targetMarkets: z.array(z.string()).optional(),
+}).omit({ id: true, createdAt: true, updatedAt: true });
+
+export const insertCreativeExamplesSchema = createInsertSchema(creativeExamples, {
+  adExamples: z.array(z.object({
+    title: z.string(),
+    description: z.string().optional(),
+    imageUrl: z.string().optional(),
+    performanceNotes: z.string().optional(),
+  })).optional(),
+  preferredAdFormats: z.array(z.string()).optional(),
+  brandGuidelines: z.record(z.any()).optional(),
+}).omit({ id: true, createdAt: true, updatedAt: true });
+
+export const insertPerformanceContextSchema = createInsertSchema(performanceContext, {
+  currentPerformance: z.record(z.any()).optional(),
+  keyMetrics: z.array(z.string()).min(1, "At least one key metric is required"),
+  performanceGoals: z.record(z.any()).optional(),
+  seasonalTrends: z.array(z.object({
+    season: z.string(),
+    performance: z.string(),
+    notes: z.string().optional(),
+  })).optional(),
+  benchmarks: z.record(z.any()).optional(),
+}).omit({ id: true, createdAt: true, updatedAt: true });
+
+// Export onboarding types
+export type OnboardingProgress = typeof onboardingProgress.$inferSelect;
+export type BusinessCore = typeof businessCore.$inferSelect;
+export type BrandIdentity = typeof brandIdentity.$inferSelect;
+export type ProductsServices = typeof productsServices.$inferSelect;
+export type CreativeExamples = typeof creativeExamples.$inferSelect;
+export type PerformanceContext = typeof performanceContext.$inferSelect;
+
+export type InsertOnboardingProgress = z.infer<typeof insertOnboardingProgressSchema>;
+export type InsertBusinessCore = z.infer<typeof insertBusinessCoreSchema>;
+export type InsertBrandIdentity = z.infer<typeof insertBrandIdentitySchema>;
+export type InsertProductsServices = z.infer<typeof insertProductsServicesSchema>;
+export type InsertCreativeExamples = z.infer<typeof insertCreativeExamplesSchema>;
+export type InsertPerformanceContext = z.infer<typeof insertPerformanceContextSchema>;
+
 // Campaign management tables
 export const campaigns = pgTable("campaigns", {
   id: serial("id").primaryKey(),

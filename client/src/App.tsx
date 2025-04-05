@@ -10,6 +10,7 @@ import AuthPage from "@/pages/auth-page";
 import Dashboard from "@/pages/dashboard";
 import ChatPage from "@/pages/chat";
 import SettingsPage from "@/pages/settings";
+import { OnboardingPage } from "@/pages/onboarding";
 import AuthCallback from "@/pages/auth-callback";
 import NotFound from "@/pages/not-found";
 import AboutPage from "@/pages/about";
@@ -47,6 +48,7 @@ function Router() {
       <ProtectedRoute path="/dashboard" component={Dashboard} />
       <ProtectedRoute path="/chat" component={ChatPage} />
       <ProtectedRoute path="/settings" component={SettingsPage} />
+      <ProtectedRoute path="/onboarding" component={OnboardingPage} />
       <Route component={NotFound} />
     </Switch>
   );
