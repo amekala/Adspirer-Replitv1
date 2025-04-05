@@ -277,20 +277,20 @@ async function testOnboardingFlow() {
   // Verify all data exists in the API
   console.log('\n--- Verifying all data exists via API ---');
   
-  // Verify all data was saved
-  const verifyBusinessCore = await fetchData('/api/onboarding/business-core');
+  // Verify all data was saved - use the user data endpoints
+  const verifyBusinessCore = await fetchData('/api/user/business-core');
   console.log('\nVerified Business Core data:', verifyBusinessCore || 'Not found');
   
-  const verifyBrandIdentity = await fetchData('/api/onboarding/brand-identity');
+  const verifyBrandIdentity = await fetchData('/api/user/brand-identity');
   console.log('\nVerified Brand Identity data:', verifyBrandIdentity || 'Not found');
   
-  const verifyProductsServices = await fetchData('/api/onboarding/products-services');
+  const verifyProductsServices = await fetchData('/api/user/products-services');
   console.log('\nVerified Products/Services data:', verifyProductsServices || 'Not found');
   
-  const verifyCreativeExamples = await fetchData('/api/onboarding/creative-examples');
+  const verifyCreativeExamples = await fetchData('/api/user/creative-examples');
   console.log('\nVerified Creative Examples data:', verifyCreativeExamples || 'Not found');
   
-  const verifyPerformanceContext = await fetchData('/api/onboarding/performance-context');
+  const verifyPerformanceContext = await fetchData('/api/user/performance-context');
   console.log('\nVerified Performance Context data:', verifyPerformanceContext || 'Not found');
   
   return {
@@ -357,23 +357,23 @@ async function testResetFunctionality() {
   console.log('\n--- Verifying all data was deleted via API ---');
   
   // Verify data was reset
-  const verifyBusinessCore = await fetchData('/api/onboarding/business-core');
+  const verifyBusinessCore = await fetchData('/api/user/business-core');
   const businessCoreReset = !verifyBusinessCore || Object.keys(verifyBusinessCore).length === 0;
   console.log('Business Core data reset:', businessCoreReset ? '✅ Yes' : '❌ No');
   
-  const verifyBrandIdentity = await fetchData('/api/onboarding/brand-identity');
+  const verifyBrandIdentity = await fetchData('/api/user/brand-identity');
   const brandIdentityReset = !verifyBrandIdentity || Object.keys(verifyBrandIdentity).length === 0;
   console.log('Brand Identity data reset:', brandIdentityReset ? '✅ Yes' : '❌ No');
   
-  const verifyProductsServices = await fetchData('/api/onboarding/products-services');
+  const verifyProductsServices = await fetchData('/api/user/products-services');
   const productsServicesReset = !verifyProductsServices || Object.keys(verifyProductsServices).length === 0;
   console.log('Products/Services data reset:', productsServicesReset ? '✅ Yes' : '❌ No');
   
-  const verifyCreativeExamples = await fetchData('/api/onboarding/creative-examples');
+  const verifyCreativeExamples = await fetchData('/api/user/creative-examples');
   const creativeExamplesReset = !verifyCreativeExamples || Object.keys(verifyCreativeExamples).length === 0;
   console.log('Creative Examples data reset:', creativeExamplesReset ? '✅ Yes' : '❌ No');
   
-  const verifyPerformanceContext = await fetchData('/api/onboarding/performance-context');
+  const verifyPerformanceContext = await fetchData('/api/user/performance-context');
   const performanceContextReset = !verifyPerformanceContext || Object.keys(verifyPerformanceContext).length === 0;
   console.log('Performance Context data reset:', performanceContextReset ? '✅ Yes' : '❌ No');
   

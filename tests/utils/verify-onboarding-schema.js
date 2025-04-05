@@ -9,16 +9,14 @@
  * Run with: node tests/utils/verify-onboarding-schema.js
  */
 
-import { Pool } from 'pg';
+import postgres from 'postgres';
 import dotenv from 'dotenv';
 
 // Load environment variables
 dotenv.config();
 
 // Create a PostgreSQL client
-const pool = new Pool({
-  connectionString: process.env.DATABASE_URL,
-});
+const client = postgres(process.env.DATABASE_URL);
 
 // Expected tables for onboarding
 const onboardingTables = [
@@ -36,14 +34,13 @@ async function checkOnboardingTables() {
   
   try {
     // Get all tables in the database
-    const tableQuery = `
+    const tableResult = await client`
       SELECT table_name 
       FROM information_schema.tables 
       WHERE table_schema = 'public'
     `;
     
-    const tableResult = await pool.query(tableQuery);
-    const existingTables = tableResult.rows.map(row => row.table_name);
+    const existingTables = tableResult.map(row => row.table_name);
     
     console.log('Found tables in database:', existingTables.join(', '));
     
@@ -73,31 +70,30 @@ async function checkOnboardingTables() {
     console.error('Error checking onboarding tables:', error);
     return false;
   } finally {
-    await pool.end();
+    // Close the connection
+    await client.end();
   }
 }
 
 // Check the columns in a table
 async function checkTableColumns(tableName) {
   try {
-    const columnQuery = `
+    const columnResult = await client`
       SELECT column_name, data_type, is_nullable
       FROM information_schema.columns
-      WHERE table_schema = 'public' AND table_name = $1
+      WHERE table_schema = 'public' AND table_name = ${tableName}
     `;
-    
-    const columnResult = await pool.query(columnQuery, [tableName]);
     
     console.log(`\n--- Table: ${tableName} ---`);
     console.log('Columns:');
     
     // Print column details
-    columnResult.rows.forEach(column => {
+    columnResult.forEach(column => {
       console.log(`- ${column.column_name}: ${column.data_type} ${column.is_nullable === 'YES' ? '(nullable)' : '(not null)'}`);
     });
     
     // Verify minimum required columns
-    const columnNames = columnResult.rows.map(row => row.column_name);
+    const columnNames = columnResult.map(row => row.column_name);
     const requiredColumns = ['user_id', 'created_at'];
     const missingColumns = requiredColumns.filter(col => !columnNames.includes(col));
     

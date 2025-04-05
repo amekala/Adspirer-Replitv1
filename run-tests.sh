@@ -1,67 +1,54 @@
 #!/bin/bash
 
-# Main Test Script
-# This script provides a menu to run different test suites
+# Exit on error
+set -e
 
-# Make all test scripts executable
-chmod +x tests/run-onboarding-tests.sh
+# Color definitions
+GREEN='\033[0;32m'
+RED='\033[0;31m'
+BLUE='\033[0;34m'
+YELLOW='\033[1;33m'
+NC='\033[0m' # No Color
 
-# Print a colorful menu header
-echo -e "\e[1;36m===========================================================\e[0m"
-echo -e "\e[1;36m                  Adspirer Test Suite\e[0m"
-echo -e "\e[1;36m===========================================================\e[0m"
+echo -e "${BLUE}=== Adspirer Onboarding Tests ===${NC}\n"
 
-# Menu options
-echo -e "\e[1;33mAvailable Test Suites:\e[0m"
-echo -e "\e[1;33m------------------\e[0m"
-echo "1) Run All Tests"
-echo "2) Run Onboarding Tests"
-echo "3) Run API Tests Only"
-echo "4) Run Database Tests Only"
-echo "5) Exit"
-echo ""
-echo -n "Please select an option (1-5): "
-read choice
+# Step 1: Check if the application is running
+echo -e "${YELLOW}Checking if the application is running...${NC}"
+if curl -s http://localhost:5000 > /dev/null; then
+  echo -e "${GREEN}✓ Application is running${NC}"
+else
+  echo -e "${RED}✗ Application is not running. Please start it with the 'Start application' workflow${NC}"
+  exit 1
+fi
 
-case $choice in
-    1)
-        echo -e "\e[1;32m===========================================================\e[0m"
-        echo -e "\e[1;32m                  Running All Tests\e[0m"
-        echo -e "\e[1;32m===========================================================\e[0m"
-        ./tests/run-onboarding-tests.sh
-        # Add more test suites here as they are developed
-        ;;
-    2)
-        echo -e "\e[1;32m===========================================================\e[0m"
-        echo -e "\e[1;32m                Running Onboarding Tests\e[0m"
-        echo -e "\e[1;32m===========================================================\e[0m"
-        ./tests/run-onboarding-tests.sh
-        ;;
-    3)
-        echo -e "\e[1;32m===========================================================\e[0m"
-        echo -e "\e[1;32m                  Running API Tests\e[0m"
-        echo -e "\e[1;32m===========================================================\e[0m"
-        node tests/api/test-onboarding-api.js
-        node tests/api/test-onboarding-data-api.js
-        node tests/api/test-reset-onboarding.js
-        ;;
-    4)
-        echo -e "\e[1;32m===========================================================\e[0m"
-        echo -e "\e[1;32m                Running Database Tests\e[0m"
-        echo -e "\e[1;32m===========================================================\e[0m"
-        # DB-specific tests will be added here
-        node tests/utils/verify-onboarding-data.js
-        ;;
-    5)
-        echo "Exiting..."
-        exit 0
-        ;;
-    *)
-        echo -e "\e[1;31mInvalid option. Exiting...\e[0m"
-        exit 1
-        ;;
-esac
+# Step 2: Verify database schema
+echo -e "\n${YELLOW}Verifying onboarding database schema...${NC}"
+node tests/utils/verify-onboarding-schema.js
+if [ $? -eq 0 ]; then
+  echo -e "${GREEN}✓ Database schema verified${NC}"
+else
+  echo -e "${RED}✗ Database schema verification failed${NC}"
+  exit 1
+fi
 
-echo -e "\e[1;32m===========================================================\e[0m"
-echo -e "\e[1;32m                  Tests Completed\e[0m"
-echo -e "\e[1;32m===========================================================\e[0m"
+# Step 3: Run the API tests
+echo -e "\n${YELLOW}Running onboarding API tests...${NC}"
+node tests/api/test-onboarding-api.js
+if [ $? -eq 0 ]; then
+  echo -e "${GREEN}✓ API tests passed${NC}"
+else
+  echo -e "${RED}✗ API tests failed${NC}"
+  exit 1
+fi
+
+# Step 4: Run data API tests
+echo -e "\n${YELLOW}Running onboarding data API tests...${NC}"
+node tests/api/test-onboarding-data-api.js
+if [ $? -eq 0 ]; then
+  echo -e "${GREEN}✓ Data API tests passed${NC}"
+else
+  echo -e "${RED}✗ Data API tests failed${NC}"
+  exit 1
+fi
+
+echo -e "\n${GREEN}=== All tests passed successfully! ===${NC}"

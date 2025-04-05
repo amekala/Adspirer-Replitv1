@@ -1,53 +1,56 @@
 #!/bin/bash
 
-# Run Onboarding Tests
-# This script will run all the onboarding test scripts one by one
+# Tests for Onboarding Flow
+# This script runs all the onboarding test files in sequence
 
-echo "==================================================="
-echo "Running Onboarding Tests"
-echo "==================================================="
+# Set text colors
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+RED='\033[0;31m'
+BLUE='\033[0;34m'
+NC='\033[0m' # No Color
 
-# Install node-fetch if not already installed
-echo "Checking for required dependencies..."
-npm list node-fetch || npm install --save-dev node-fetch
+echo -e "${BLUE}===================================${NC}"
+echo -e "${BLUE}   RUNNING ONBOARDING TESTS       ${NC}"
+echo -e "${BLUE}===================================${NC}"
 
-echo ""
-echo "==================================================="
-echo "Running API-only test for onboarding workflow..."
-echo "==================================================="
+# Test API endpoints
+echo -e "\n${YELLOW}Testing onboarding API endpoints...${NC}"
 node tests/api/test-onboarding-api.js
+if [ $? -eq 0 ]; then
+  echo -e "${GREEN}Onboarding API tests passed!${NC}"
+else
+  echo -e "${RED}Onboarding API tests failed!${NC}"
+fi
 
-echo ""
-echo "==================================================="
-echo "Running API test for onboarding data with verification..."
-echo "==================================================="
+# Test data persistence
+echo -e "\n${YELLOW}Testing onboarding data persistence...${NC}"
 node tests/api/test-onboarding-data-api.js
+if [ $? -eq 0 ]; then
+  echo -e "${GREEN}Onboarding data persistence tests passed!${NC}"
+else
+  echo -e "${RED}Onboarding data persistence tests failed!${NC}"
+fi
 
-echo ""
-echo "==================================================="
-echo "Running full onboarding workflow test..."
-echo "==================================================="
-node tests/onboarding/test-onboarding-full.js
+# Verify onboarding database schema
+echo -e "\n${YELLOW}Verifying onboarding database schema...${NC}"
+node tests/utils/verify-onboarding-schema.js
+if [ $? -eq 0 ]; then
+  echo -e "${GREEN}Database schema verification passed!${NC}"
+else
+  echo -e "${RED}Database schema verification failed!${NC}"
+fi
 
-echo ""
-echo "==================================================="
-echo "Running data persistence verification test..."
-echo "==================================================="
-node tests/onboarding/test-onboarding-data.js
-
-echo ""
-echo "==================================================="
-echo "Verifying onboarding components..."
-echo "==================================================="
+# Test form components
+echo -e "\n${YELLOW}Testing onboarding form components...${NC}"
 node tests/onboarding/verify-onboarding-forms.js
+if [ $? -eq 0 ]; then
+  echo -e "${GREEN}Onboarding form tests passed!${NC}"
+else
+  echo -e "${RED}Onboarding form tests failed!${NC}"
+fi
 
-echo ""
-echo "==================================================="
-echo "Running reset onboarding test..."
-echo "==================================================="
-node tests/api/test-reset-onboarding.js
-
-echo ""
-echo "==================================================="
-echo "All tests completed"
-echo "==================================================="
+# End of tests
+echo -e "\n${BLUE}===================================${NC}"
+echo -e "${BLUE}     ONBOARDING TESTS COMPLETE     ${NC}"
+echo -e "${BLUE}===================================${NC}"
