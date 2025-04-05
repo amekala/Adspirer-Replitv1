@@ -23,6 +23,9 @@ const performanceContextSchema = z.object({
   keyPerformanceMetric: z.enum(["conversions", "revenue", "trafficQuality", "brandAwareness", "engagementRate"]).optional(),
   secondaryMetrics: z.array(z.enum(["clickThroughRate", "conversionRate", "costPerClick", "impressions", "reach"])).optional(),
   
+  // Required field for API - will be populated from keyPerformanceMetric
+  keyMetrics: z.array(z.string()).optional(),
+  
   // Campaign Objectives
   primaryObjective: z.enum(["sales", "leads", "awareness", "traffic", "appInstalls"]).optional(),
   
@@ -55,6 +58,7 @@ const defaultValues: PerformanceContextFormData = {
   monthlyAdSpend: "",
   keyPerformanceMetric: undefined,
   secondaryMetrics: [],
+  keyMetrics: [], // Required for API submission
   primaryObjective: undefined,
   budgetFlexibility: undefined,
   experimentationWillingness: 5,

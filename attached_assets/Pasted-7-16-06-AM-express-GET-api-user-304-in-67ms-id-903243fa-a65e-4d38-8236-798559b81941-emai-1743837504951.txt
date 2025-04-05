@@ -1,0 +1,149 @@
+7:16:06 AM [express] GET /api/user 304 in 67ms :: {"id":"903243fa-a65e-4d38-8236-798559b81941","emai…
+7:16:06 AM [express] GET /api/user 304 in 57ms :: {"id":"903243fa-a65e-4d38-8236-798559b81941","emai…
+7:16:06 AM [express] GET /api/user/profile 200 in 5ms
+7:16:07 AM [express] GET /api/onboarding/progress 304 in 413ms :: {"currentStep":1,"completed":false…
+7:16:25 AM [express] GET /api/user 401 in 1ms :: {"message":"Unauthorized"}
+7:16:30 AM [express] GET /api/user 304 in 66ms :: {"id":"903243fa-a65e-4d38-8236-798559b81941","emai…
+7:16:30 AM [express] GET /api/chat/conversations 304 in 161ms :: [{"id":"9a7e95ae-a27f-4474-ae20-e09…
+7:16:34 AM [express] GET /api/user/profile 200 in 3ms
+7:16:37 AM [express] GET /api/onboarding/progress 304 in 403ms :: {"currentStep":1,"completed":false…
+7:16:39 AM [express] GET /api/user/connected-platforms 304 in 177ms :: {"amazon":true,"google":true,…
+7:16:41 AM [express] GET /api/google/oauth-url 200 in 3ms
+7:16:42 AM [express] GET /api/user 304 in 60ms :: {"id":"903243fa-a65e-4d38-8236-798559b81941","emai…
+7:16:47 AM [express] POST /api/onboarding/connect-platforms 200 in 173ms :: {"success":true}
+7:16:47 AM [express] GET /api/user/connected-platforms 304 in 167ms :: {"amazon":true,"google":true,…
+7:16:47 AM [express] GET /api/user/brand-identity 200 in 355ms
+7:16:47 AM [express] GET /api/onboarding/progress 200 in 399ms :: {"currentStep":3,"completed":false…
+7:16:49 AM [express] GET /api/user/products-services 200 in 113ms
+Error saving performance context data: ZodError: [
+  {
+    "code": "invalid_type",
+    "expected": "string",
+    "received": "undefined",
+    "path": [
+      "userId"
+    ],
+    "message": "Required"
+  },
+  {
+    "code": "invalid_type",
+    "expected": "array",
+    "received": "undefined",
+    "path": [
+      "keyMetrics"
+    ],
+    "message": "Required"
+  }
+]
+    at get error [as error] (file:///home/runner/workspace/node_modules/zod/lib/index.mjs:587:31)
+    at ZodObject.parse (file:///home/runner/workspace/node_modules/zod/lib/index.mjs:663:22)
+    at <anonymous> (/home/runner/workspace/server/routes/onboarding.ts:367:60)
+    at Layer.handle [as handle_request] (/home/runner/workspace/node_modules/express/lib/router/layer.js:95:5)
+    at next (/home/runner/workspace/node_modules/express/lib/router/route.js:149:13)
+    at <anonymous> (/home/runner/workspace/server/auth.ts:18:5)
+    at strategy.success (/home/runner/workspace/node_modules/passport/lib/middleware/authenticate.js:222:18)
+    at verified (/home/runner/workspace/node_modules/passport-jwt/lib/strategy.js:115:41)
+    at JwtStrategy._verify (/home/runner/workspace/server/auth.ts:85:16)
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5) {
+  issues: [
+    {
+      code: 'invalid_type',
+      expected: 'string',
+      received: 'undefined',
+      path: [Array],
+      message: 'Required'
+    },
+    {
+      code: 'invalid_type',
+      expected: 'array',
+      received: 'undefined',
+      path: [Array],
+      message: 'Required'
+    }
+  ],
+  addIssue: [Function (anonymous)],
+  addIssues: [Function (anonymous)],
+  errors: [
+    {
+      code: 'invalid_type',
+      expected: 'string',
+      received: 'undefined',
+      path: [Array],
+      message: 'Required'
+    },
+    {
+      code: 'invalid_type',
+      expected: 'array',
+      received: 'undefined',
+      path: [Array],
+      message: 'Required'
+    }
+  ]
+}
+7:16:56 AM [express] POST /api/onboarding/performance-context 400 in 74ms :: {"message":"Validation …
+Error saving performance context data: ZodError: [
+  {
+    "code": "invalid_type",
+    "expected": "string",
+    "received": "undefined",
+    "path": [
+      "userId"
+    ],
+    "message": "Required"
+  },
+  {
+    "code": "invalid_type",
+    "expected": "array",
+    "received": "undefined",
+    "path": [
+      "keyMetrics"
+    ],
+    "message": "Required"
+  }
+]
+    at get error [as error] (file:///home/runner/workspace/node_modules/zod/lib/index.mjs:587:31)
+    at ZodObject.parse (file:///home/runner/workspace/node_modules/zod/lib/index.mjs:663:22)
+    at <anonymous> (/home/runner/workspace/server/routes/onboarding.ts:367:60)
+    at Layer.handle [as handle_request] (/home/runner/workspace/node_modules/express/lib/router/layer.js:95:5)
+    at next (/home/runner/workspace/node_modules/express/lib/router/route.js:149:13)
+    at <anonymous> (/home/runner/workspace/server/auth.ts:18:5)
+    at strategy.success (/home/runner/workspace/node_modules/passport/lib/middleware/authenticate.js:222:18)
+    at verified (/home/runner/workspace/node_modules/passport-jwt/lib/strategy.js:115:41)
+    at JwtStrategy._verify (/home/runner/workspace/server/auth.ts:85:16)
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5) {
+  issues: [
+    {
+      code: 'invalid_type',
+      expected: 'string',
+      received: 'undefined',
+      path: [Array],
+      message: 'Required'
+    },
+    {
+      code: 'invalid_type',
+      expected: 'array',
+      received: 'undefined',
+      path: [Array],
+      message: 'Required'
+    }
+  ],
+  addIssue: [Function (anonymous)],
+  addIssues: [Function (anonymous)],
+  errors: [
+    {
+      code: 'invalid_type',
+      expected: 'string',
+      received: 'undefined',
+      path: [Array],
+      message: 'Required'
+    },
+    {
+      code: 'invalid_type',
+      expected: 'array',
+      received: 'undefined',
+      path: [Array],
+      message: 'Required'
+    }
+  ]
+}
+7:17:23 AM [express] POST /api/onboarding/performance-context 400 in 57ms :: {"message":"Validation …

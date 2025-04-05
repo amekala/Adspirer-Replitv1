@@ -39,7 +39,35 @@ export function PerformanceContextStep({ onNext, onPrevious, onSkip, onComplete 
 
   // Form submission handler
   const handleSubmit = (data: PerformanceContextFormData) => {
-    mutation.mutate(data);
+    // Ensure keyMetrics array is populated based on selections
+    const keyMetrics = [...(data.keyMetrics || [])];
+    
+    // Add primary KPI to keyMetrics if it exists and not already in the array
+    if (data.keyPerformanceMetric && !keyMetrics.includes(data.keyPerformanceMetric)) {
+      keyMetrics.push(data.keyPerformanceMetric);
+    }
+    
+    // Add secondary metrics to keyMetrics if they exist
+    if (data.secondaryMetrics && data.secondaryMetrics.length > 0) {
+      data.secondaryMetrics.forEach(metric => {
+        if (!keyMetrics.includes(metric)) {
+          keyMetrics.push(metric);
+        }
+      });
+    }
+    
+    // Ensure we have at least one metric in the array
+    if (keyMetrics.length === 0) {
+      keyMetrics.push('conversions');
+    }
+    
+    // Create submission data with updated keyMetrics
+    const submissionData = {
+      ...data,
+      keyMetrics
+    };
+    
+    mutation.mutate(submissionData);
   };
 
   // Custom rendering of form actions for this context

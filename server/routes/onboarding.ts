@@ -363,39 +363,51 @@ export async function registerOnboardingRoutes(app: any) {
         return res.status(401).json({ message: "Unauthorized" });
       }
 
-      // Validate the request body
-      const validatedData = insertPerformanceContextSchema.parse(req.body);
+      // Prepare data with the userId explicitly included
+      const requestData = {
+        ...req.body,
+        userId, // Add userId to the request data
+        keyMetrics: req.body.keyMetrics || ['conversions'] // Ensure keyMetrics exists
+      };
 
-      // Check if a record already exists
-      const existingRecord = await db.query.performanceContext.findFirst({
-        where: eq(performanceContext.userId, userId)
-      });
+      try {
+        // Validate the request body
+        const validatedData = insertPerformanceContextSchema.parse(requestData);
 
-      if (existingRecord) {
-        // Update existing record
-        await db.update(performanceContext)
-          .set({
-            ...validatedData,
-            updatedAt: new Date()
-          })
-          .where(eq(performanceContext.userId, userId));
-      } else {
-        // Create new record
-        await db.insert(performanceContext).values({
-          ...validatedData,
-          userId
+        // Check if a record already exists
+        const existingRecord = await db.query.performanceContext.findFirst({
+          where: eq(performanceContext.userId, userId)
         });
+
+        if (existingRecord) {
+          // Update existing record
+          await db.update(performanceContext)
+            .set({
+              ...validatedData,
+              updatedAt: new Date()
+            })
+            .where(eq(performanceContext.userId, userId));
+        } else {
+          // Create new record
+          await db.insert(performanceContext).values({
+            ...validatedData
+            // userId is already included in validatedData
+          });
+        }
+
+        // Mark onboarding as complete
+        await updateProgress(userId, 7, true);
+
+        return res.json({ success: true });
+      } catch (validationError) {
+        console.error("Error saving performance context data:", validationError);
+        if (validationError instanceof z.ZodError) {
+          return res.status(400).json({ message: "Validation error", errors: validationError.errors });
+        }
+        throw validationError; // Re-throw for the outer catch block
       }
-
-      // Mark onboarding as complete
-      await updateProgress(userId, 7, true);
-
-      return res.json({ success: true });
     } catch (error) {
-      console.error("Error saving performance context data:", error);
-      if (error instanceof z.ZodError) {
-        return res.status(400).json({ message: "Validation error", errors: error.errors });
-      }
+      console.error("Error in performance context endpoint:", error);
       return res.status(500).json({ message: "Failed to save performance context information" });
     }
   });
