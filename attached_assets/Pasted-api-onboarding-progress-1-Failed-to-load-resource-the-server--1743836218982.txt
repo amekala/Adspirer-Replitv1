@@ -1,0 +1,138 @@
+api/onboarding/progress:1 
+            
+            
+           Failed to load resource: the server responded with a status of 500 (Internal Server Error)Understand this errorAI
+queryClient.ts:77 
+            
+            
+           GET https://974fb22c-7bf2-435f-92b8-6b8a9968e57b-00-a2py9mwxuu7p.riker.replit.dev/api/onboarding/progress 500 (Internal Server Error)
+(anonymous) @ queryClient.ts:77
+fetchFn @ @tanstack_react-query.js?v=435a9198:840
+run @ @tanstack_react-query.js?v=435a9198:494
+start @ @tanstack_react-query.js?v=435a9198:536
+fetch @ @tanstack_react-query.js?v=435a9198:926
+executeFetch_fn @ @tanstack_react-query.js?v=435a9198:2211
+onSubscribe @ @tanstack_react-query.js?v=435a9198:1898
+subscribe @ @tanstack_react-query.js?v=435a9198:24
+(anonymous) @ @tanstack_react-query.js?v=435a9198:3022
+subscribeToStore @ chunk-RPCDYKBN.js?v=435a9198:11984
+commitHookEffectListMount @ chunk-RPCDYKBN.js?v=435a9198:16915
+commitPassiveMountOnFiber @ chunk-RPCDYKBN.js?v=435a9198:18156
+commitPassiveMountEffects_complete @ chunk-RPCDYKBN.js?v=435a9198:18129
+commitPassiveMountEffects_begin @ chunk-RPCDYKBN.js?v=435a9198:18119
+commitPassiveMountEffects @ chunk-RPCDYKBN.js?v=435a9198:18109
+flushPassiveEffectsImpl @ chunk-RPCDYKBN.js?v=435a9198:19490
+flushPassiveEffects @ chunk-RPCDYKBN.js?v=435a9198:19447
+commitRootImpl @ chunk-RPCDYKBN.js?v=435a9198:19416
+commitRoot @ chunk-RPCDYKBN.js?v=435a9198:19277
+performSyncWorkOnRoot @ chunk-RPCDYKBN.js?v=435a9198:18895
+flushSyncCallbacks @ chunk-RPCDYKBN.js?v=435a9198:9119
+(anonymous) @ chunk-RPCDYKBN.js?v=435a9198:18627Understand this errorAI
+queryClient.ts:77 
+            
+            
+           GET https://974fb22c-7bf2-435f-92b8-6b8a9968e57b-00-a2py9mwxuu7p.riker.replit.dev/api/onboarding/progress 500 (Internal Server Error)
+(anonymous) @ queryClient.ts:77
+fetchFn @ @tanstack_react-query.js?v=435a9198:840
+run @ @tanstack_react-query.js?v=435a9198:494
+start @ @tanstack_react-query.js?v=435a9198:536
+fetch @ @tanstack_react-query.js?v=435a9198:926
+executeFetch_fn @ @tanstack_react-query.js?v=435a9198:2211
+onSubscribe @ @tanstack_react-query.js?v=435a9198:1898
+subscribe @ @tanstack_react-query.js?v=435a9198:24
+(anonymous) @ @tanstack_react-query.js?v=435a9198:3022
+subscribeToStore @ chunk-RPCDYKBN.js?v=435a9198:11984
+commitHookEffectListMount @ chunk-RPCDYKBN.js?v=435a9198:16915
+commitPassiveMountOnFiber @ chunk-RPCDYKBN.js?v=435a9198:18156
+commitPassiveMountEffects_complete @ chunk-RPCDYKBN.js?v=435a9198:18129
+commitPassiveMountEffects_begin @ chunk-RPCDYKBN.js?v=435a9198:18119
+commitPassiveMountEffects @ chunk-RPCDYKBN.js?v=435a9198:18109
+flushPassiveEffectsImpl @ chunk-RPCDYKBN.js?v=435a9198:19490
+flushPassiveEffects @ chunk-RPCDYKBN.js?v=435a9198:19447
+commitRootImpl @ chunk-RPCDYKBN.js?v=435a9198:19416
+commitRoot @ chunk-RPCDYKBN.js?v=435a9198:19277
+performSyncWorkOnRoot @ chunk-RPCDYKBN.js?v=435a9198:18895
+flushSyncCallbacks @ chunk-RPCDYKBN.js?v=435a9198:9119
+(anonymous) @ chunk-RPCDYKBN.js?v=435a9198:18627Understand this errorAI
+queryClient.ts:77 
+            
+            
+           GET https://974fb22c-7bf2-435f-92b8-6b8a9968e57b-00-a2py9mwxuu7p.riker.replit.dev/api/onboarding/progress 500 (Internal Server Error)
+(anonymous) @ queryClient.ts:77
+fetchFn @ @tanstack_react-query.js?v=435a9198:840
+run @ @tanstack_react-query.js?v=435a9198:494
+start @ @tanstack_react-query.js?v=435a9198:536
+fetch @ @tanstack_react-query.js?v=435a9198:926
+executeFetch_fn @ @tanstack_react-query.js?v=435a9198:2211
+onSubscribe @ @tanstack_react-query.js?v=435a9198:1898
+subscribe @ @tanstack_react-query.js?v=435a9198:24
+(anonymous) @ @tanstack_react-query.js?v=435a9198:3022
+subscribeToStore @ chunk-RPCDYKBN.js?v=435a9198:11984
+commitHookEffectListMount @ chunk-RPCDYKBN.js?v=435a9198:16915
+commitPassiveMountOnFiber @ chunk-RPCDYKBN.js?v=435a9198:18156
+commitPassiveMountEffects_complete @ chunk-RPCDYKBN.js?v=435a9198:18129
+commitPassiveMountEffects_begin @ chunk-RPCDYKBN.js?v=435a9198:18119
+commitPassiveMountEffects @ chunk-RPCDYKBN.js?v=435a9198:18109
+flushPassiveEffectsImpl @ chunk-RPCDYKBN.js?v=435a9198:19490
+flushPassiveEffects @ chunk-RPCDYKBN.js?v=435a9198:19447
+commitRootImpl @ chunk-RPCDYKBN.js?v=435a9198:19416
+commitRoot @ chunk-RPCDYKBN.js?v=435a9198:19277
+performSyncWorkOnRoot @ chunk-RPCDYKBN.js?v=435a9198:18895
+flushSyncCallbacks @ chunk-RPCDYKBN.js?v=435a9198:9119
+(anonymous) @ chunk-RPCDYKBN.js?v=435a9198:18627Understand this errorAI
+queryClient.ts:77 
+            
+            
+           GET https://974fb22c-7bf2-435f-92b8-6b8a9968e57b-00-a2py9mwxuu7p.riker.replit.dev/api/onboarding/progress 500 (Internal Server Error)
+(anonymous) @ queryClient.ts:77
+fetchFn @ @tanstack_react-query.js?v=435a9198:840
+run @ @tanstack_react-query.js?v=435a9198:494
+start @ @tanstack_react-query.js?v=435a9198:536
+fetch @ @tanstack_react-query.js?v=435a9198:926
+executeFetch_fn @ @tanstack_react-query.js?v=435a9198:2211
+onSubscribe @ @tanstack_react-query.js?v=435a9198:1898
+subscribe @ @tanstack_react-query.js?v=435a9198:24
+(anonymous) @ @tanstack_react-query.js?v=435a9198:3022
+subscribeToStore @ chunk-RPCDYKBN.js?v=435a9198:11984
+commitHookEffectListMount @ chunk-RPCDYKBN.js?v=435a9198:16915
+commitPassiveMountOnFiber @ chunk-RPCDYKBN.js?v=435a9198:18156
+commitPassiveMountEffects_complete @ chunk-RPCDYKBN.js?v=435a9198:18129
+commitPassiveMountEffects_begin @ chunk-RPCDYKBN.js?v=435a9198:18119
+commitPassiveMountEffects @ chunk-RPCDYKBN.js?v=435a9198:18109
+flushPassiveEffectsImpl @ chunk-RPCDYKBN.js?v=435a9198:19490
+flushPassiveEffects @ chunk-RPCDYKBN.js?v=435a9198:19447
+commitRootImpl @ chunk-RPCDYKBN.js?v=435a9198:19416
+commitRoot @ chunk-RPCDYKBN.js?v=435a9198:19277
+performSyncWorkOnRoot @ chunk-RPCDYKBN.js?v=435a9198:18895
+flushSyncCallbacks @ chunk-RPCDYKBN.js?v=435a9198:9119
+(anonymous) @ chunk-RPCDYKBN.js?v=435a9198:18627Understand this errorAI
+queryClient.ts:77 
+            
+            
+           GET https://974fb22c-7bf2-435f-92b8-6b8a9968e57b-00-a2py9mwxuu7p.riker.replit.dev/api/onboarding/progress 500 (Internal Server Error)
+(anonymous) @ queryClient.ts:77
+fetchFn @ @tanstack_react-query.js?v=435a9198:840
+run @ @tanstack_react-query.js?v=435a9198:494
+start @ @tanstack_react-query.js?v=435a9198:536
+fetch @ @tanstack_react-query.js?v=435a9198:926
+executeFetch_fn @ @tanstack_react-query.js?v=435a9198:2211
+onSubscribe @ @tanstack_react-query.js?v=435a9198:1898
+subscribe @ @tanstack_react-query.js?v=435a9198:24
+(anonymous) @ @tanstack_react-query.js?v=435a9198:3022
+subscribeToStore @ chunk-RPCDYKBN.js?v=435a9198:11984
+commitHookEffectListMount @ chunk-RPCDYKBN.js?v=435a9198:16915
+commitPassiveMountOnFiber @ chunk-RPCDYKBN.js?v=435a9198:18156
+commitPassiveMountEffects_complete @ chunk-RPCDYKBN.js?v=435a9198:18129
+commitPassiveMountEffects_begin @ chunk-RPCDYKBN.js?v=435a9198:18119
+commitPassiveMountEffects @ chunk-RPCDYKBN.js?v=435a9198:18109
+flushPassiveEffectsImpl @ chunk-RPCDYKBN.js?v=435a9198:19490
+flushPassiveEffects @ chunk-RPCDYKBN.js?v=435a9198:19447
+commitRootImpl @ chunk-RPCDYKBN.js?v=435a9198:19416
+commitRoot @ chunk-RPCDYKBN.js?v=435a9198:19277
+performSyncWorkOnRoot @ chunk-RPCDYKBN.js?v=435a9198:18895
+flushSyncCallbacks @ chunk-RPCDYKBN.js?v=435a9198:9119
+(anonymous) @ chunk-RPCDYKBN.js?v=435a9198:18627Understand this errorAI
+queryClient.ts:77 
+            
+            
+           GET https://974fb22c-7bf2-435f-92b8-6b8a9968e57b-00-a2py9mwxuu7p.riker.replit.dev/api/onboarding/progress 500 (Internal Server Error)
