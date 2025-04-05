@@ -51,6 +51,13 @@ export function OnboardingFlow({ onComplete, startAtStep = OnboardingStep.Busine
     }
   }, [progress, startAtStep]);
   
+  // Handle completion
+  useEffect(() => {
+    if (currentStep === OnboardingStep.Complete) {
+      onComplete();
+    }
+  }, [currentStep, onComplete]);
+  
   // Step navigation handlers
   const goToNextStep = () => {
     setCurrentStep((prev) => (prev < OnboardingStep.Complete ? prev + 1 : prev));
@@ -68,9 +75,11 @@ export function OnboardingFlow({ onComplete, startAtStep = OnboardingStep.Busine
     onComplete();
   };
   
-  // Show loading state
+  // Render content based on loading/error state and current step
+  let content;
+  
   if (isLoading) {
-    return (
+    content = (
       <div className="flex items-center justify-center min-h-[400px]">
         <div className="text-center">
           <Loader2 className="h-8 w-8 animate-spin mx-auto mb-4" />
@@ -78,11 +87,8 @@ export function OnboardingFlow({ onComplete, startAtStep = OnboardingStep.Busine
         </div>
       </div>
     );
-  }
-  
-  // Show error state
-  if (error) {
-    return (
+  } else if (error) {
+    content = (
       <div className="flex items-center justify-center min-h-[400px]">
         <div className="text-center">
           <p className="text-red-500">Failed to load onboarding progress.</p>
@@ -95,77 +101,80 @@ export function OnboardingFlow({ onComplete, startAtStep = OnboardingStep.Busine
         </div>
       </div>
     );
+  } else {
+    // Render current step
+    switch (currentStep) {
+      case OnboardingStep.BusinessCore:
+        content = <BusinessCoreStep onNext={goToNextStep} onSkip={skipStep} />;
+        break;
+        
+      case OnboardingStep.ConnectPlatforms:
+        content = (
+          <ConnectPlatformsStep 
+            onNext={goToNextStep} 
+            onPrevious={goToPreviousStep} 
+            onSkip={skipStep} 
+          />
+        );
+        break;
+        
+      case OnboardingStep.BrandIdentity:
+        content = (
+          <BrandIdentityStep 
+            onNext={goToNextStep} 
+            onPrevious={goToPreviousStep} 
+            onSkip={skipStep} 
+          />
+        );
+        break;
+        
+      case OnboardingStep.ProductsServices:
+        content = (
+          <ProductsServicesStep 
+            onNext={goToNextStep} 
+            onPrevious={goToPreviousStep} 
+            onSkip={skipStep} 
+          />
+        );
+        break;
+        
+      case OnboardingStep.CreativeExamples:
+        content = (
+          <CreativeExamplesStep 
+            onNext={goToNextStep} 
+            onPrevious={goToPreviousStep} 
+            onSkip={skipStep} 
+          />
+        );
+        break;
+        
+      case OnboardingStep.PerformanceContext:
+        content = (
+          <PerformanceContextStep 
+            onNext={goToNextStep} 
+            onPrevious={goToPreviousStep} 
+            onSkip={skipStep}
+            onComplete={handleComplete}
+          />
+        );
+        break;
+        
+      case OnboardingStep.Complete:
+        content = (
+          <div className="flex items-center justify-center min-h-[400px]">
+            <div className="text-center">
+              <Loader2 className="h-8 w-8 animate-spin mx-auto mb-4" />
+              <p className="text-muted-foreground">Completing setup...</p>
+            </div>
+          </div>
+        );
+        break;
+        
+      default:
+        content = null;
+        break;
+    }
   }
   
-  // Handle completion outside of the switch statement
-  useEffect(() => {
-    if (currentStep === OnboardingStep.Complete) {
-      handleComplete();
-    }
-  }, [currentStep]);
-
-  // Render current step
-  switch (currentStep) {
-    case OnboardingStep.BusinessCore:
-      return <BusinessCoreStep onNext={goToNextStep} onSkip={skipStep} />;
-      
-    case OnboardingStep.ConnectPlatforms:
-      return (
-        <ConnectPlatformsStep 
-          onNext={goToNextStep} 
-          onPrevious={goToPreviousStep} 
-          onSkip={skipStep} 
-        />
-      );
-      
-    case OnboardingStep.BrandIdentity:
-      return (
-        <BrandIdentityStep 
-          onNext={goToNextStep} 
-          onPrevious={goToPreviousStep} 
-          onSkip={skipStep} 
-        />
-      );
-      
-    case OnboardingStep.ProductsServices:
-      return (
-        <ProductsServicesStep 
-          onNext={goToNextStep} 
-          onPrevious={goToPreviousStep} 
-          onSkip={skipStep} 
-        />
-      );
-      
-    case OnboardingStep.CreativeExamples:
-      return (
-        <CreativeExamplesStep 
-          onNext={goToNextStep} 
-          onPrevious={goToPreviousStep} 
-          onSkip={skipStep} 
-        />
-      );
-      
-    case OnboardingStep.PerformanceContext:
-      return (
-        <PerformanceContextStep 
-          onNext={goToNextStep} 
-          onPrevious={goToPreviousStep} 
-          onSkip={skipStep}
-          onComplete={handleComplete}
-        />
-      );
-      
-    case OnboardingStep.Complete:
-      return (
-        <div className="flex items-center justify-center min-h-[400px]">
-          <div className="text-center">
-            <Loader2 className="h-8 w-8 animate-spin mx-auto mb-4" />
-            <p className="text-muted-foreground">Completing setup...</p>
-          </div>
-        </div>
-      );
-      
-    default:
-      return null;
-  }
+  return content;
 }
