@@ -1,5 +1,6 @@
 import { Request, Response } from "express";
 import { db } from "../db";
+import { authenticate } from "../auth";
 import { 
   onboardingProgress, 
   businessCore, 
@@ -27,7 +28,7 @@ function getUserId(req: Request): string {
 
 export async function registerOnboardingRoutes(app: any) {
   // Get onboarding progress
-  app.get("/api/onboarding/progress", async (req: Request, res: Response) => {
+  app.get("/api/onboarding/progress", authenticate, async (req: Request, res: Response) => {
     try {
       const userId = getUserId(req);
       if (!userId) {
@@ -113,7 +114,7 @@ export async function registerOnboardingRoutes(app: any) {
   });
 
   // Update onboarding progress
-  app.post("/api/onboarding/progress", async (req: Request, res: Response) => {
+  app.post("/api/onboarding/progress", authenticate, async (req: Request, res: Response) => {
     try {
       const userId = getUserId(req);
       if (!userId) {
@@ -156,7 +157,7 @@ export async function registerOnboardingRoutes(app: any) {
   });
 
   // Business Core
-  app.post("/api/onboarding/business-core", async (req: Request, res: Response) => {
+  app.post("/api/onboarding/business-core", authenticate, async (req: Request, res: Response) => {
     try {
       const userId = getUserId(req);
       if (!userId) {
@@ -182,8 +183,8 @@ export async function registerOnboardingRoutes(app: any) {
       } else {
         // Create new record
         await db.insert(businessCore).values({
-          userId,
-          ...validatedData
+          ...validatedData,
+          userId
         });
 
         // Update progress if this is a new submission
@@ -201,7 +202,7 @@ export async function registerOnboardingRoutes(app: any) {
   });
 
   // Platform Connections
-  app.post("/api/onboarding/connect-platforms", async (req: Request, res: Response) => {
+  app.post("/api/onboarding/connect-platforms", authenticate, async (req: Request, res: Response) => {
     try {
       const userId = getUserId(req);
       if (!userId) {
@@ -220,7 +221,7 @@ export async function registerOnboardingRoutes(app: any) {
   });
 
   // Brand Identity
-  app.post("/api/onboarding/brand-identity", async (req: Request, res: Response) => {
+  app.post("/api/onboarding/brand-identity", authenticate, async (req: Request, res: Response) => {
     try {
       const userId = getUserId(req);
       if (!userId) {
@@ -246,8 +247,8 @@ export async function registerOnboardingRoutes(app: any) {
       } else {
         // Create new record
         await db.insert(brandIdentity).values({
-          userId,
-          ...validatedData
+          ...validatedData,
+          userId
         });
 
         // Update progress if this is a new submission
@@ -265,7 +266,7 @@ export async function registerOnboardingRoutes(app: any) {
   });
 
   // Products and Services
-  app.post("/api/onboarding/products-services", async (req: Request, res: Response) => {
+  app.post("/api/onboarding/products-services", authenticate, async (req: Request, res: Response) => {
     try {
       const userId = getUserId(req);
       if (!userId) {
@@ -291,8 +292,8 @@ export async function registerOnboardingRoutes(app: any) {
       } else {
         // Create new record
         await db.insert(productsServices).values({
-          userId,
-          ...validatedData
+          ...validatedData,
+          userId
         });
 
         // Update progress if this is a new submission
@@ -310,7 +311,7 @@ export async function registerOnboardingRoutes(app: any) {
   });
 
   // Creative Examples
-  app.post("/api/onboarding/creative-examples", async (req: Request, res: Response) => {
+  app.post("/api/onboarding/creative-examples", authenticate, async (req: Request, res: Response) => {
     try {
       const userId = getUserId(req);
       if (!userId) {
@@ -336,8 +337,8 @@ export async function registerOnboardingRoutes(app: any) {
       } else {
         // Create new record
         await db.insert(creativeExamples).values({
-          userId,
-          ...validatedData
+          ...validatedData,
+          userId
         });
 
         // Update progress if this is a new submission
@@ -355,7 +356,7 @@ export async function registerOnboardingRoutes(app: any) {
   });
 
   // Performance Context
-  app.post("/api/onboarding/performance-context", async (req: Request, res: Response) => {
+  app.post("/api/onboarding/performance-context", authenticate, async (req: Request, res: Response) => {
     try {
       const userId = getUserId(req);
       if (!userId) {
@@ -381,8 +382,8 @@ export async function registerOnboardingRoutes(app: any) {
       } else {
         // Create new record
         await db.insert(performanceContext).values({
-          userId,
-          ...validatedData
+          ...validatedData,
+          userId
         });
       }
 
@@ -402,7 +403,7 @@ export async function registerOnboardingRoutes(app: any) {
   // Add User data retrieval endpoints for settings page
 
   // Business Core data retrieval
-  app.get("/api/user/business-core", async (req: Request, res: Response) => {
+  app.get("/api/user/business-core", authenticate, async (req: Request, res: Response) => {
     try {
       const userId = getUserId(req);
       if (!userId) {
@@ -421,7 +422,7 @@ export async function registerOnboardingRoutes(app: any) {
   });
 
   // Brand Identity data retrieval
-  app.get("/api/user/brand-identity", async (req: Request, res: Response) => {
+  app.get("/api/user/brand-identity", authenticate, async (req: Request, res: Response) => {
     try {
       const userId = getUserId(req);
       if (!userId) {
@@ -440,7 +441,7 @@ export async function registerOnboardingRoutes(app: any) {
   });
 
   // Products and Services data retrieval
-  app.get("/api/user/products-services", async (req: Request, res: Response) => {
+  app.get("/api/user/products-services", authenticate, async (req: Request, res: Response) => {
     try {
       const userId = getUserId(req);
       if (!userId) {
@@ -459,7 +460,7 @@ export async function registerOnboardingRoutes(app: any) {
   });
 
   // Creative Examples data retrieval
-  app.get("/api/user/creative-examples", async (req: Request, res: Response) => {
+  app.get("/api/user/creative-examples", authenticate, async (req: Request, res: Response) => {
     try {
       const userId = getUserId(req);
       if (!userId) {
@@ -478,7 +479,7 @@ export async function registerOnboardingRoutes(app: any) {
   });
 
   // Performance Context data retrieval
-  app.get("/api/user/performance-context", async (req: Request, res: Response) => {
+  app.get("/api/user/performance-context", authenticate, async (req: Request, res: Response) => {
     try {
       const userId = getUserId(req);
       if (!userId) {
@@ -497,7 +498,7 @@ export async function registerOnboardingRoutes(app: any) {
   });
 
   // Get Connected Platforms
-  app.get("/api/user/connected-platforms", async (req: Request, res: Response) => {
+  app.get("/api/user/connected-platforms", authenticate, async (req: Request, res: Response) => {
     try {
       const userId = getUserId(req);
       if (!userId) {
@@ -516,8 +517,8 @@ export async function registerOnboardingRoutes(app: any) {
 
       // Return connected platforms status
       return res.json({
-        amazon: !!amazonTokens,
-        google: !!googleTokens,
+        amazon: !!amazonConnections,
+        google: !!googleConnections,
         facebook: false,
         instagram: false,
         tiktok: false,
