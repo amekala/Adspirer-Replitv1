@@ -10,7 +10,7 @@ import AuthPage from "@/pages/auth-page";
 import Dashboard from "@/pages/dashboard";
 import ChatPage from "@/pages/chat";
 import SettingsPage from "@/pages/settings";
-import { OnboardingPage } from "@/pages/onboarding";
+import OnboardingPage from "@/pages/onboarding";
 import AuthCallback from "@/pages/auth-callback";
 import NotFound from "@/pages/not-found";
 import AboutPage from "@/pages/about";

@@ -1,176 +1,95 @@
-import { useState, useEffect } from "react";
+import { ChevronLeft, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { useMutation, useQuery } from "@tanstack/react-query";
+import { apiRequest } from "@/lib/api";
+import { queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
-import { ChevronLeft, ChevronRight, AlertCircle } from "lucide-react";
-import { useQuery } from "@tanstack/react-query";
-import { AmazonConnect } from "@/components/amazon-connect";
-import { GoogleConnect } from "@/components/google-connect";
-import { SiAmazon, SiGoogleads, SiMeta, SiWalmart } from "react-icons/si";
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { ConnectPlatformsForm, ConnectPlatformsFormData } from "@/components/forms/connect-platforms-form";
 
-// Define types for status responses
-interface PlatformStatus {
-  connected: boolean;
-  accountName?: string;
-  tokenStatus?: string;
-}
-
-interface ConnectPlatformsFormProps {
+interface ConnectPlatformsStepProps {
   onNext: () => void;
-  onPrevious?: () => void;
+  onPrevious: () => void;
   onSkip?: () => void;
 }
 
-export function ConnectPlatformsForm({ onNext, onPrevious, onSkip }: ConnectPlatformsFormProps) {
+export function ConnectPlatformsStep({ onNext, onPrevious, onSkip }: ConnectPlatformsStepProps) {
   const { toast } = useToast();
-  const [platformsChecked, setPlatformsChecked] = useState(false);
   
-  // Check if at least one platform is connected
-  const { data: amazonStatus } = useQuery<PlatformStatus>({
-    queryKey: ["/api/amazon/status"],
+  // Fetch connected platforms data
+  const { data: platformsData } = useQuery({
+    queryKey: ["/api/user/connected-platforms"],
     retry: false,
   });
-
-  const { data: googleStatus } = useQuery<PlatformStatus>({
-    queryKey: ["/api/google/status"],
-    retry: false,
-  });
-
-  // Update platforms checked status when queries resolve
-  useEffect(() => {
-    const isAnyConnected = 
-      (amazonStatus && amazonStatus.connected) || 
-      (googleStatus && googleStatus.connected);
-    
-    setPlatformsChecked(!!isAnyConnected); // Convert to boolean to avoid undefined
-  }, [amazonStatus, googleStatus]);
-
-  // Handler for Next button click
-  const handleContinue = () => {
-    // Only show warning if no platforms are connected and user hasn't explicitly checked platforms
-    const isAnyConnected = 
-      (amazonStatus && amazonStatus.connected) || 
-      (googleStatus && googleStatus.connected);
-    
-    // Convert to boolean to avoid undefined issues
-    if (!isAnyConnected && !platformsChecked) {
-      // Inform user but allow them to proceed
+  
+  // Submit mutation
+  const mutation = useMutation({
+    mutationFn: (data: ConnectPlatformsFormData) => {
+      return apiRequest("/api/onboarding/connect-platforms", {
+        method: "POST",
+        data,
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/onboarding/progress"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/user/connected-platforms"] });
       toast({
-        title: "No platforms connected",
-        description: "You haven't connected any advertising platforms. Some features may be limited.",
+        title: "Platform settings saved",
+        description: "Your platform preferences have been saved successfully.",
+      });
+      onNext();
+    },
+    onError: (error) => {
+      toast({
+        title: "Failed to save",
+        description: error instanceof Error ? error.message : "Please try again.",
         variant: "destructive",
       });
-      
-      // Mark as checked so we don't warn again
-      setPlatformsChecked(true);
-    }
-    
-    onNext();
+    },
+  });
+
+  // Form submission handler
+  const handleSubmit = (data: ConnectPlatformsFormData) => {
+    mutation.mutate(data);
   };
-  
-  return (
-    <div className="space-y-6">
-      <div className="bg-blue-50 border border-blue-200 rounded-md p-4">
-        <h3 className="text-sm font-medium text-blue-800">Platform Connections</h3>
-        <p className="mt-1 text-sm text-blue-700">
-          Connect the ad platforms you use. This allows Adspirer to manage campaigns and provide insights.
-        </p>
-      </div>
+
+  // Custom rendering of form actions for this context
+  const renderFormActions = () => (
+    <div className="flex justify-between pt-6">
+      <Button type="button" variant="outline" onClick={onPrevious}>
+        <ChevronLeft className="mr-2 h-4 w-4" />
+        Back
+      </Button>
       
-      {/* Amazon Advertising */}
-      <div className="bg-white border border-gray-200 rounded-md overflow-hidden shadow-sm">
-        <div className="flex items-center gap-3 p-4 border-b border-gray-200">
-          <div className="h-10 w-10 flex-shrink-0 rounded-lg bg-[#FF9900]/10 flex items-center justify-center">
-            <SiAmazon className="h-5 w-5 text-[#FF9900]" />
-          </div>
-          <div className="min-w-0 flex-1">
-            <p className="font-semibold text-sm truncate">Amazon Advertising</p>
-            <p className="text-xs text-gray-500">Connect your Amazon Advertising account</p>
-          </div>
-        </div>
-        <div className="p-4">
-          <AmazonConnect />
-        </div>
-      </div>
-      
-      {/* Google Ads */}
-      <div className="bg-white border border-gray-200 rounded-md overflow-hidden shadow-sm">
-        <div className="flex items-center gap-3 p-4 border-b border-gray-200">
-          <div className="h-10 w-10 flex-shrink-0 rounded-lg bg-[#4285F4]/10 flex items-center justify-center">
-            <SiGoogleads className="h-5 w-5 text-[#4285F4]" />
-          </div>
-          <div className="min-w-0 flex-1">
-            <p className="font-semibold text-sm truncate">Google Ads</p>
-            <p className="text-xs text-gray-500">Connect your Google Ads account</p>
-          </div>
-        </div>
-        <div className="p-4">
-          <GoogleConnect />
-        </div>
-      </div>
-      
-      {/* Coming Soon Platforms */}
-      <div className="bg-gray-50 border border-gray-200 rounded-md overflow-hidden shadow-sm">
-        <div className="px-4 py-3 bg-gray-100 border-b border-gray-200">
-          <p className="text-sm font-medium text-gray-700">More Platforms Coming Soon</p>
-        </div>
-        <div className="p-4 grid grid-cols-1 sm:grid-cols-2 gap-4">
-          {/* Meta (Facebook/Instagram) */}
-          <div className="flex items-center gap-3 p-3 border border-gray-200 rounded-md bg-white opacity-70">
-            <div className="h-10 w-10 flex-shrink-0 rounded-lg bg-[#1877F2]/10 flex items-center justify-center">
-              <SiMeta className="h-5 w-5 text-[#1877F2]" />
-            </div>
-            <div className="min-w-0 flex-1">
-              <p className="font-semibold text-sm truncate">Meta Ads</p>
-              <p className="text-xs text-gray-500">Coming soon</p>
-            </div>
-            <Button variant="outline" size="sm" disabled>
-              Connect
-            </Button>
-          </div>
-          
-          {/* Walmart Connect */}
-          <div className="flex items-center gap-3 p-3 border border-gray-200 rounded-md bg-white opacity-70">
-            <div className="h-10 w-10 flex-shrink-0 rounded-lg bg-[#0071DC]/10 flex items-center justify-center">
-              <SiWalmart className="h-5 w-5 text-[#0071DC]" />
-            </div>
-            <div className="min-w-0 flex-1">
-              <p className="font-semibold text-sm truncate">Walmart Connect</p>
-              <p className="text-xs text-gray-500">Coming soon</p>
-            </div>
-            <Button variant="outline" size="sm" disabled>
-              Connect
-            </Button>
-          </div>
-        </div>
-      </div>
-      
-      {/* Form Actions */}
-      <div className="flex justify-between pt-6">
-        {onPrevious && (
-          <Button
-            type="button"
-            variant="outline"
-            onClick={onPrevious}
-          >
-            <ChevronLeft className="mr-2 h-4 w-4" /> Previous
+      <div>
+        {onSkip && (
+          <Button type="button" variant="ghost" onClick={onSkip} className="mr-2">
+            Skip for now
           </Button>
         )}
-        <div className="ml-auto flex space-x-2">
-          {onSkip && (
-            <Button
-              type="button"
-              variant="ghost"
-              onClick={onSkip}
-            >
-              Skip for now
-            </Button>
-          )}
-          <Button onClick={handleContinue}>
-            Next <ChevronRight className="ml-2 h-4 w-4" />
-          </Button>
-        </div>
+        
+        <Button type="submit" disabled={mutation.isPending}>
+          {mutation.isPending ? "Saving..." : "Continue"}
+          <ChevronRight className="ml-2 h-4 w-4" />
+        </Button>
       </div>
+    </div>
+  );
+
+  return (
+    <div className="max-w-3xl mx-auto">
+      <div className="text-center mb-8">
+        <h2 className="text-2xl font-bold mb-2">Connect Your Advertising Platforms</h2>
+        <p className="text-muted-foreground">
+          Connect your existing advertising accounts to get insights and manage campaigns in one place
+        </p>
+      </div>
+
+      <ConnectPlatformsForm
+        initialData={platformsData}
+        onSubmit={handleSubmit}
+        isSubmitting={mutation.isPending}
+        renderFormActions={renderFormActions}
+      />
     </div>
   );
 }

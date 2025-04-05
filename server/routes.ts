@@ -5,6 +5,7 @@ import { storage } from "./storage";
 import { openai } from "./services/openai-client";
 import { streamText } from "ai";
 import * as sqlBuilder from "./services/sqlBuilder";
+import { registerOnboardingRoutes } from "./routes/onboarding";
 import { 
   insertApiKeySchema, 
   insertAdvertiserSchema,
@@ -1088,4 +1089,7 @@ export async function registerRoutes(app: Express): Promise<void> {
       }
     })();
   });
+  
+  // Register onboarding routes
+  await registerOnboardingRoutes(app);
 }

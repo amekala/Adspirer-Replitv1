@@ -9,12 +9,13 @@ import {
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { SubscriptionSettings } from "@/components/subscription-settings";
-import { ProfileSettings } from "@/components/profile-settings";
 import { BrandSettings } from "@/components/brand-settings";
 import { ComplianceSettings } from "@/components/compliance-settings";
 import { ApiKeys } from "@/components/api-keys";
 import { AmazonConnect } from "@/components/amazon-connect";
 import { GoogleConnect } from "@/components/google-connect";
+import { BrandIdentitySettings } from "@/components/settings/brand-identity-settings";
+import { ProfileSettings } from "@/components/settings/profile-settings";
 import { 
   User, 
   Building, 

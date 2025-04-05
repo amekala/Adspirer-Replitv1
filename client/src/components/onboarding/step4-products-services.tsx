@@ -1,19 +1,25 @@
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { useToast } from "@/hooks/use-toast";
-import { queryClient } from "@/lib/queryClient";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/api";
-import { useMutation } from "@tanstack/react-query";
-import { ProductsServicesForm as ProductsForm, ProductsServicesFormData } from "@/components/forms/products-services-form";
+import { queryClient } from "@/lib/queryClient";
+import { useToast } from "@/hooks/use-toast";
+import { ProductsServicesForm, ProductsServicesFormData } from "@/components/forms/products-services-form";
 
 interface ProductsServicesStepProps {
   onNext: () => void;
-  onPrevious?: () => void;
+  onPrevious: () => void;
   onSkip?: () => void;
 }
 
-export function ProductsServicesForm({ onNext, onPrevious, onSkip }: ProductsServicesStepProps) {
+export function ProductsServicesStep({ onNext, onPrevious, onSkip }: ProductsServicesStepProps) {
   const { toast } = useToast();
+  
+  // Fetch products/services data if available
+  const { data: productsData } = useQuery({
+    queryKey: ["/api/user/products-services"],
+    retry: false,
+  });
   
   // Submit mutation
   const mutation = useMutation({
@@ -25,9 +31,10 @@ export function ProductsServicesForm({ onNext, onPrevious, onSkip }: ProductsSer
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/onboarding/progress"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/user/products-services"] });
       toast({
-        title: "Products and services saved",
-        description: "Your product information has been saved successfully.",
+        title: "Products information saved",
+        description: "Your products and services details have been saved successfully.",
       });
       onNext();
     },
@@ -45,30 +52,23 @@ export function ProductsServicesForm({ onNext, onPrevious, onSkip }: ProductsSer
     mutation.mutate(data);
   };
 
-  // Render custom form actions for the onboarding context
+  // Custom rendering of form actions for this context
   const renderFormActions = () => (
     <div className="flex justify-between pt-6">
-      {onPrevious && (
-        <Button
-          type="button"
-          variant="outline"
-          onClick={onPrevious}
-        >
-          <ChevronLeft className="mr-2 h-4 w-4" /> Previous
-        </Button>
-      )}
-      <div className="ml-auto flex space-x-2">
+      <Button type="button" variant="outline" onClick={onPrevious}>
+        <ChevronLeft className="mr-2 h-4 w-4" />
+        Back
+      </Button>
+      
+      <div>
         {onSkip && (
-          <Button
-            type="button"
-            variant="ghost"
-            onClick={onSkip}
-          >
+          <Button type="button" variant="ghost" onClick={onSkip} className="mr-2">
             Skip for now
           </Button>
         )}
+        
         <Button type="submit" disabled={mutation.isPending}>
-          {mutation.isPending ? "Saving..." : "Next"} 
+          {mutation.isPending ? "Saving..." : "Continue"}
           <ChevronRight className="ml-2 h-4 w-4" />
         </Button>
       </div>
@@ -76,10 +76,20 @@ export function ProductsServicesForm({ onNext, onPrevious, onSkip }: ProductsSer
   );
 
   return (
-    <ProductsForm
-      onSubmit={handleSubmit}
-      isSubmitting={mutation.isPending}
-      renderFormActions={renderFormActions}
-    />
+    <div className="max-w-3xl mx-auto">
+      <div className="text-center mb-8">
+        <h2 className="text-2xl font-bold mb-2">Your Products or Services</h2>
+        <p className="text-muted-foreground">
+          Tell us about what you're selling to help us create more effective ad recommendations
+        </p>
+      </div>
+
+      <ProductsServicesForm
+        initialData={productsData}
+        onSubmit={handleSubmit}
+        isSubmitting={mutation.isPending}
+        renderFormActions={renderFormActions}
+      />
+    </div>
   );
 }

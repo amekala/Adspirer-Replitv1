@@ -1,23 +1,25 @@
-import { ChevronRight } from "lucide-react";
+import { ChevronLeft, ChevronRight, Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useMutation } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/api";
 import { queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
-import { BusinessCoreForm, BusinessCoreFormData } from "@/components/forms/business-core-form";
+import { PerformanceContextForm, PerformanceContextFormData } from "@/components/forms/performance-context-form";
 
-interface BusinessCoreStepProps {
+interface PerformanceContextStepProps {
   onNext: () => void;
+  onPrevious: () => void;
   onSkip?: () => void;
+  onComplete: () => void;
 }
 
-export function BusinessCoreStep({ onNext, onSkip }: BusinessCoreStepProps) {
+export function PerformanceContextStep({ onNext, onPrevious, onSkip, onComplete }: PerformanceContextStepProps) {
   const { toast } = useToast();
   
   // Submit mutation
   const mutation = useMutation({
-    mutationFn: (data: BusinessCoreFormData) => {
-      return apiRequest("/api/onboarding/business-core", {
+    mutationFn: (data: PerformanceContextFormData) => {
+      return apiRequest("/api/onboarding/performance-context", {
         method: "POST",
         data,
       });
@@ -25,10 +27,10 @@ export function BusinessCoreStep({ onNext, onSkip }: BusinessCoreStepProps) {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/onboarding/progress"] });
       toast({
-        title: "Business information saved",
-        description: "Your business details have been saved successfully.",
+        title: "Performance context saved",
+        description: "Your performance goals have been saved successfully.",
       });
-      onNext();
+      onComplete();
     },
     onError: (error) => {
       toast({
@@ -40,16 +42,17 @@ export function BusinessCoreStep({ onNext, onSkip }: BusinessCoreStepProps) {
   });
 
   // Form submission handler
-  const handleSubmit = (data: BusinessCoreFormData) => {
+  const handleSubmit = (data: PerformanceContextFormData) => {
     mutation.mutate(data);
   };
 
   // Custom rendering of form actions for this context
   const renderFormActions = () => (
     <div className="flex justify-between pt-6">
-      <div>
-        {/* No back button on first step */}
-      </div>
+      <Button type="button" variant="outline" onClick={onPrevious}>
+        <ChevronLeft className="mr-2 h-4 w-4" />
+        Back
+      </Button>
       
       <div>
         {onSkip && (
@@ -59,8 +62,8 @@ export function BusinessCoreStep({ onNext, onSkip }: BusinessCoreStepProps) {
         )}
         
         <Button type="submit" disabled={mutation.isPending}>
-          {mutation.isPending ? "Saving..." : "Continue"}
-          <ChevronRight className="ml-2 h-4 w-4" />
+          {mutation.isPending ? "Saving..." : "Complete Setup"}
+          <Check className="ml-2 h-4 w-4" />
         </Button>
       </div>
     </div>
@@ -69,13 +72,13 @@ export function BusinessCoreStep({ onNext, onSkip }: BusinessCoreStepProps) {
   return (
     <div className="max-w-3xl mx-auto">
       <div className="text-center mb-8">
-        <h2 className="text-2xl font-bold mb-2">Tell us about your business</h2>
+        <h2 className="text-2xl font-bold mb-2">Performance Context</h2>
         <p className="text-muted-foreground">
-          Let's start with some basic information about your business to help personalize your experience
+          Set your advertising performance goals and metrics to help us optimize your campaigns
         </p>
       </div>
 
-      <BusinessCoreForm
+      <PerformanceContextForm
         onSubmit={handleSubmit}
         isSubmitting={mutation.isPending}
         renderFormActions={renderFormActions}
