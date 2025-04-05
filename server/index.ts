@@ -3,6 +3,7 @@ import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
 import { request, IncomingMessage, createServer } from "http";
 import { startScheduledTasks } from "./maintenance/scheduleTasks";
+import cookieParser from "cookie-parser";
 import dotenv from "dotenv";
 import path from "path";
 import { fileURLToPath } from "url";
@@ -20,6 +21,7 @@ const isVercel = process.env.VERCEL === "1";
 const app = express();
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
+app.use(cookieParser()); // Add cookie parser for cookie-based authentication
 
 // CORS setup for development
 if (!isProduction) {

@@ -16,7 +16,18 @@ export function BusinessCoreStep({ onNext, onSkip }: BusinessCoreStepProps) {
   // Submit mutation
   const mutation = useMutation({
     mutationFn: (data: BusinessCoreFormData) => {
-      return apiRequest("POST", "/api/onboarding/business-core", data);
+      // Only send fields that match the backend schema
+      const submissionData = {
+        businessName: data.businessName, 
+        industry: data.industry,
+        companySize: data.companySize,
+        marketplaces: data.marketplaces,
+        mainGoals: data.mainGoals,
+        monthlyAdSpend: data.monthlyAdSpend,
+        website: data.website,
+      };
+      
+      return apiRequest("POST", "/api/onboarding/business-core", submissionData);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/onboarding/progress"] });
@@ -27,6 +38,7 @@ export function BusinessCoreStep({ onNext, onSkip }: BusinessCoreStepProps) {
       onNext();
     },
     onError: (error) => {
+      console.error("Business core form error:", error);
       toast({
         title: "Failed to save",
         description: error instanceof Error ? error.message : "Please try again.",

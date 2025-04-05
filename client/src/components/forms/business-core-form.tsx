@@ -5,15 +5,20 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
-// Business core form schema
+// Business core form schema - aligned with backend schema
 const businessCoreSchema = z.object({
   businessName: z.string().min(1, "Business name is required"),
   industry: z.string().min(1, "Industry is required"),
-  businessDescription: z.string().min(20, "Please provide at least 20 characters"),
-  websiteUrl: z.string().url("Please enter a valid URL").optional().or(z.literal("")),
-  employeeCount: z.string().optional(),
-  yearFounded: z.string().optional(),
+  companySize: z.string().min(1, "Company size is required"),
+  marketplaces: z.array(z.string()).min(1, "At least one marketplace is required"),
+  mainGoals: z.array(z.string()).min(1, "At least one main goal is required"),
+  monthlyAdSpend: z.string().optional(),
+  website: z.string().url("Please enter a valid URL").optional().or(z.literal("")),
+  // Additional fields for UI purposes only (won't be sent to backend)
+  businessDescription: z.string().min(20, "Please provide at least 20 characters").optional(),
 });
 
 // Form data type based on schema
@@ -23,10 +28,12 @@ export type BusinessCoreFormData = z.infer<typeof businessCoreSchema>;
 const defaultValues: BusinessCoreFormData = {
   businessName: "",
   industry: "",
+  companySize: "",
+  marketplaces: [],
+  mainGoals: [],
+  monthlyAdSpend: "",
+  website: "",
   businessDescription: "",
-  websiteUrl: "",
-  employeeCount: "",
-  yearFounded: "",
 };
 
 interface BusinessCoreFormProps {
@@ -97,10 +104,130 @@ export function BusinessCoreForm({
           )}
         />
 
+        <FormField
+          control={form.control}
+          name="companySize"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Company Size</FormLabel>
+              <Select
+                onValueChange={field.onChange}
+                defaultValue={field.value}
+              >
+                <FormControl>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select company size" />
+                  </SelectTrigger>
+                </FormControl>
+                <SelectContent>
+                  <SelectItem value="1-10">1-10 employees</SelectItem>
+                  <SelectItem value="11-50">11-50 employees</SelectItem>
+                  <SelectItem value="51-200">51-200 employees</SelectItem>
+                  <SelectItem value="201-500">201-500 employees</SelectItem>
+                  <SelectItem value="501+">501+ employees</SelectItem>
+                </SelectContent>
+              </Select>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+
+        <FormField
+          control={form.control}
+          name="marketplaces"
+          render={() => (
+            <FormItem>
+              <FormLabel>Marketplaces</FormLabel>
+              <div className="grid grid-cols-2 gap-2 mt-2">
+                {['Amazon', 'Walmart', 'Target', 'Instacart', 'Kroger', 'Other'].map((marketplace) => (
+                  <FormField
+                    key={marketplace}
+                    control={form.control}
+                    name="marketplaces"
+                    render={({ field }) => {
+                      return (
+                        <FormItem
+                          key={marketplace}
+                          className="flex flex-row items-center space-x-3 space-y-0"
+                        >
+                          <FormControl>
+                            <Checkbox
+                              checked={field.value?.includes(marketplace)}
+                              onCheckedChange={(checked) => {
+                                return checked
+                                  ? field.onChange([...field.value, marketplace])
+                                  : field.onChange(
+                                      field.value?.filter(
+                                        (value) => value !== marketplace
+                                      )
+                                    )
+                              }}
+                            />
+                          </FormControl>
+                          <FormLabel className="text-sm font-normal">
+                            {marketplace}
+                          </FormLabel>
+                        </FormItem>
+                      )
+                    }}
+                  />
+                ))}
+              </div>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+
+        <FormField
+          control={form.control}
+          name="mainGoals"
+          render={() => (
+            <FormItem>
+              <FormLabel>Main Business Goals</FormLabel>
+              <div className="grid grid-cols-2 gap-2 mt-2">
+                {['Increase Sales', 'Brand Awareness', 'Market Share', 'Customer Retention', 'New Product Launch', 'Other'].map((goal) => (
+                  <FormField
+                    key={goal}
+                    control={form.control}
+                    name="mainGoals"
+                    render={({ field }) => {
+                      return (
+                        <FormItem
+                          key={goal}
+                          className="flex flex-row items-center space-x-3 space-y-0"
+                        >
+                          <FormControl>
+                            <Checkbox
+                              checked={field.value?.includes(goal)}
+                              onCheckedChange={(checked) => {
+                                return checked
+                                  ? field.onChange([...field.value, goal])
+                                  : field.onChange(
+                                      field.value?.filter(
+                                        (value) => value !== goal
+                                      )
+                                    )
+                              }}
+                            />
+                          </FormControl>
+                          <FormLabel className="text-sm font-normal">
+                            {goal}
+                          </FormLabel>
+                        </FormItem>
+                      )
+                    }}
+                  />
+                ))}
+              </div>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
           <FormField
             control={form.control}
-            name="websiteUrl"
+            name="website"
             render={({ field }) => (
               <FormItem>
                 <FormLabel>Website URL</FormLabel>
@@ -114,32 +241,32 @@ export function BusinessCoreForm({
 
           <FormField
             control={form.control}
-            name="employeeCount"
+            name="monthlyAdSpend"
             render={({ field }) => (
               <FormItem>
-                <FormLabel>Number of Employees</FormLabel>
-                <FormControl>
-                  <Input placeholder="e.g., 1-10, 11-50, 51-200" {...field} />
-                </FormControl>
+                <FormLabel>Monthly Ad Spend</FormLabel>
+                <Select
+                  onValueChange={field.onChange}
+                  defaultValue={field.value}
+                >
+                  <FormControl>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select ad spend range" />
+                    </SelectTrigger>
+                  </FormControl>
+                  <SelectContent>
+                    <SelectItem value="< $1,000">Less than $1,000</SelectItem>
+                    <SelectItem value="$1,000 - $5,000">$1,000 - $5,000</SelectItem>
+                    <SelectItem value="$5,000 - $20,000">$5,000 - $20,000</SelectItem>
+                    <SelectItem value="$20,000 - $50,000">$20,000 - $50,000</SelectItem>
+                    <SelectItem value="$50,000+">$50,000+</SelectItem>
+                  </SelectContent>
+                </Select>
                 <FormMessage />
               </FormItem>
             )}
           />
         </div>
-
-        <FormField
-          control={form.control}
-          name="yearFounded"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>Year Founded</FormLabel>
-              <FormControl>
-                <Input placeholder="e.g., 2020" {...field} />
-              </FormControl>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
 
         {/* Form Actions */}
         {renderFormActions ? (
