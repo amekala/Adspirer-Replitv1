@@ -1,8 +1,7 @@
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { apiRequest } from "@/lib/api";
-import { queryClient } from "@/lib/queryClient";
+import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { ConnectPlatformsForm, ConnectPlatformsFormData } from "@/components/forms/connect-platforms-form";
 
@@ -16,7 +15,7 @@ export function ConnectPlatformsStep({ onNext, onPrevious, onSkip }: ConnectPlat
   const { toast } = useToast();
   
   // Fetch connected platforms data
-  const { data: platformsData } = useQuery({
+  const { data: platformsData } = useQuery<Partial<ConnectPlatformsFormData>>({
     queryKey: ["/api/user/connected-platforms"],
     retry: false,
   });
@@ -24,10 +23,7 @@ export function ConnectPlatformsStep({ onNext, onPrevious, onSkip }: ConnectPlat
   // Submit mutation
   const mutation = useMutation({
     mutationFn: (data: ConnectPlatformsFormData) => {
-      return apiRequest("/api/onboarding/connect-platforms", {
-        method: "POST",
-        data,
-      });
+      return apiRequest("POST", "/api/onboarding/connect-platforms", data);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/onboarding/progress"] });
@@ -85,7 +81,7 @@ export function ConnectPlatformsStep({ onNext, onPrevious, onSkip }: ConnectPlat
       </div>
 
       <ConnectPlatformsForm
-        initialData={platformsData}
+        initialData={platformsData as Partial<ConnectPlatformsFormData>}
         onSubmit={handleSubmit}
         isSubmitting={mutation.isPending}
         renderFormActions={renderFormActions}

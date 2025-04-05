@@ -1,8 +1,7 @@
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useMutation } from "@tanstack/react-query";
-import { apiRequest } from "@/lib/api";
-import { queryClient } from "@/lib/queryClient";
+import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { CreativeExamplesForm, CreativeExamplesFormData } from "@/components/forms/creative-examples-form";
 
@@ -18,10 +17,7 @@ export function CreativeExamplesStep({ onNext, onPrevious, onSkip }: CreativeExa
   // Submit mutation
   const mutation = useMutation({
     mutationFn: (data: CreativeExamplesFormData) => {
-      return apiRequest("/api/onboarding/creative-examples", {
-        method: "POST",
-        data,
-      });
+      return apiRequest("POST", "/api/onboarding/creative-examples", data);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/onboarding/progress"] });

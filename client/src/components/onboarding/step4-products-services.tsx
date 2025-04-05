@@ -1,8 +1,7 @@
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { apiRequest } from "@/lib/api";
-import { queryClient } from "@/lib/queryClient";
+import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { ProductsServicesForm, ProductsServicesFormData } from "@/components/forms/products-services-form";
 
@@ -16,7 +15,7 @@ export function ProductsServicesStep({ onNext, onPrevious, onSkip }: ProductsSer
   const { toast } = useToast();
   
   // Fetch products/services data if available
-  const { data: productsData } = useQuery({
+  const { data: productsData } = useQuery<Partial<ProductsServicesFormData>>({
     queryKey: ["/api/user/products-services"],
     retry: false,
   });
@@ -24,10 +23,7 @@ export function ProductsServicesStep({ onNext, onPrevious, onSkip }: ProductsSer
   // Submit mutation
   const mutation = useMutation({
     mutationFn: (data: ProductsServicesFormData) => {
-      return apiRequest("/api/onboarding/products-services", {
-        method: "POST",
-        data,
-      });
+      return apiRequest("POST", "/api/onboarding/products-services", data);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/onboarding/progress"] });
@@ -85,7 +81,7 @@ export function ProductsServicesStep({ onNext, onPrevious, onSkip }: ProductsSer
       </div>
 
       <ProductsServicesForm
-        initialData={productsData}
+        initialData={productsData as Partial<ProductsServicesFormData>}
         onSubmit={handleSubmit}
         isSubmitting={mutation.isPending}
         renderFormActions={renderFormActions}

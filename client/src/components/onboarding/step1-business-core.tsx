@@ -1,8 +1,7 @@
 import { ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useMutation } from "@tanstack/react-query";
-import { apiRequest } from "@/lib/api";
-import { queryClient } from "@/lib/queryClient";
+import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { BusinessCoreForm, BusinessCoreFormData } from "@/components/forms/business-core-form";
 
@@ -17,10 +16,7 @@ export function BusinessCoreStep({ onNext, onSkip }: BusinessCoreStepProps) {
   // Submit mutation
   const mutation = useMutation({
     mutationFn: (data: BusinessCoreFormData) => {
-      return apiRequest("/api/onboarding/business-core", {
-        method: "POST",
-        data,
-      });
+      return apiRequest("POST", "/api/onboarding/business-core", data);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/onboarding/progress"] });

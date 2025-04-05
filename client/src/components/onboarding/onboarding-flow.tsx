@@ -1,6 +1,5 @@
 import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { apiRequest } from "@/lib/api";
 import { Loader2 } from "lucide-react";
 import { BusinessCoreStep } from "./step1-business-core";
 import { ConnectPlatformsStep } from "./step2-connect-platforms";
@@ -98,6 +97,13 @@ export function OnboardingFlow({ onComplete, startAtStep = OnboardingStep.Busine
     );
   }
   
+  // Handle completion outside of the switch statement
+  useEffect(() => {
+    if (currentStep === OnboardingStep.Complete) {
+      handleComplete();
+    }
+  }, [currentStep]);
+
   // Render current step
   switch (currentStep) {
     case OnboardingStep.BusinessCore:
@@ -150,11 +156,6 @@ export function OnboardingFlow({ onComplete, startAtStep = OnboardingStep.Busine
       );
       
     case OnboardingStep.Complete:
-      // This should redirect to the dashboard via the onComplete callback
-      useEffect(() => {
-        handleComplete();
-      }, []);
-      
       return (
         <div className="flex items-center justify-center min-h-[400px]">
           <div className="text-center">

@@ -1,8 +1,7 @@
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { apiRequest } from "@/lib/api";
-import { queryClient } from "@/lib/queryClient";
+import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { BrandIdentityForm, BrandIdentityFormData } from "@/components/forms/brand-identity-form";
 
@@ -16,7 +15,7 @@ export function BrandIdentityStep({ onNext, onPrevious, onSkip }: BrandIdentityS
   const { toast } = useToast();
   
   // Fetch brand identity data if available
-  const { data: brandData } = useQuery({
+  const { data: brandData } = useQuery<Partial<BrandIdentityFormData>>({
     queryKey: ["/api/user/brand-identity"],
     retry: false,
   });
@@ -24,10 +23,7 @@ export function BrandIdentityStep({ onNext, onPrevious, onSkip }: BrandIdentityS
   // Submit mutation
   const mutation = useMutation({
     mutationFn: (data: BrandIdentityFormData) => {
-      return apiRequest("/api/onboarding/brand-identity", {
-        method: "POST",
-        data,
-      });
+      return apiRequest("POST", "/api/onboarding/brand-identity", data);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/onboarding/progress"] });
@@ -85,7 +81,7 @@ export function BrandIdentityStep({ onNext, onPrevious, onSkip }: BrandIdentityS
       </div>
 
       <BrandIdentityForm
-        initialData={brandData}
+        initialData={brandData as Partial<BrandIdentityFormData>}
         onSubmit={handleSubmit}
         isSubmitting={mutation.isPending}
         renderFormActions={renderFormActions}

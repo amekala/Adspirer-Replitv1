@@ -1,8 +1,7 @@
 import { ChevronLeft, ChevronRight, Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useMutation } from "@tanstack/react-query";
-import { apiRequest } from "@/lib/api";
-import { queryClient } from "@/lib/queryClient";
+import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { PerformanceContextForm, PerformanceContextFormData } from "@/components/forms/performance-context-form";
 
@@ -19,10 +18,7 @@ export function PerformanceContextStep({ onNext, onPrevious, onSkip, onComplete 
   // Submit mutation
   const mutation = useMutation({
     mutationFn: (data: PerformanceContextFormData) => {
-      return apiRequest("/api/onboarding/performance-context", {
-        method: "POST",
-        data,
-      });
+      return apiRequest("POST", "/api/onboarding/performance-context", data);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/onboarding/progress"] });
