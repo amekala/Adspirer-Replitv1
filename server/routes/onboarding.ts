@@ -15,7 +15,7 @@ import {
   insertPerformanceContextSchema,
   amazonTokens,
   googleTokens
-} from "../db/schema";
+} from "../../shared/schema";
 import { eq } from "drizzle-orm";
 import { z } from "zod";
 

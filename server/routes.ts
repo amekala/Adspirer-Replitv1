@@ -18,7 +18,7 @@ import {
   insertProductAdSchema,
   insertKeywordSchema,
   insertNegativeKeywordSchema
-} from "./db/schema";
+} from "../shared/schema";
 
 interface AmazonToken {
   id: number;
