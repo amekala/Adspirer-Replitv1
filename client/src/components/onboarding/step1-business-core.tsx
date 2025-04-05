@@ -15,12 +15,11 @@ export function BusinessCoreStep({ onNext, onSkip }: BusinessCoreStepProps) {
   const { toast } = useToast();
   
   // Fetch existing business core data
-  const { data: businessCoreData, isLoading: isDataLoading } = useQuery<BusinessCoreFormData>({
+  const { data: businessCoreData, isLoading: isDataLoading } = useQuery<any, Error, BusinessCoreFormData>({
     queryKey: ["/api/user/business-core"],
-    onError: (error) => {
-      console.error("Error fetching business core data:", error);
-      // Silently fail - user will simply see an empty form
-    }
+    refetchOnWindowFocus: true,
+    refetchOnMount: true,
+    staleTime: 0 // Consider data stale immediately to ensure it refetches
   });
   
   // Submit mutation
@@ -43,7 +42,9 @@ export function BusinessCoreStep({ onNext, onSkip }: BusinessCoreStepProps) {
       });
     },
     onSuccess: () => {
+      // Invalidate both the progress and business core data queries
       queryClient.invalidateQueries({ queryKey: ["/api/onboarding/progress"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/user/business-core"] });
       toast({
         title: "Business information saved",
         description: "Your business details have been saved successfully.",
@@ -109,7 +110,7 @@ export function BusinessCoreStep({ onNext, onSkip }: BusinessCoreStepProps) {
       </div>
 
       <BusinessCoreForm
-        initialData={businessCoreData}
+        initialData={businessCoreData as Partial<BusinessCoreFormData>}
         onSubmit={handleSubmit}
         isSubmitting={mutation.isPending}
         renderFormActions={renderFormActions}

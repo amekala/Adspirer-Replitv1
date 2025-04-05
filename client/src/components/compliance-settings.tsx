@@ -150,8 +150,9 @@ export function ComplianceSettings() {
   const requestDeletionMutation = useMutation({
     mutationFn: async () => {
       // Use the apiRequest utility which properly handles authentication
-      const response = await apiRequest("POST", "/api/user/reset-onboarding");
-      return response;
+      return await apiRequest("/api/user/reset-onboarding", {
+        method: "POST"
+      });
     },
     onSuccess: () => {
       toast({
@@ -162,7 +163,7 @@ export function ComplianceSettings() {
     onError: (error: Error) => {
       toast({
         title: "Deletion failed",
-        description: error.message,
+        description: error.message || "Failed to reset onboarding data",
         variant: "destructive"
       });
     }
