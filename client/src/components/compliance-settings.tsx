@@ -15,6 +15,7 @@ import {
   SelectValue 
 } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
+import { apiRequest } from "@/lib/queryClient";
 import { 
   Loader2, 
   Save, 
@@ -148,20 +149,9 @@ export function ComplianceSettings() {
   // Request data deletion
   const requestDeletionMutation = useMutation({
     mutationFn: async () => {
-      // Make a real API call to delete onboarding data
-      const response = await fetch("/api/user/reset-onboarding", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json"
-        },
-      });
-      
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || "Failed to delete data");
-      }
-      
-      return response.json();
+      // Use the apiRequest utility which properly handles authentication
+      const response = await apiRequest("POST", "/api/user/reset-onboarding");
+      return response;
     },
     onSuccess: () => {
       toast({

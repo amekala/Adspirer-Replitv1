@@ -63,10 +63,25 @@ export function setupAuth(app: Express) {
     )
   );
 
-  // JWT strategy for token authentication
+  // JWT strategy for token authentication - supporting both header and cookie
   passport.use(
     new JwtStrategy({
-      jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
+      jwtFromRequest: (req) => {
+        // First try to get the token from the Authorization header
+        let token = ExtractJwt.fromAuthHeaderAsBearerToken()(req);
+        
+        // If no token in header, try to get it from cookies
+        if (!token && req.cookies && req.cookies.jwt) {
+          token = req.cookies.jwt;
+        }
+        
+        // If no token in cookies either, check session
+        if (!token && req.session && req.session.jwt) {
+          token = req.session.jwt;
+        }
+        
+        return token;
+      },
       secretOrKey: jwtSecret,
     }, async (payload: any, done: (error: Error | null, user?: Express.User | false | null) => void) => {
       try {
