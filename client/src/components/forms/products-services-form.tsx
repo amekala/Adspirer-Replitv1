@@ -10,20 +10,20 @@ import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/componen
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
-// Define schema for a single product
+// Define schema for a single product - simplified
 const productSchema = z.object({
   name: z.string().min(1, "Product name is required"),
-  description: z.string().min(10, "Please provide a more detailed description"),
+  description: z.string().optional(), // No longer required
   price: z.string().optional(),
   category: z.string().optional(),
 });
 
-// Products/services form schema
+// Products/services form schema - simplified to match backend changes
 const productsServicesSchema = z.object({
   productTypes: z.array(z.string()).min(1, "Select at least one product type"),
   topSellingProducts: z.array(productSchema).optional(),
-  competitiveAdvantage: z.array(z.string()).min(1, "Select at least one competitive advantage"),
-  targetMarkets: z.array(z.string()).min(1, "Select at least one target market"),
+  competitiveAdvantage: z.array(z.string()).optional(), // No longer required
+  targetMarkets: z.array(z.string()).optional(), // No longer required
   pricingStrategy: z.string().optional(),
 });
 

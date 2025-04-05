@@ -411,31 +411,43 @@ export const insertOnboardingProgressSchema = createInsertSchema(onboardingProgr
 }).omit({ id: true, createdAt: true, lastUpdated: true });
 
 export const insertBusinessCoreSchema = createInsertSchema(businessCore, {
+  // Only business name and industry are required fields
   businessName: z.string().min(1, "Business name is required"),
   industry: z.string().min(1, "Industry is required"),
-  companySize: z.string().min(1, "Company size is required"),
-  marketplaces: z.array(z.string()).min(1, "At least one marketplace is required"),
-  mainGoals: z.array(z.string()).min(1, "At least one main goal is required"),
+  // Rest are optional for a simplified experience
+  companySize: z.string().optional(),
+  marketplaces: z.array(z.string()).optional(), // No longer required
+  mainGoals: z.array(z.string()).optional(), // No longer required
   monthlyAdSpend: z.string().optional(),
-  website: z.string().url("Please enter a valid URL").optional(),
+  website: z.string()
+    .optional()
+    .nullable()
+    .or(z.literal(''))
+    .transform(val => !val ? null : val.startsWith('http') ? val : `https://${val}`),
 }).omit({ id: true, userId: true, createdAt: true, updatedAt: true });
 
 export const insertBrandIdentitySchema = createInsertSchema(brandIdentity, {
+  // Only brand name is required, others are optional for a simplified experience
   brandName: z.string().min(1, "Brand name is required"),
-  brandDescription: z.string().min(10, "Please provide a more detailed brand description"),
-  brandVoice: z.array(z.string()).min(1, "At least one brand voice characteristic is required"),
-  targetAudience: z.array(z.string()).min(1, "At least one target audience is required"),
-  brandValues: z.array(z.string()).min(1, "At least one brand value is required"),
+  brandDescription: z.string().optional(), // No longer required
+  brandVoice: z.array(z.string()).optional(), // No longer required
+  targetAudience: z.array(z.string()).optional(), // No longer required
+  brandValues: z.array(z.string()).optional(), // No longer required
   primaryColor: z.string().optional(),
   secondaryColor: z.string().optional(),
-  logoUrl: z.string().url("Please enter a valid URL").optional(),
+  logoUrl: z.string()
+    .optional()
+    .nullable()
+    .or(z.literal(''))
+    .transform(val => !val ? null : val.startsWith('http') ? val : `https://${val}`),
 }).omit({ id: true, userId: true, createdAt: true, updatedAt: true });
 
 export const insertProductsServicesSchema = createInsertSchema(productsServices, {
   productTypes: z.array(z.string()).min(1, "At least one product type is required"),
+  // Simplified to make more fields optional
   topSellingProducts: z.array(z.object({
     name: z.string(),
-    description: z.string(),
+    description: z.string().optional(),
     price: z.string().optional(),
     imageUrl: z.string().optional(),
   })).optional(),
@@ -445,10 +457,15 @@ export const insertProductsServicesSchema = createInsertSchema(productsServices,
 }).omit({ id: true, userId: true, createdAt: true, updatedAt: true });
 
 export const insertCreativeExamplesSchema = createInsertSchema(creativeExamples, {
+  // Make everything optional for easier form submission
   adExamples: z.array(z.object({
-    title: z.string(),
+    title: z.string().optional(), // Even title is optional now
     description: z.string().optional(),
-    imageUrl: z.string().optional(),
+    imageUrl: z.string()
+      .optional()
+      .nullable()
+      .or(z.literal(''))
+      .transform(val => !val ? null : val.startsWith('http') ? val : `https://${val}`),
     performanceNotes: z.string().optional(),
   })).optional(),
   preferredAdFormats: z.array(z.string()).optional(),
@@ -456,12 +473,13 @@ export const insertCreativeExamplesSchema = createInsertSchema(creativeExamples,
 }).omit({ id: true, userId: true, createdAt: true, updatedAt: true });
 
 export const insertPerformanceContextSchema = createInsertSchema(performanceContext, {
+  // Simplified requirements for performance context
   currentPerformance: z.record(z.any()).optional(),
-  keyMetrics: z.array(z.string()).min(1, "At least one key metric is required"),
+  keyMetrics: z.array(z.string()).optional(), // No longer required
   performanceGoals: z.record(z.any()).optional(),
   seasonalTrends: z.array(z.object({
     season: z.string(),
-    performance: z.string(),
+    performance: z.string().optional(), // Make this optional
     notes: z.string().optional(),
   })).optional(),
   benchmarks: z.record(z.any()).optional(),

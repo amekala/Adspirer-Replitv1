@@ -9,16 +9,17 @@ import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 
-// Brand identity form schema
+// Brand identity form schema - simplified to match server schema
 const brandIdentitySchema = z.object({
   brandName: z.string().min(1, "Brand name is required"),
-  brandDescription: z.string().min(20, "Please provide at least 20 characters"),
-  brandVoice: z.array(z.string()).min(1, "Select at least one brand voice option"),
-  targetAudience: z.array(z.string()).min(1, "Select at least one target audience"),
-  brandValues: z.array(z.string()).min(1, "Select at least one brand value"),
+  // All other fields are optional now
+  brandDescription: z.string().optional(),
+  brandVoice: z.array(z.string()).optional(),
+  targetAudience: z.array(z.string()).optional(),
+  brandValues: z.array(z.string()).optional(),
   primaryColor: z.string().optional(),
   secondaryColor: z.string().optional(),
-  logoUrl: z.string().url("Please enter a valid URL").optional().or(z.literal("")).or(z.null()),
+  logoUrl: z.string().optional().or(z.literal("")).or(z.null()),
 });
 
 // Form data type based on schema

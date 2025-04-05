@@ -15,15 +15,16 @@ import {
   insertCreativeExamplesSchema,
   insertPerformanceContextSchema,
   amazonTokens,
-  googleTokens
+  googleTokens,
+  User
 } from "../../shared/schema";
 import { eq } from "drizzle-orm";
 import { z } from "zod";
 
 // Helper function to get the user ID from the request
 function getUserId(req: Request): string {
-  // Type assertion to safely extract the ID
-  const user = req.user as { id: string } | undefined;
+  // Type assertion to safely extract the ID using User type from schema
+  const user = req.user as User | undefined;
   
   if (!user || !user.id) {
     console.error('User ID not found in request:', req.user);

@@ -6,8 +6,8 @@ import jwt from "jsonwebtoken";
 import { scrypt, randomBytes, timingSafeEqual } from "crypto";
 import { promisify } from "util";
 import { storage } from "./storage";
-import { User } from "@shared/types";
-import { insertUserSchema } from "./db/schema";
+import { User } from "@shared/schema"; // Fixed import from schema instead of types
+import { insertUserSchema } from "@shared/schema";
 
 // JWT auth middleware
 export const authenticate = (req: Request, res: Response, next: NextFunction) => {
@@ -18,8 +18,8 @@ export const authenticate = (req: Request, res: Response, next: NextFunction) =>
     // Add the user to the request object
     req.user = user;
     
-    // Type assertion to access id property safely
-    const typedUser = user as { id: string, email: string };
+    // Type assertion to access id property safely - now using User type from schema
+    const typedUser = user as User;
     
     // Log authentication success for debugging
     console.log(`User authenticated: ${typedUser.id} (${typedUser.email})`);
@@ -132,9 +132,14 @@ export function setupAuth(app: Express) {
         password: await hashPassword(result.data.password),
       });
 
-      // Generate JWT token
+      // Generate JWT token - properly typed
+      const typedUser = user as User;
       const token = jwt.sign(
-        { id: user.id, email: user.email, role: user.role },
+        { 
+          id: typedUser.id, 
+          email: typedUser.email,
+          role: typedUser.role || 'user' // Default to 'user' if role is undefined
+        },
         jwtSecret,
         { expiresIn: '7d' }
       );
@@ -155,9 +160,14 @@ export function setupAuth(app: Express) {
       if (err) return next(err);
       if (!user) return res.status(401).json({ message: 'Invalid email or password' });
       
-      // Generate JWT token
+      // Generate JWT token - properly typed for login
+      const typedUser = user as User;
       const token = jwt.sign(
-        { id: user.id, email: user.email, role: user.role },
+        { 
+          id: typedUser.id, 
+          email: typedUser.email,
+          role: typedUser.role || 'user' // Default to 'user' if role is undefined
+        },
         jwtSecret,
         { expiresIn: '7d' }
       );

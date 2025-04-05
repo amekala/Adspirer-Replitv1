@@ -12,13 +12,14 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 const businessCoreSchema = z.object({
   businessName: z.string().min(1, "Business name is required"),
   industry: z.string().min(1, "Industry is required"),
-  companySize: z.string().min(1, "Company size is required"),
-  marketplaces: z.array(z.string()).min(1, "At least one marketplace is required"),
-  mainGoals: z.array(z.string()).min(1, "At least one main goal is required"),
+  // Simplified validation to match backend changes
+  companySize: z.string().optional(),
+  marketplaces: z.array(z.string()).optional(),
+  mainGoals: z.array(z.string()).optional(),
   monthlyAdSpend: z.string().optional(),
-  website: z.string().url("Please enter a valid URL").optional().or(z.literal("")).or(z.null()),
+  website: z.string().optional().or(z.literal("")).or(z.null()),
   // Additional fields for UI purposes only (won't be sent to backend)
-  businessDescription: z.string().min(20, "Please provide at least 20 characters").optional(),
+  businessDescription: z.string().optional(),
 });
 
 // Form data type based on schema

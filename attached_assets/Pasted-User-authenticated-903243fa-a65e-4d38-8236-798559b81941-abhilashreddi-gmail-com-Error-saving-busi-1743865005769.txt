@@ -1,0 +1,127 @@
+User authenticated: 903243fa-a65e-4d38-8236-798559b81941 (abhilashreddi@gmail.com)
+Error saving business core data: ZodError: [
+  {
+    "validation": "url",
+    "code": "invalid_string",
+    "message": "Please enter a valid URL",
+    "path": [
+      "website"
+    ]
+  }
+]
+    at get error [as error] (file:///home/runner/workspace/node_modules/zod/lib/index.mjs:587:31)
+    at ZodObject.parse (file:///home/runner/workspace/node_modules/zod/lib/index.mjs:663:22)
+    at <anonymous> (/home/runner/workspace/server/routes/onboarding.ts:175:54)
+    at Layer.handle [as handle_request] (/home/runner/workspace/node_modules/express/lib/router/layer.js:95:5)
+    at next (/home/runner/workspace/node_modules/express/lib/router/route.js:149:13)
+    at <anonymous> (/home/runner/workspace/server/auth.ts:27:5)
+    at strategy.success (/home/runner/workspace/node_modules/passport/lib/middleware/authenticate.js:222:18)
+    at verified (/home/runner/workspace/node_modules/passport-jwt/lib/strategy.js:115:41)
+    at JwtStrategy._verify (/home/runner/workspace/server/auth.ts:109:16)
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5) {
+  issues: [
+    {
+      validation: 'url',
+      code: 'invalid_string',
+      message: 'Please enter a valid URL',
+      path: [Array]
+    }
+  ],
+  addIssue: [Function (anonymous)],
+  addIssues: [Function (anonymous)],
+  errors: [
+    {
+      validation: 'url',
+      code: 'invalid_string',
+      message: 'Please enter a valid URL',
+      path: [Array]
+    }
+  ]
+}
+2:50:52 PM [express] POST /api/onboarding/business-core 400 in 68ms :: {"message":"Validation error"…
+User authenticated: 903243fa-a65e-4d38-8236-798559b81941 (abhilashreddi@gmail.com)
+2:51:02 PM [express] POST /api/onboarding/business-core 200 in 292ms :: {"success":true}
+User authenticated: 903243fa-a65e-4d38-8236-798559b81941 (abhilashreddi@gmail.com)
+User authenticated: 903243fa-a65e-4d38-8236-798559b81941 (abhilashreddi@gmail.com)
+2:51:02 PM [express] GET /api/user/connected-platforms 304 in 177ms :: {"amazon":true,"google":true,…
+2:51:02 PM [express] GET /api/onboarding/progress 200 in 391ms :: {"currentStep":2,"completed":false…
+2:51:12 PM [express] GET /api/user/profile 200 in 4ms
+User authenticated: 903243fa-a65e-4d38-8236-798559b81941 (abhilashreddi@gmail.com)
+2:51:24 PM [express] POST /api/onboarding/connect-platforms 200 in 168ms :: {"success":true}
+User authenticated: 903243fa-a65e-4d38-8236-798559b81941 (abhilashreddi@gmail.com)
+User authenticated: 903243fa-a65e-4d38-8236-798559b81941 (abhilashreddi@gmail.com)
+2:51:24 PM [express] GET /api/user/connected-platforms 304 in 202ms :: {"amazon":true,"google":true,…
+User authenticated: 903243fa-a65e-4d38-8236-798559b81941 (abhilashreddi@gmail.com)
+2:51:24 PM [express] GET /api/user/brand-identity 200 in 365ms
+2:51:24 PM [express] GET /api/onboarding/progress 200 in 414ms :: {"currentStep":3,"completed":false…
+User authenticated: 903243fa-a65e-4d38-8236-798559b81941 (abhilashreddi@gmail.com)
+Error saving brand identity data: ZodError: [
+  {
+    "validation": "url",
+    "code": "invalid_string",
+    "message": "Please enter a valid URL",
+    "path": [
+      "logoUrl"
+    ]
+  }
+]
+    at get error [as error] (file:///home/runner/workspace/node_modules/zod/lib/index.mjs:587:31)
+    at ZodObject.parse (file:///home/runner/workspace/node_modules/zod/lib/index.mjs:663:22)
+    at <anonymous> (/home/runner/workspace/server/routes/onboarding.ts:239:55)
+    at Layer.handle [as handle_request] (/home/runner/workspace/node_modules/express/lib/router/layer.js:95:5)
+    at next (/home/runner/workspace/node_modules/express/lib/router/route.js:149:13)
+    at <anonymous> (/home/runner/workspace/server/auth.ts:27:5)
+    at strategy.success (/home/runner/workspace/node_modules/passport/lib/middleware/authenticate.js:222:18)
+    at verified (/home/runner/workspace/node_modules/passport-jwt/lib/strategy.js:115:41)
+    at JwtStrategy._verify (/home/runner/workspace/server/auth.ts:109:16)
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5) {
+  issues: [
+    {
+      validation: 'url',
+      code: 'invalid_string',
+      message: 'Please enter a valid URL',
+      path: [Array]
+    }
+  ],
+  addIssue: [Function (anonymous)],
+  addIssues: [Function (anonymous)],
+  errors: [
+    {
+      validation: 'url',
+      code: 'invalid_string',
+      message: 'Please enter a valid URL',
+      path: [Array]
+    }
+  ]
+}
+2:51:42 PM [express] POST /api/onboarding/brand-identity 400 in 59ms :: {"message":"Validation error…
+User authenticated: 903243fa-a65e-4d38-8236-798559b81941 (abhilashreddi@gmail.com)
+2:52:01 PM [express] POST /api/onboarding/brand-identity 200 in 290ms :: {"success":true}
+User authenticated: 903243fa-a65e-4d38-8236-798559b81941 (abhilashreddi@gmail.com)
+User authenticated: 903243fa-a65e-4d38-8236-798559b81941 (abhilashreddi@gmail.com)
+User authenticated: 903243fa-a65e-4d38-8236-798559b81941 (abhilashreddi@gmail.com)
+2:52:01 PM [express] GET /api/user/brand-identity 200 in 111ms :: {"id":1,"userId":"903243fa-a65e-4d…
+2:52:01 PM [express] GET /api/user/products-services 200 in 123ms
+2:52:01 PM [express] GET /api/onboarding/progress 200 in 409ms :: {"currentStep":4,"completed":false…
+User authenticated: 903243fa-a65e-4d38-8236-798559b81941 (abhilashreddi@gmail.com)
+2:52:11 PM [express] POST /api/onboarding/products-services 200 in 282ms :: {"success":true}
+User authenticated: 903243fa-a65e-4d38-8236-798559b81941 (abhilashreddi@gmail.com)
+User authenticated: 903243fa-a65e-4d38-8236-798559b81941 (abhilashreddi@gmail.com)
+2:52:11 PM [express] GET /api/user/products-services 200 in 111ms :: {"id":1,"userId":"903243fa-a65e…
+2:52:11 PM [express] GET /api/onboarding/progress 200 in 386ms :: {"currentStep":5,"completed":false…
+User authenticated: 903243fa-a65e-4d38-8236-798559b81941 (abhilashreddi@gmail.com)
+2:52:55 PM [express] POST /api/onboarding/business-core 200 in 172ms :: {"success":true}
+User authenticated: 903243fa-a65e-4d38-8236-798559b81941 (abhilashreddi@gmail.com)
+2:52:55 PM [express] GET /api/onboarding/progress 200 in 400ms :: {"currentStep":5,"completed":false…
+User authenticated: 903243fa-a65e-4d38-8236-798559b81941 (abhilashreddi@gmail.com)
+2:52:57 PM [express] POST /api/onboarding/connect-platforms 200 in 170ms :: {"success":true}
+User authenticated: 903243fa-a65e-4d38-8236-798559b81941 (abhilashreddi@gmail.com)
+User authenticated: 903243fa-a65e-4d38-8236-798559b81941 (abhilashreddi@gmail.com)
+2:52:57 PM [express] GET /api/user/connected-platforms 304 in 165ms :: {"amazon":true,"google":true,…
+2:52:57 PM [express] GET /api/onboarding/progress 200 in 390ms :: {"currentStep":3,"completed":false…
+User authenticated: 903243fa-a65e-4d38-8236-798559b81941 (abhilashreddi@gmail.com)
+2:53:00 PM [express] POST /api/onboarding/brand-identity 200 in 186ms :: {"success":true}
+User authenticated: 903243fa-a65e-4d38-8236-798559b81941 (abhilashreddi@gmail.com)
+User authenticated: 903243fa-a65e-4d38-8236-798559b81941 (abhilashreddi@gmail.com)
+2:53:00 PM [express] GET /api/user/brand-identity 200 in 112ms :: {"id":1,"userId":"903243fa-a65e-4d…
+2:53:00 PM [express] GET /api/onboarding/progress 200 in 392ms :: {"currentStep":3,"completed":false…
