@@ -1,0 +1,69 @@
+API Request to: https://974fb22c-7bf2-435f-92b8-6b8a9968e57b-00-a2py9mwxuu7p.riker.replit.dev/api/onboarding/creative-examples
+queryClient.ts:48 
+            
+            
+           POST https://974fb22c-7bf2-435f-92b8-6b8a9968e57b-00-a2py9mwxuu7p.riker.replit.dev/api/onboarding/creative-examples 400 (Bad Request)
+apiRequest @ queryClient.ts:48
+mutationFn @ step5-creative-examples.tsx:20
+fn @ @tanstack_react-query.js?v=7022ca87:1189
+run @ @tanstack_react-query.js?v=7022ca87:494
+start @ @tanstack_react-query.js?v=7022ca87:536
+execute @ @tanstack_react-query.js?v=7022ca87:1225
+await in execute
+mutate @ @tanstack_react-query.js?v=7022ca87:2630
+(anonymous) @ @tanstack_react-query.js?v=7022ca87:3295
+handleSubmit @ step5-creative-examples.tsx:41
+(anonymous) @ chunk-YABUFNLM.js?v=2243420b:1675
+await in (anonymous)
+callCallback2 @ chunk-RPCDYKBN.js?v=2243420b:3674
+invokeGuardedCallbackDev @ chunk-RPCDYKBN.js?v=2243420b:3699
+invokeGuardedCallback @ chunk-RPCDYKBN.js?v=2243420b:3733
+invokeGuardedCallbackAndCatchFirstError @ chunk-RPCDYKBN.js?v=2243420b:3736
+executeDispatch @ chunk-RPCDYKBN.js?v=2243420b:7014
+processDispatchQueueItemsInOrder @ chunk-RPCDYKBN.js?v=2243420b:7034
+processDispatchQueue @ chunk-RPCDYKBN.js?v=2243420b:7043
+dispatchEventsForPlugins @ chunk-RPCDYKBN.js?v=2243420b:7051
+(anonymous) @ chunk-RPCDYKBN.js?v=2243420b:7174
+batchedUpdates$1 @ chunk-RPCDYKBN.js?v=2243420b:18913
+batchedUpdates @ chunk-RPCDYKBN.js?v=2243420b:3579
+dispatchEventForPluginEventSystem @ chunk-RPCDYKBN.js?v=2243420b:7173
+dispatchEventWithEnableCapturePhaseSelectiveHydrationWithoutDiscreteEventReplay @ chunk-RPCDYKBN.js?v=2243420b:5478
+dispatchEvent @ chunk-RPCDYKBN.js?v=2243420b:5472
+dispatchDiscreteEvent @ chunk-RPCDYKBN.js?v=2243420b:5449Understand this errorAI
+queryClient.ts:46 API Request to: https://974fb22c-7bf2-435f-92b8-6b8a9968e57b-00-a2py9mwxuu7p.riker.replit.dev/api/onboarding/creative-examples
+queryClient.ts:48 
+            
+            
+           POST https://974fb22c-7bf2-435f-92b8-6b8a9968e57b-00-a2py9mwxuu7p.riker.replit.dev/api/onboarding/creative-examples 400 (Bad Request)
+apiRequest @ queryClient.ts:48
+mutationFn @ step5-creative-examples.tsx:20
+fn @ @tanstack_react-query.js?v=7022ca87:1189
+run @ @tanstack_react-query.js?v=7022ca87:494
+start @ @tanstack_react-query.js?v=7022ca87:536
+execute @ @tanstack_react-query.js?v=7022ca87:1225
+await in execute
+mutate @ @tanstack_react-query.js?v=7022ca87:2630
+(anonymous) @ @tanstack_react-query.js?v=7022ca87:3295
+handleSubmit @ step5-creative-examples.tsx:41
+(anonymous) @ chunk-YABUFNLM.js?v=2243420b:1675
+await in (anonymous)
+callCallback2 @ chunk-RPCDYKBN.js?v=2243420b:3674
+invokeGuardedCallbackDev @ chunk-RPCDYKBN.js?v=2243420b:3699
+invokeGuardedCallback @ chunk-RPCDYKBN.js?v=2243420b:3733
+invokeGuardedCallbackAndCatchFirstError @ chunk-RPCDYKBN.js?v=2243420b:3736
+executeDispatch @ chunk-RPCDYKBN.js?v=2243420b:7014
+processDispatchQueueItemsInOrder @ chunk-RPCDYKBN.js?v=2243420b:7034
+processDispatchQueue @ chunk-RPCDYKBN.js?v=2243420b:7043
+dispatchEventsForPlugins @ chunk-RPCDYKBN.js?v=2243420b:7051
+(anonymous) @ chunk-RPCDYKBN.js?v=2243420b:7174
+batchedUpdates$1 @ chunk-RPCDYKBN.js?v=2243420b:18913
+batchedUpdates @ chunk-RPCDYKBN.js?v=2243420b:3579
+dispatchEventForPluginEventSystem @ chunk-RPCDYKBN.js?v=2243420b:7173
+dispatchEventWithEnableCapturePhaseSelectiveHydrationWithoutDiscreteEventReplay @ chunk-RPCDYKBN.js?v=2243420b:5478
+dispatchEvent @ chunk-RPCDYKBN.js?v=2243420b:5472
+dispatchDiscreteEvent @ chunk-RPCDYKBN.js?v=2243420b:5449Understand this errorAI
+queryClient.ts:46 API Request to: https://974fb22c-7bf2-435f-92b8-6b8a9968e57b-00-a2py9mwxuu7p.riker.replit.dev/api/onboarding/creative-examples
+queryClient.ts:48 
+            
+            
+           POST https://974fb22c-7bf2-435f-92b8-6b8a9968e57b-00-a2py9mwxuu7p.riker.replit.dev/api/onboarding/creative-examples 400 (Bad Request)

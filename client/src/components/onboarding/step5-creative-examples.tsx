@@ -17,7 +17,68 @@ export function CreativeExamplesStep({ onNext, onPrevious, onSkip }: CreativeExa
   // Submit mutation
   const mutation = useMutation({
     mutationFn: (data: CreativeExamplesFormData) => {
-      return apiRequest("POST", "/api/onboarding/creative-examples", data);
+      // Transform frontend data to match backend schema
+      const adExamples = [];
+
+      // Process successful ads
+      if (data.successfulAds?.length) {
+        adExamples.push(
+          ...data.successfulAds.map(ad => ({
+            title: "Successful Ad",
+            description: ad.description || "",
+            imageUrl: ad.url || "",
+            performanceNotes: "Internal successful ad"
+          }))
+        );
+      }
+
+      // Process competitor ads
+      if (data.competitorAds?.length) {
+        adExamples.push(
+          ...data.competitorAds.map(ad => ({
+            title: "Competitor Ad",
+            description: ad.description || "",
+            imageUrl: ad.url || "",
+            performanceNotes: ""
+          }))
+        );
+      }
+
+      // Process inspiration ads
+      if (data.inspirationAds?.length) {
+        adExamples.push(
+          ...data.inspirationAds.map(ad => ({
+            title: "Inspiration",
+            description: ad.description || "",
+            imageUrl: ad.url || "",
+            performanceNotes: ""
+          }))
+        );
+      }
+
+      // Determine preferred ad formats based on style preference
+      const preferredAdFormats = [];
+      if (data.adStylePreference) {
+        preferredAdFormats.push(data.adStylePreference);
+      }
+      if (data.copyLengthPreference) {
+        preferredAdFormats.push(data.copyLengthPreference);
+      }
+
+      // Create brand guidelines from additional notes
+      const brandGuidelines = {
+        notes: data.additionalNotes || ""
+      };
+
+      // Construct data structure expected by backend
+      const submissionData = {
+        adExamples,
+        preferredAdFormats,
+        brandGuidelines
+      };
+
+      console.log("Submitting creative examples data:", submissionData);
+      return apiRequest("POST", "/api/onboarding/creative-examples", submissionData);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/onboarding/progress"] });
@@ -28,6 +89,7 @@ export function CreativeExamplesStep({ onNext, onPrevious, onSkip }: CreativeExa
       onNext();
     },
     onError: (error) => {
+      console.error("Creative examples submission error:", error);
       toast({
         title: "Failed to save",
         description: error instanceof Error ? error.message : "Please try again.",
