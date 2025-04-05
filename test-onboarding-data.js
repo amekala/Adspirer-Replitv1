@@ -9,22 +9,24 @@
  * Run with: node test-onboarding-data.js
  */
 
-const fetch = require('node-fetch');
-const { db } = require('./server/db');
-const { eq } = require('drizzle-orm');
-const { 
+import fetch from 'node-fetch';
+import { db } from './server/db.js';
+import { eq } from 'drizzle-orm';
+import { 
   businessCore, 
   brandIdentity, 
   productsServices, 
   creativeExamples, 
   performanceContext,
   onboardingProgress
-} = require('./shared/schema');
+} from './shared/schema.js';
 
 // Configuration
 const API_URL = 'http://localhost:5000';
-const USER_EMAIL = 'abhilashreddi@gmail.com';  // Using an existing user from the database
-const USER_PASSWORD = 'password123';    // Update with correct password if needed
+const USER_EMAIL = 'abhilashreddi@gmail.com';  // Using existing user with completed onboarding
+// This is a test password, assumed to match the database
+// In a real scenario, you should use environment variables for sensitive data
+const USER_PASSWORD = 'T1l1icron!';    // This is just for testing
 
 // Test data for each onboarding step
 const testData = {
@@ -125,7 +127,7 @@ const testData = {
 // Login to get an authentication token
 async function login() {
   try {
-    const response = await fetch(`${API_URL}/api/auth/login`, {
+    const response = await fetch(`${API_URL}/api/login`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json'
