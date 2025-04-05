@@ -148,22 +148,30 @@ export function ComplianceSettings() {
   // Request data deletion
   const requestDeletionMutation = useMutation({
     mutationFn: async () => {
-      // In production, this would be a real API call
-      // const response = await apiRequest("POST", "/api/data/delete");
-      // return response.json();
+      // Make a real API call to delete onboarding data
+      const response = await fetch("/api/user/reset-onboarding", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+      });
       
-      // Mock success with a delay
-      return new Promise(resolve => setTimeout(() => resolve({ success: true }), 1500));
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || "Failed to delete data");
+      }
+      
+      return response.json();
     },
     onSuccess: () => {
       toast({
-        title: "Deletion requested",
-        description: "Your request to delete all data has been received and will be processed"
+        title: "Data deleted successfully",
+        description: "Your onboarding data has been reset while preserving your platform connections"
       });
     },
     onError: (error: Error) => {
       toast({
-        title: "Request failed",
+        title: "Deletion failed",
         description: error.message,
         variant: "destructive"
       });
@@ -464,9 +472,9 @@ export function ComplianceSettings() {
                   </div>
                   
                   <div className="flex-1 p-4 border rounded-lg border-destructive/20 bg-destructive/5">
-                    <h3 className="text-lg font-medium mb-2 text-destructive">Delete Your Data</h3>
+                    <h3 className="text-lg font-medium mb-2 text-destructive">Reset Onboarding Data</h3>
                     <p className="text-sm text-muted-foreground mb-4">
-                      Request deletion of all your data from our systems
+                      Delete your onboarding information while preserving platform connections
                     </p>
                     
                     <div className="space-y-4">
@@ -474,7 +482,9 @@ export function ComplianceSettings() {
                         <AlertCircle className="h-4 w-4" />
                         <AlertTitle>Warning</AlertTitle>
                         <AlertDescription>
-                          This action cannot be undone. All your data will be permanently removed.
+                          This will delete your business profile, brand identity, product information, 
+                          creative examples, and performance context settings. Your account, platform connections,
+                          and campaign data will be preserved.
                         </AlertDescription>
                       </Alert>
                       
@@ -489,7 +499,7 @@ export function ComplianceSettings() {
                         ) : (
                           <Trash2 className="mr-2 h-4 w-4" />
                         )}
-                        Request Data Deletion
+                        Reset Onboarding Data
                       </Button>
                     </div>
                   </div>

@@ -508,6 +508,71 @@ export async function registerOnboardingRoutes(app: any) {
       return res.status(500).json({ message: "Failed to fetch performance context information" });
     }
   });
+  
+  // Reset Onboarding Data endpoint
+  app.post("/api/user/reset-onboarding", authenticate, async (req: Request, res: Response) => {
+    try {
+      const userId = getUserId(req);
+      if (!userId) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+
+      // Begin a transaction to ensure data consistency
+      await db.transaction(async (tx) => {
+        // Delete business core data
+        await tx.delete(businessCore)
+          .where(eq(businessCore.userId, userId));
+          
+        // Delete brand identity data
+        await tx.delete(brandIdentity)
+          .where(eq(brandIdentity.userId, userId));
+          
+        // Delete products/services data
+        await tx.delete(productsServices)
+          .where(eq(productsServices.userId, userId));
+          
+        // Delete creative examples data
+        await tx.delete(creativeExamples)
+          .where(eq(creativeExamples.userId, userId));
+          
+        // Delete performance context data
+        await tx.delete(performanceContext)
+          .where(eq(performanceContext.userId, userId));
+          
+        // Reset onboarding progress
+        const existingProgress = await tx.query.onboardingProgress.findFirst({
+          where: eq(onboardingProgress.userId, userId)
+        });
+        
+        if (existingProgress) {
+          await tx.update(onboardingProgress)
+            .set({
+              currentStep: 1,
+              isComplete: false,
+              lastUpdated: new Date()
+            })
+            .where(eq(onboardingProgress.userId, userId));
+        } else {
+          await tx.insert(onboardingProgress).values({
+            userId,
+            currentStep: 1,
+            isComplete: false
+          });
+        }
+      });
+      
+      return res.json({ 
+        success: true, 
+        message: "Onboarding data has been reset successfully" 
+      });
+    } catch (error) {
+      console.error("Error resetting onboarding data:", error);
+      return res.status(500).json({ 
+        message: "Failed to reset onboarding data", 
+        error: (error as Error).message 
+      });
+    }
+  });
 
   // Get Connected Platforms
   app.get("/api/user/connected-platforms", authenticate, async (req: Request, res: Response) => {

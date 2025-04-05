@@ -9,7 +9,7 @@ export default function OnboardingPage() {
 
   // Handle onboarding completion
   const handleOnboardingComplete = () => {
-    setLocation("/dashboard");
+    setLocation("/settings");
   };
 
   // Get step from URL query params if present

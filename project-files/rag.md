@@ -30,11 +30,6 @@ Since you have structured data in PostgreSQL but no pgvector, you need a separat
 
 Install pgvector: This is often the most recommended path if feasible. It keeps your structured and vector data together in the same managed database system. Check if your hosting provider supports it or if you can install extensions on your instance.
 
-Use a Dedicated Vector Database Service:
-
-Managed Services: Pinecone, Weaviate Cloud Services (WCS), Zilliz Cloud, Qdrant Cloud, etc. These handle scaling and management but introduce another service dependency and potential cost.
-
-Self-Hosted: Weaviate, Qdrant, Milvus, ChromaDB. You manage the database instance yourself. More control, but more operational overhead.
 
 Filesystem/In-Memory (Not for Production): Libraries like FAISS allow saving index files locally. Suitable for testing/small scale but not robust or scalable for a production application.
 
