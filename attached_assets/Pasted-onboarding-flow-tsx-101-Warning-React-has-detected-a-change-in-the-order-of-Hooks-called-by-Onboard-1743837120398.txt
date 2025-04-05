@@ -1,0 +1,53 @@
+onboarding-flow.tsx:101 Warning: React has detected a change in the order of Hooks called by OnboardingFlow. This will lead to bugs and errors if not fixed. For more information, read the Rules of Hooks: https://reactjs.org/link/rules-of-hooks
+
+   Previous render            Next render
+   ------------------------------------------------------
+1. useState                   useState
+2. useContext                 useContext
+3. useContext                 useContext
+4. useContext                 useContext
+5. useEffect                  useEffect
+6. useState                   useState
+7. useCallback                useCallback
+8. useSyncExternalStore       useSyncExternalStore
+9. useEffect                  useEffect
+10. useEffect                 useEffect
+11. undefined                 useEffect
+   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+    at OnboardingFlow (https://974fb22c-7bf2-435f-92b8-6b8a9968e57b-00-a2py9mwxuu7p.riker.replit.dev/src/components/onboarding/onboarding-flow.tsx:37:34)
+    at main
+    at div
+    at div
+    at OnboardingPage (https://974fb22c-7bf2-435f-92b8-6b8a9968e57b-00-a2py9mwxuu7p.riker.replit.dev/src/pages/onboarding.tsx:24:28)
+    at ProtectedRoute (https://974fb22c-7bf2-435f-92b8-6b8a9968e57b-00-a2py9mwxuu7p.riker.replit.dev/src/lib/protected-route.tsx:22:3)
+    at Switch (https://974fb22c-7bf2-435f-92b8-6b8a9968e57b-00-a2py9mwxuu7p.riker.replit.d…/home/runner/workspace/node_modules/.vite/deps/wouter.js?v=435a9198:321:17)
+    at Router
+    at AuthProvider (https://974fb22c-7bf2-435f-92b8-6b8a9968e57b-00-a2py9mwxuu7p.riker.replit.dev/src/hooks/use-auth.tsx:27:32)
+    at ThemeProvider (https://974fb22c-7bf2-435f-92b8-6b8a9968e57b-00-a2py9mwxuu7p.riker.replit.dev/src/components/ui/theme-provider.tsx:25:3)
+    at QueryClientProvider (https://974fb22c-7bf2-435f-92b8-6b8a9968e57b-00-a2py9mwxuu7p.riker.replit.d…rkspace/node_modules/.vite/deps/@tanstack_react-query.js?v=435a9198:2805:3)
+    at App
+
+chunk-RPCDYKBN.js?v=435a9198:11678 Uncaught Error: Rendered more hooks than during the previous render.
+    at OnboardingFlow (onboarding-flow.tsx:101:3)
+chunk-RPCDYKBN.js?v=435a9198:11678 Uncaught Error: Rendered more hooks than during the previous render.
+    at OnboardingFlow (onboarding-flow.tsx:101:3)
+chunk-RPCDYKBN.js?v=435a9198:14032 The above error occurred in the <OnboardingFlow> component:
+
+    at OnboardingFlow (https://974fb22c-7bf2-435f-92b8-6b8a9968e57b-00-a2py9mwxuu7p.riker.replit.dev/src/components/onboarding/onboarding-flow.tsx:37:34)
+    at main
+    at div
+    at div
+    at OnboardingPage (https://974fb22c-7bf2-435f-92b8-6b8a9968e57b-00-a2py9mwxuu7p.riker.replit.dev/src/pages/onboarding.tsx:24:28)
+    at ProtectedRoute (https://974fb22c-7bf2-435f-92b8-6b8a9968e57b-00-a2py9mwxuu7p.riker.replit.dev/src/lib/protected-route.tsx:22:3)
+    at Switch (https://974fb22c-7bf2-435f-92b8-6b8a9968e57b-00-a2py9mwxuu7p.riker.replit.d…/home/runner/workspace/node_modules/.vite/deps/wouter.js?v=435a9198:321:17)
+    at Router
+    at AuthProvider (https://974fb22c-7bf2-435f-92b8-6b8a9968e57b-00-a2py9mwxuu7p.riker.replit.dev/src/hooks/use-auth.tsx:27:32)
+    at ThemeProvider (https://974fb22c-7bf2-435f-92b8-6b8a9968e57b-00-a2py9mwxuu7p.riker.replit.dev/src/components/ui/theme-provider.tsx:25:3)
+    at QueryClientProvider (https://974fb22c-7bf2-435f-92b8-6b8a9968e57b-00-a2py9mwxuu7p.riker.replit.d…rkspace/node_modules/.vite/deps/@tanstack_react-query.js?v=435a9198:2805:3)
+    at App
+
+Consider adding an error boundary to your tree to customize error handling behavior.
+Visit https://reactjs.org/link/error-boundaries to learn more about error boundaries.
+chunk-RPCDYKBN.js?v=435a9198:11678 Uncaught Error: Rendered more hooks than during the previous render.
+    at OnboardingFlow (onboarding-flow.tsx:101:3)
