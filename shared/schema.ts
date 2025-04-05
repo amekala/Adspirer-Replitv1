@@ -342,7 +342,7 @@ export const businessCore = pgTable("business_core", {
   userId: uuid("user_id").notNull().references(() => users.id),
   businessName: text("business_name").notNull(),
   industry: text("industry").notNull(),
-  companySize: text("company_size").notNull(),
+  companySize: text("company_size"),  // Changed to optional
   marketplaces: text("marketplaces").array(),
   mainGoals: text("main_goals").array(),
   monthlyAdSpend: text("monthly_ad_spend"),

@@ -433,8 +433,22 @@ export async function registerOnboardingRoutes(app: any) {
       const data = await db.query.businessCore.findFirst({
         where: eq(businessCore.userId, userId)
       });
-
-      return res.json(data);
+      
+      if (!data) {
+        return res.json(null);
+      }
+      
+      // Transform data to match frontend format
+      return res.json({
+        businessName: data.businessName,
+        industry: data.industry,
+        companySize: data.companySize || "",
+        marketplaces: data.marketplaces || [],
+        mainGoals: data.mainGoals || [],
+        monthlyAdSpend: data.monthlyAdSpend || "",
+        website: data.website || "",
+        businessDescription: "", // Not stored in the database, frontend-only field
+      });
     } catch (error) {
       console.error("Error fetching business core data:", error);
       return res.status(500).json({ message: "Failed to fetch business information" });
@@ -453,7 +467,21 @@ export async function registerOnboardingRoutes(app: any) {
         where: eq(brandIdentity.userId, userId)
       });
 
-      return res.json(data);
+      if (!data) {
+        return res.json(null);
+      }
+      
+      // Transform data to match frontend format
+      return res.json({
+        brandName: data.brandName,
+        brandDescription: data.brandDescription || "",
+        brandVoice: data.brandVoice || [],
+        targetAudience: data.targetAudience || [],
+        brandValues: data.brandValues || [],
+        primaryColor: data.primaryColor || "",
+        secondaryColor: data.secondaryColor || "",
+        logoUrl: data.logoUrl || "",
+      });
     } catch (error) {
       console.error("Error fetching brand identity data:", error);
       return res.status(500).json({ message: "Failed to fetch brand identity information" });
@@ -472,7 +500,18 @@ export async function registerOnboardingRoutes(app: any) {
         where: eq(productsServices.userId, userId)
       });
 
-      return res.json(data);
+      if (!data) {
+        return res.json(null);
+      }
+      
+      // Transform data to match frontend format
+      return res.json({
+        productTypes: data.productTypes || [],
+        topSellingProducts: data.topSellingProducts || [], 
+        pricingStrategy: data.pricingStrategy || "",
+        competitiveAdvantage: data.competitiveAdvantage || [],
+        targetMarkets: data.targetMarkets || [],
+      });
     } catch (error) {
       console.error("Error fetching products/services data:", error);
       return res.status(500).json({ message: "Failed to fetch products and services information" });
@@ -491,7 +530,16 @@ export async function registerOnboardingRoutes(app: any) {
         where: eq(creativeExamples.userId, userId)
       });
 
-      return res.json(data);
+      if (!data) {
+        return res.json(null);
+      }
+      
+      // Transform data to match frontend format
+      return res.json({
+        adExamples: data.adExamples || [],
+        preferredAdFormats: data.preferredAdFormats || [],
+        brandGuidelines: data.brandGuidelines || {},
+      });
     } catch (error) {
       console.error("Error fetching creative examples data:", error);
       return res.status(500).json({ message: "Failed to fetch creative examples information" });
@@ -510,7 +558,18 @@ export async function registerOnboardingRoutes(app: any) {
         where: eq(performanceContext.userId, userId)
       });
 
-      return res.json(data);
+      if (!data) {
+        return res.json(null);
+      }
+      
+      // Transform data to match frontend format
+      return res.json({
+        currentPerformance: data.currentPerformance || {},
+        keyMetrics: data.keyMetrics || [],
+        performanceGoals: data.performanceGoals || {},
+        seasonalTrends: data.seasonalTrends || [],
+        benchmarks: data.benchmarks || {},
+      });
     } catch (error) {
       console.error("Error fetching performance context data:", error);
       return res.status(500).json({ message: "Failed to fetch performance context information" });

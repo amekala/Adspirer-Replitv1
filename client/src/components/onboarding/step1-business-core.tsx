@@ -1,9 +1,10 @@
 import { ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { BusinessCoreForm, BusinessCoreFormData } from "@/components/forms/business-core-form";
+import { Loader2 } from "lucide-react";
 
 interface BusinessCoreStepProps {
   onNext: () => void;
@@ -12,6 +13,15 @@ interface BusinessCoreStepProps {
 
 export function BusinessCoreStep({ onNext, onSkip }: BusinessCoreStepProps) {
   const { toast } = useToast();
+  
+  // Fetch existing business core data
+  const { data: businessCoreData, isLoading: isDataLoading } = useQuery<BusinessCoreFormData>({
+    queryKey: ["/api/user/business-core"],
+    onError: (error) => {
+      console.error("Error fetching business core data:", error);
+      // Silently fail - user will simply see an empty form
+    }
+  });
   
   // Submit mutation
   const mutation = useMutation({
@@ -77,6 +87,18 @@ export function BusinessCoreStep({ onNext, onSkip }: BusinessCoreStepProps) {
     </div>
   );
 
+  // Show loading indicator while fetching data
+  if (isDataLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <div className="text-center">
+          <Loader2 className="h-8 w-8 animate-spin mx-auto mb-4" />
+          <p className="text-muted-foreground">Loading your business information...</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="max-w-3xl mx-auto">
       <div className="text-center mb-8">
@@ -87,6 +109,7 @@ export function BusinessCoreStep({ onNext, onSkip }: BusinessCoreStepProps) {
       </div>
 
       <BusinessCoreForm
+        initialData={businessCoreData}
         onSubmit={handleSubmit}
         isSubmitting={mutation.isPending}
         renderFormActions={renderFormActions}
