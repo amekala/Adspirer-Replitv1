@@ -26,20 +26,21 @@ export function BrandIdentitySettings() {
   
   // Fetch brand identity data
   const { data: brandData, isLoading } = useQuery<BrandIdentityData>({
-    queryKey: ["/api/brand/identity"],
+    queryKey: ["/api/user/brand-identity"],
     retry: false,
   });
   
   // Submit mutation
   const mutation = useMutation({
     mutationFn: (data: BrandIdentityFormData) => {
-      return apiRequest("/api/brand/identity", {
+      return apiRequest("/api/onboarding/brand-identity", {
         method: "POST",
         data,
       });
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/brand/identity"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/user/brand-identity"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/onboarding/progress"] });
       toast({
         title: "Brand identity saved",
         description: "Your brand identity has been updated successfully",
@@ -113,10 +114,9 @@ export function BrandIdentitySettings() {
       <CardContent>
         {isEditing ? (
           <BrandIdentityForm
-            defaultValues={brandData}
+            initialData={brandData}
             onSubmit={handleSubmit}
             isSubmitting={mutation.isPending}
-            showHeader={false}
             renderFormActions={renderFormActions}
           />
         ) : (
@@ -129,7 +129,7 @@ export function BrandIdentitySettings() {
                 </p>
                 
                 <div className="space-y-4">
-                  {brandData?.brandVoice?.length > 0 && (
+                  {brandData?.brandVoice && brandData.brandVoice.length > 0 && (
                     <div>
                       <h4 className="text-sm font-medium mb-1">Brand Voice</h4>
                       <div className="flex flex-wrap gap-2">
@@ -142,7 +142,7 @@ export function BrandIdentitySettings() {
                     </div>
                   )}
                   
-                  {brandData?.targetAudience?.length > 0 && (
+                  {brandData?.targetAudience && brandData.targetAudience.length > 0 && (
                     <div>
                       <h4 className="text-sm font-medium mb-1">Target Audience</h4>
                       <div className="flex flex-wrap gap-2">
@@ -155,7 +155,7 @@ export function BrandIdentitySettings() {
                     </div>
                   )}
                   
-                  {brandData?.brandValues?.length > 0 && (
+                  {brandData?.brandValues && brandData.brandValues.length > 0 && (
                     <div>
                       <h4 className="text-sm font-medium mb-1">Brand Values</h4>
                       <div className="flex flex-wrap gap-2">

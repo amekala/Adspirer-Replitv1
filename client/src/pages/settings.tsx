@@ -28,7 +28,8 @@ import {
   Repeat,
   PackagePlus,
   Image,
-  BarChart3
+  BarChart3,
+  Award
 } from "lucide-react";
 import { SiAmazon, SiGoogleads } from "react-icons/si";
 import { OnboardingStep } from "@/components/onboarding/onboarding-flow";
